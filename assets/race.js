@@ -24,29 +24,54 @@
   }
   const ratioText = r => (r >= 10 ? Math.round(r) : r.toFixed(1).replace(/\.0$/, '')) + '\u2011to\u20111';
 
-  /* ================= INDEX ================= */
+  /* ================= INDEX (home + section pages) ================= */
   const idxEl = $('#index-data');
   if (idxEl) {
     const I = JSON.parse(idxEl.textContent), M = I.meta;
-    const cards = I.races.map(r => {
+    const raceHref = (slug, depth) => `${depth ? '../' : ''}races/${slug}/index.html`;
+    const card = (r, depth) => {
       const max = Math.max(r.r[1], r.d[1]) || 1;
       const line = (c, k) => `<span class="nm"><i class="dot ${k}"></i>${esc(c[0])}</span><span class="trk"><i style="width:${Math.max(1, c[1] / max * 100)}%;background:var(--${k === 'r' ? 'rep' : 'dem'})"></i></span><span class="amt">${fmtK(c[1])}</span>`;
-      return `<a class="card" href="races/${r.slug}/index.html"><div class="office">${esc(r.office)}<span>Cash on hand ›</span></div>
+      return `<a class="card" href="${raceHref(r.slug, depth)}" data-q="${esc((r.office + ' ' + r.r[0] + ' ' + r.d[0] + ' ' + (r.district || '')).toLowerCase())}"><div class="office">${esc(r.office)}<span>Cash on hand ›</span></div>
         <div class="cm">${line(r.r, 'r')}${line(r.d, 'd')}</div>
         <div class="foot num">Donors this period: ${fmtN(r.r[3])} (R) · ${fmtN(r.d[3])} (D)</div></a>`;
-    }).join('');
-    $('#app').innerHTML = `<header><div class="eyebrow"><span>${esc(M.org)}</span><span>${esc(M.election)}</span></div>
-      <h1>${esc(M.site_title)}: Texas statewide races</h1>
-      <p class="dek">Who has the cash, who has the donors, and where the money comes from, for every statewide executive race on the ballot.</p>
-      <div class="asof">${esc(M.period_label)} through ${dlabel(M.period_end)} · Texas Ethics Commission</div></header>
-      <section class="idx-list" aria-label="Races">${cards}</section>
-      <footer>Figures come from <a href="https://www.ethics.state.tx.us/search/cf/" target="_blank" rel="noopener">Texas Ethics Commission</a> filings, downloaded ${esc(M.data_downloaded)}. Records replaced by amended reports are left out. ${esc(M.org)}.</footer>`;
+    };
+    const asof = `<div class="asof">${esc(M.period_label)} through ${dlabel(M.period_end)}</div>`;
+    const foot = `<footer>Figures come from <a href="https://www.ethics.state.tx.us/search/cf/" target="_blank" rel="noopener">Texas Ethics Commission</a> filings, downloaded ${esc(M.data_downloaded)}, and from local filings for Tarrant County races. Records replaced by amended reports are left out. ${esc(M.org)}.</footer>`;
+    if (I.page === 'home') {
+      const secs = I.sections.map(s => s.count
+        ? `<a class="sec-card" href="${s.key}/index.html"><span class="sec-n num">${s.count}</span><span class="sec-t">${esc(s.label)}</span><span class="sec-d">${esc(s.desc)}</span><span class="sec-go">${s.count === 1 ? '1 race' : s.count + ' races'} ›</span></a>`
+        : `<div class="sec-card soon"><span class="sec-n">—</span><span class="sec-t">${esc(s.label)}</span><span class="sec-d">${esc(s.desc)}</span><span class="sec-go">Coming soon</span></div>`).join('');
+      $('#app').innerHTML = `<header><div class="eyebrow"><span>${esc(M.org)}</span><span>${esc(M.election)}</span></div>
+        <h1>${esc(M.site_title)}</h1>
+        <p class="dek">Who has the cash, who has the donors and where the money comes from, race by race, from the governor’s office to your county commissioner.</p>${asof}</header>
+        <section aria-label="Find a race"><label class="srch"><span>Find a race</span><input id="q" type="search" placeholder="District number or candidate name" autocomplete="off"></label><ul class="hits" id="hits"></ul></section>
+        <section class="secs" aria-label="Sections">${secs}</section>${foot}`;
+      const q = $('#q'), hits = $('#hits'), label = Object.fromEntries(I.sections.map(s => [s.key, s.label]));
+      q.addEventListener('input', () => {
+        const v = q.value.trim().toLowerCase(); if (!v) { hits.innerHTML = ''; return; }
+        const m = I.races.filter(r => (r.office + ' ' + r.r + ' ' + r.d + ' ' + (r.district || '')).toLowerCase().includes(v) || String(r.district) === v).slice(0, 12);
+        hits.innerHTML = m.length ? m.map(r => `<li><a href="races/${r.slug}/index.html"><b>${esc(r.office)}</b><small>${esc(r.r)} (R) vs. ${esc(r.d)} (D) · ${esc(label[r.group])}</small></a></li>`).join('') : '<li class="none">No matching races yet.</li>';
+      });
+      return;
+    }
+    if (I.page === 'section') {
+      const S = I.section, list = I.races;
+      $('#app').insertAdjacentHTML('beforeend', `<header><div class="eyebrow"><span>${esc(M.org)}</span><span>${esc(M.election)}</span></div>
+        <h1>${esc(S.label)}</h1><p class="dek">${esc(S.desc)}</p>${asof}</header>
+        ${list.length > 8 ? `<section aria-label="Filter"><label class="srch"><span>Filter</span><input id="f" type="search" placeholder="District number or candidate name" autocomplete="off"></label></section>` : ''}
+        <section class="idx-list" id="list" aria-label="Races">${list.length ? list.map(r => card(r, 1)).join('') : '<p class="note">Races for this section are coming soon.</p>'}</section>${foot}`);
+      const f = $('#f'); if (f) f.addEventListener('input', () => { const v = f.value.trim().toLowerCase();
+        document.querySelectorAll('#list .card').forEach(c => { c.hidden = !!v && !c.dataset.q.includes(v); }); });
+      return;
+    }
     return;
   }
 
   /* ================= RACE ================= */
   const dataEl = $('#race-data'); if (!dataEl) return;
   const D = JSON.parse(dataEl.textContent), M = D.meta, R = D.r, Dm = D.d;
+  const LOCAL = !!D.local, SINCE = LOCAL ? 'in the 30-day report period' : `since ${dlabel(M.cycle_start)}`, CYC = LOCAL ? 'this period' : 'this cycle';
   const C = { r: R, d: Dm };
 
   // ---- headline & dek
@@ -80,7 +105,7 @@
     <div class="eyebrow"><span>Texas · ${esc(D.office)}</span><span>${esc(M.election)}</span></div>
     <h1>${esc(h1)}</h1>
     <p class="dek">${dek}</p>
-    <div class="asof">${esc(M.period_label)} · through ${dlabel(M.period_end)} · Texas Ethics Commission</div>
+    <div class="asof">${esc(M.period_label)} · through ${dlabel(M.period_end)} · ${LOCAL ? 'Tarrant County filings' : 'Texas Ethics Commission'}</div>
   </header>
   <section aria-label="Head to head">
     <div class="tape">
@@ -95,9 +120,9 @@
   </section>
   ${notes ? `<section class="notes" aria-label="Notes on this race">${notes}</section>` : ''}
   <section aria-labelledby="pie-h"><h2 id="pie-h"></h2>
-    <p class="sub">Each campaign\u2019s itemized contributions since ${dlabel(M.cycle_start)}. The ten biggest donors each get a slice; everyone else is grouped into All others. Hover or tap a slice for details.</p>
+    <p class="sub">Each campaign\u2019s itemized contributions ${SINCE}. The ten biggest donors each get a slice; everyone else is grouped into All others. Hover or tap a slice for details.</p>
     <div class="pies"><div class="pie-panel" id="pie-r"></div><div class="pie-panel" id="pie-d"></div></div></section>
-  <section><h2 id="coh-h"></h2><p class="sub" id="coh-sub"></p>
+  <section id="coh-sec"><h2 id="coh-h"></h2><p class="sub" id="coh-sub"></p>
     <div class="legend"><span><i class="dot r"></i>${esc(R.short)}</span><span><i class="dot d"></i>${esc(Dm.short)}</span></div>
     <div class="chart" id="coh"></div></section>
   <section><h2 id="mo-h"></h2><p class="sub" id="mo-sub"></p>
@@ -109,16 +134,16 @@
     <div class="seg" role="group" aria-label="Measure"><button type="button" id="sz-dollars" aria-pressed="true">Share of dollars</button><button type="button" id="sz-count" aria-pressed="false">Share of contributions</button></div>
     <div class="sizebar" id="sizebar"></div></section>
 
-  <section><h2>Where the money comes from</h2><p class="sub">Top Texas cities by itemized dollars this cycle, with the number of contributions behind each.</p>
+  <section><h2>Where the money comes from</h2><p class="sub">Top ${LOCAL ? '' : 'Texas '}cities by itemized dollars ${CYC}, with the number of contributions behind each.</p>
     <div class="two"><div class="panel"><h3><i class="dot r"></i>${esc(R.short)}</h3><ul class="kv" id="geo-r"></ul></div>
     <div class="panel"><h3><i class="dot d"></i>${esc(Dm.short)}</h3><ul class="kv" id="geo-d"></ul></div></div></section>
-  <section><h2>Where the money goes</h2><p class="sub">Spending by category since ${dlabel(M.cycle_start)}.</p>
+  <section><h2>Where the money goes</h2><p class="sub">Spending by category ${SINCE}.</p>
     <div class="two"><div class="panel"><h3><i class="dot r"></i>${esc(R.short)}</h3><ul class="kv" id="sp-r"></ul></div>
     <div class="panel"><h3><i class="dot d"></i>${esc(Dm.short)}</h3><ul class="kv" id="sp-d"></ul></div></div></section>
   <footer><b>How these numbers work</b><ul>
-    <li>Source: <a href="https://www.ethics.state.tx.us/search/cf/" target="_blank" rel="noopener">Texas Ethics Commission</a> bulk campaign finance data, downloaded ${esc(M.data_downloaded)}.</li>
-    <li>Records replaced by an amended report are left out.</li>
-    <li>"Donors" are unique contributors, matched on name and ZIP code. "This cycle" means ${dlabel(M.cycle_start)} through ${dlabel(M.period_end)}.</li>
+    <li>${LOCAL ? esc(D.source_note || 'Source: Tarrant County campaign finance filings.') : `Source: <a href="https://www.ethics.state.tx.us/search/cf/" target="_blank" rel="noopener">Texas Ethics Commission</a> bulk campaign finance data, downloaded ${esc(M.data_downloaded)}.`}</li>
+    ${LOCAL ? '' : '<li>Records replaced by an amended report are left out.</li>'}
+    <li>${LOCAL ? '"Donors" are unique contributors, matched on name. County reports cover only the 30-day period (Jul 1\u2013Sep 24, 2026), so there is no longer history here.' : `"Donors" are unique contributors, matched on name and ZIP code. "This cycle" means ${dlabel(M.cycle_start)} through ${dlabel(M.period_end)}.`}</li>
     <li>Contribution sizes, donors, cities and monthly figures use itemized monetary contributions. In-kind contributions are not included.</li>
   </ul>${esc(M.org)} · <a href="../../index.html">All races</a></footer>`);
 
@@ -182,8 +207,8 @@
     const big = cands[0].n >= cands[1].n ? cands[0] : cands[1], other = big === cands[0] ? cands[1] : cands[0];
     const [yy, mm] = big.best.m.split('-');
     if (big.n > C[other.k].cycle.donors && C[other.k].cycle.donors > 0)
-      $('#mo-h').textContent = `${C[big.k].short} had more donors in ${FULLM[+mm - 1]} ${yy} than ${C[other.k].short} has had all cycle`;
-    else $('#mo-h').textContent = `${C[big.k].short} has had ${fmtN(C[big.k].cycle.donors)} donors this cycle; ${C[other.k].short} has had ${fmtN(C[other.k].cycle.donors)}`;
+      $('#mo-h').textContent = `${C[big.k].short} had more donors in ${FULLM[+mm - 1]} ${yy} than ${C[other.k].short} ${LOCAL ? 'had in the whole period' : 'has had all cycle'}`;
+    else $('#mo-h').textContent = `${C[big.k].short} has had ${fmtN(C[big.k].cycle.donors)} donors ${CYC}; ${C[other.k].short} has had ${fmtN(C[other.k].cycle.donors)}`;
     $('#mo-sub').textContent = `Unique donors each month, ${R.short} and ${Dm.short}. Switch to dollars to see how much those donors gave.`;
   })();
   let moMode = 'donors';
@@ -221,7 +246,7 @@
     const share = (c, i, mode) => { const v = c.sizes[mode], t = v.reduce((p, q) => p + q, 0); return t ? v.slice(i).reduce((p, q) => p + q, 0) / t : 0; };
     const small = (c, mode) => { const v = c.sizes[mode], t = v.reduce((p, q) => p + q, 0); return t ? v[0] / t : 0; };
     $('#size-sub').textContent = szMode === 'dollars'
-      ? `This cycle, ${pct(share(R, 3, 'dollars'), 1)}% of ${poss(R.short)} itemized dollars came in checks of $10,000 or more, and ${pct(small(R, 'dollars'), 1)}% in contributions of $100 or less. For ${Dm.short}: ${pct(share(Dm, 3, 'dollars'), 1)}% and ${pct(small(Dm, 'dollars'), 1)}%.`
+      ? `${LOCAL ? 'This period' : 'This cycle'}, ${pct(share(R, 3, 'dollars'), 1)}% of ${poss(R.short)} itemized dollars came in checks of $10,000 or more, and ${pct(small(R, 'dollars'), 1)}% in contributions of $100 or less. For ${Dm.short}: ${pct(share(Dm, 3, 'dollars'), 1)}% and ${pct(small(Dm, 'dollars'), 1)}%.`
       : `By count, ${pct(small(R, 'count'), 1)}% of ${poss(R.short)} ${fmtN(R.cycle.contributions)} contributions were $100 or less. For ${Dm.short}, it was ${pct(small(Dm, 'count'), 1)}% of ${fmtN(Dm.cycle.contributions)}.`;
     const row = k => { const c = C[k], vals = c.sizes[szMode], tot = vals.reduce((p, q) => p + q, 0);
       return `<div class="sb-row"><div class="sb-label"><b><i class="dot ${k}"></i> ${esc(c.name)}</b><span class="num">${szMode === 'dollars' ? fmt$(tot) + ' itemized' : fmtN(tot) + ' contributions'}</span></div>
@@ -272,12 +297,14 @@
   for (const k of ['r', 'd']) {
     const c = C[k];
     $('#geo-' + k).innerHTML = c.geo.map(([city, v, n]) => `<li><span>${esc(city)} <small>${fmtN(n)}</small></span><span>${fmt$(v)}</span></li>`).join('') +
-      `<li><span>Out of state <small>${fmtN(c.oos[1])} donors</small></span><span>${fmt$(c.oos[0])} <small>(${pct(c.oos[0], c.cycle.itemized)}%)</small></span></li>`;
+      (c.oos ? `<li><span>Out of state <small>${fmtN(c.oos[1])} donors</small></span><span>${fmt$(c.oos[0])} <small>(${pct(c.oos[0], c.cycle.itemized)}%)</small></span></li>` : '');
     $('#sp-' + k).innerHTML = c.spend.map(([cat, v]) => `<li><span>${esc(cat)}</span><span>${fmt$(v)}</span></li>`).join('') || '<li><span>No expenditures reported</span><span></span></li>';
   }
 
   // ---- boot
-  const drawAll = () => { drawCOH(); drawMonthly(); };
+  const hasHist = cohSeries.r.length > 1 || cohSeries.d.length > 1;
+  if (!hasHist) $('#coh-sec').hidden = true;
+  const drawAll = () => { if (hasHist) drawCOH(); drawMonthly(); };
   drawAll(); drawSizes(); drawPie('r'); drawPie('d');
   let rt; if (window.ResizeObserver) new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(drawAll, 80); }).observe($('#app'));
 })();
