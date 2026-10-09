@@ -95,9 +95,11 @@
     ['Loans owed', 'loans', fmt$, false], ['Donors this period', 'donors', fmtN, true], ['Median contribution', 'median', fmt$, false]
   ].map(([label, k, f, mark]) => {
     const rv = R.period[k], dv = Dm.period[k];
-    return `<div class="row"><div class="v r${mark && rv > dv ? ' win' : ''}">${f(rv)}</div><div class="lbl">${label}</div><div class="v d${mark && dv > rv ? ' win' : ''}">${f(dv)}</div></div>`;
+    const show = (c, v) => c.status === 'none' ? '<span class="na">—</span>' : f(v);
+    return `<div class="row"><div class="v r${mark && rv > dv ? ' win' : ''}">${show(R, rv)}</div><div class="lbl">${label}</div><div class="v d${mark && dv > rv ? ' win' : ''}">${show(Dm, dv)}</div></div>`;
   }).join('');
 
+  const flag = c => c.status === 'late' ? `<span class="flag">No 30-day report · figures through ${dlabel(c.period_end)}</span>` : c.status === 'none' ? '<span class="flag">No reports on file</span>' : '';
   const notes = (D.notes || []).map(n => `<p>${esc(n)}</p>`).join('');
   const periodStart = M.period_label;
 
@@ -111,9 +113,9 @@
   <section aria-label="Head to head">
     <div class="tape">
       <div class="tape-head">
-        <div class="cand r"><span class="party"><i class="dot r"></i>Republican</span><span class="name">${esc(R.name)}</span></div>
+        <div class="cand r"><span class="party"><i class="dot r"></i>Republican</span><span class="name">${esc(R.name)}</span>${flag(R)}</div>
         <div class="vs">vs</div>
-        <div class="cand d"><span class="party">Democrat<i class="dot d"></i></span><span class="name">${esc(Dm.name)}</span></div>
+        <div class="cand d"><span class="party">Democrat<i class="dot d"></i></span><span class="name">${esc(Dm.name)}</span>${flag(Dm)}</div>
       </div>
       ${tape}
       <div class="tape-foot">A dot marks who leads. "This period" is the latest report period, ending ${dlabel(M.period_end)}. Loans are the balance owed.</div>
@@ -270,7 +272,7 @@
   function drawPie(k) {
     const c = C[k], P = pieData(c), el = $('#pie-' + k), hue = k === 'r' ? '--rep' : '--dem';
     const shade = i => `color-mix(in oklab, var(${hue}) ${Math.round(100 - i * 6)}%, var(--surface))`;
-    const slices = P.top.map((r, i) => ({ name: r[0], meta: r[1], amt: r[2], n: r[3], col: shade(i), rank: i + 1, dark: i < 5 }));
+    const slices = P.top.map((r, i) => ({ name: r[0], meta: r[1], amt: r[2], n: r[3], href: r[4] ? `../../${r[4]}/index.html` : null, col: shade(i), rank: i + 1, dark: i < 5 }));
     if (P.rest > 0) slices.push({ name: 'All others', meta: `${fmtN(Math.max(0, c.cycle.donors - P.top.length))} other donors`, amt: P.rest, n: null, col: 'color-mix(in oklab, var(--ink-3) 30%, var(--surface))', rank: '', dark: false, other: true });
     const tot = slices.reduce((p, s) => p + s.amt, 0) || 1, R0 = 100, cx = 110, cy = 110;
     let a0 = -Math.PI / 2;
@@ -286,7 +288,7 @@
     el.innerHTML = `<div class="pie-head"><b><i class="dot ${k}"></i> ${esc(c.name)}</b><span class="num">${fmt$(P.total)} itemized</span></div>
       <div class="pie-wrap"><svg viewBox="0 0 220 220" role="img" aria-label="${esc(c.name)}: top 10 donors gave ${pct(P.topSum, P.total)}% of itemized contributions">${paths}</svg>
       <div class="pie-big"><span class="num">${pct(P.topSum, P.total)}%</span>from the top ${P.top.length} donor${P.top.length === 1 ? '' : 's'}</div></div>
-      <ol class="pie-list">${slices.map((s, i) => `<li data-i="${i}"><i class="sw" style="background:${s.col}"></i><span class="pl-name"><b>${s.rank ? s.rank + '. ' : ''}${esc(s.name)}</b><small>${esc(s.meta || '')}${s.n ? (s.meta ? ' · ' : '') + fmtN(s.n) + ' contribution' + (s.n > 1 ? 's' : '') : ''}</small></span><span class="pl-amt num">${fmt$(s.amt)}<small>${(s.amt / tot * 100).toFixed(1)}%</small></span></li>`).join('')}</ol>`;
+      <ol class="pie-list">${slices.map((s, i) => `<li data-i="${i}"><i class="sw" style="background:${s.col}"></i><span class="pl-name"><b>${s.rank ? s.rank + '. ' : ''}${s.href ? `<a href="${s.href}" title="See this donor in the Money Web">${esc(s.name)}</a><span class="webtag">Money Web</span>` : esc(s.name)}</b><small>${esc(s.meta || '')}${s.n ? (s.meta ? ' · ' : '') + fmtN(s.n) + ' contribution' + (s.n > 1 ? 's' : '') : ''}</small></span><span class="pl-amt num">${fmt$(s.amt)}<small>${(s.amt / tot * 100).toFixed(1)}%</small></span></li>`).join('')}</ol>`;
     const hl = i => { el.querySelectorAll('.slice').forEach(p => p.style.opacity = (i === null || +p.dataset.i === i) ? 1 : .35); el.querySelectorAll('.pie-list li').forEach(li => li.classList.toggle('on', +li.dataset.i === i)); };
     el.querySelectorAll('.slice, .pie-list li').forEach(n => {
       n.addEventListener('mouseenter', () => hl(+n.dataset.i)); n.addEventListener('mouseleave', () => hl(null));
