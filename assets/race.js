@@ -17,6 +17,7 @@
   const niceMax = v => { if (v <= 0) return 1; const p = Math.pow(10, Math.floor(Math.log10(v))); const n = v / p; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * p; };
   const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
   const poss = s => s + (s.endsWith('s') ? '’' : '’s');
+  const V = (x, one, many) => (x && x.plural ? many : one);  // verb agreement for plural names like 'Republicans'
   function tipPos(tip, box, x, y) {
     const w = box.clientWidth, tw = tip.offsetWidth;
     let left = x + 14; if (left + tw > w) left = x - tw - 14; if (left < 0) left = 0;
@@ -37,10 +38,10 @@
         <div class="foot num">Donors this period: ${fmtN(r.r[3])} (R) · ${fmtN(r.d[3])} (D)</div></a>`;
     };
     const asof = `<div class="asof">${esc(M.period_label)} through ${dlabel(M.period_end)}</div>`;
-    const foot = `<footer>Figures come from <a href="https://www.ethics.state.tx.us/search/cf/" target="_blank" rel="noopener">Texas Ethics Commission</a> filings, downloaded ${esc(M.data_downloaded)}, and from local filings for Tarrant County races. Records replaced by amended reports are left out. ${esc(M.org)}.</footer>`;
+    const foot = `<footer>Figures come from <a href="https://www.ethics.state.tx.us/search/cf/" target="_blank" rel="noopener">Texas Ethics Commission</a> filings, downloaded ${esc(M.data_downloaded)}, and from local filings for Tarrant County races. Records replaced by amended reports are left out. <a href="https://seeitnameitfightit.com" target="_blank" rel="noopener">${esc(M.org)}</a></footer>`;
     if (I.page === 'home') {
       const secs = I.sections.map(s => s.count
-        ? `<a class="sec-card" href="${s.key}/index.html"><span class="sec-n num">${s.count}</span><span class="sec-t">${esc(s.label)}</span><span class="sec-d">${esc(s.desc)}</span><span class="sec-go">${s.count === 1 ? '1 race' : s.count + ' races'} ›</span></a>`
+        ? `<a class="sec-card" href="${s.key}/index.html"><span class="sec-n num">${s.count}</span><span class="sec-t">${esc(s.label)}</span><span class="sec-d">${esc(s.desc)}</span><span class="sec-go">${s.count} ${s.unit ? s.unit : (s.count === 1 ? 'race' : 'races')} ›</span></a>`
         : `<div class="sec-card soon"><span class="sec-n">—</span><span class="sec-t">${esc(s.label)}</span><span class="sec-d">${esc(s.desc)}</span><span class="sec-go">Coming soon</span></div>`).join('');
       $('#app').innerHTML = `<header><div class="eyebrow"><span>${esc(M.org)}</span><span>${esc(M.election)}</span></div>
         <h1>${esc(M.site_title)}</h1>
@@ -79,8 +80,8 @@
   const a = C[lead].period.coh, b = C[trail].period.coh, gap = a - b, ratio = b > 0 ? a / b : Infinity;
   let h1;
   if (ratio < 1.2) h1 = `${fmt$(gap)} separates ${R.short} and ${Dm.short} in cash`;
-  else if (ratio >= 3) h1 = `${C[lead].short} has a ${ratio === Infinity ? 'commanding' : ratioText(ratio)} cash advantage`;
-  else h1 = `${C[lead].short} leads ${C[trail].short} in cash, ${fmtK(a)} to ${fmtK(b)}`;
+  else if (ratio >= 3) h1 = `${C[lead].short} ${V(C[lead], 'has', 'have')} a ${ratio === Infinity ? 'commanding' : ratioText(ratio)} cash advantage`;
+  else h1 = `${C[lead].short} ${V(C[lead], 'leads', 'lead')} ${C[trail].short} in cash, ${fmtK(a)} to ${fmtK(b)}`;
   const dlead = R.period.donors >= Dm.period.donors ? 'r' : 'd', dtrail = dlead === 'r' ? 'd' : 'r';
   const dr = C[dtrail].period.donors ? C[dlead].period.donors / C[dtrail].period.donors : 0;
   let dek = `${R.short} had <b class="num">${fmtN(R.period.donors)}</b> donors this period. ${Dm.short} had <b class="num">${fmtN(Dm.period.donors)}</b>.`;
@@ -145,7 +146,7 @@
     ${LOCAL ? '' : '<li>Records replaced by an amended report are left out.</li>'}
     <li>${LOCAL ? '"Donors" are unique contributors, matched on name. County reports cover only the 30-day period (Jul 1\u2013Sep 24, 2026), so there is no longer history here.' : `"Donors" are unique contributors, matched on name and ZIP code. "This cycle" means ${dlabel(M.cycle_start)} through ${dlabel(M.period_end)}.`}</li>
     <li>Contribution sizes, donors, cities and monthly figures use itemized monetary contributions. In-kind contributions are not included.</li>
-  </ul>${esc(M.org)} · <a href="../../index.html">All races</a></footer>`);
+  </ul><a href="https://seeitnameitfightit.com" target="_blank" rel="noopener">${esc(M.org)}</a> · <a href="../../index.html">All races</a></footer>`);
 
   // ---- cash on hand chart
   const cohSeries = { r: R.coh.map(([d, v]) => ({ d, t: T(d), v })), d: Dm.coh.map(([d, v]) => ({ d, t: T(d), v })) };
@@ -207,8 +208,8 @@
     const big = cands[0].n >= cands[1].n ? cands[0] : cands[1], other = big === cands[0] ? cands[1] : cands[0];
     const [yy, mm] = big.best.m.split('-');
     if (big.n > C[other.k].cycle.donors && C[other.k].cycle.donors > 0)
-      $('#mo-h').textContent = `${C[big.k].short} had more donors in ${FULLM[+mm - 1]} ${yy} than ${C[other.k].short} ${LOCAL ? 'had in the whole period' : 'has had all cycle'}`;
-    else $('#mo-h').textContent = `${C[big.k].short} has had ${fmtN(C[big.k].cycle.donors)} donors ${CYC}; ${C[other.k].short} has had ${fmtN(C[other.k].cycle.donors)}`;
+      $('#mo-h').textContent = `${C[big.k].short} had more donors in ${FULLM[+mm - 1]} ${yy} than ${C[other.k].short} ${LOCAL ? 'had in the whole period' : V(C[other.k], 'has', 'have') + ' had all cycle'}`;
+    else $('#mo-h').textContent = `${C[big.k].short} ${V(C[big.k], 'has', 'have')} had ${fmtN(C[big.k].cycle.donors)} donors ${CYC}; ${C[other.k].short} ${V(C[other.k], 'has', 'have')} had ${fmtN(C[other.k].cycle.donors)}`;
     $('#mo-sub').textContent = `Unique donors each month, ${R.short} and ${Dm.short}. Switch to dollars to see how much those donors gave.`;
   })();
   let moMode = 'donors';

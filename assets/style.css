@@ -170,3 +170,27 @@ a.sec-card:hover{border-color:var(--ink-3)} a.sec-card:focus-visible{outline:2px
 .sec-go{font-size:13px;font-weight:600;color:var(--ink);margin-top:6px}
 .sec-card.soon{opacity:.65} .sec-card.soon .sec-go{color:var(--ink-3)}
 .card[hidden]{display:none}
+
+/* Money Web */
+:root{--web:#2E6B4F}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--web:#6FBF95}}
+:root[data-theme="dark"]{--web:#6FBF95}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.stats div{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:12px}
+.stats b{display:block;font-family:var(--display);font-size:clamp(20px,5.4vw,28px);line-height:1.1}
+.stats span{font-size:12px;color:var(--ink-2)}
+.blist{list-style:none;margin:0;padding:0}
+.blist li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:9px 0;border-bottom:1px solid var(--grid)}
+.bl-name{min-width:0}.bl-name b{font-weight:600;overflow-wrap:anywhere}.bl-name small,.bl-amt small{display:block;font-size:12px;color:var(--ink-3);font-weight:500}
+.bl-name a,.pl-name a,.note a{color:var(--ink);text-decoration-color:var(--ink-3);text-underline-offset:2px}
+.bl-amt{text-align:right;font-weight:600;white-space:nowrap}
+.bl-trk{grid-column:1 / -1;height:6px;background:var(--grid);border-radius:3px;position:relative;overflow:hidden}
+.bl-trk i{position:absolute;left:0;top:0;bottom:0;background:var(--web);border-radius:3px}
+.bl-trk i.b2{background:color-mix(in oklab,var(--web) 40%,var(--surface))}
+.share{height:10px;background:var(--grid);border-radius:3px;overflow:hidden}.share i{display:block;height:100%;background:var(--web)}
+
+.ntab{width:100%;border-collapse:collapse;font-size:13px}
+.ntab th{font-size:12px;font-weight:600;color:var(--ink-2);text-align:left;padding:6px 6px 6px 0;border-bottom:1px solid var(--rule)}
+.ntab td{padding:7px 6px 7px 0;border-bottom:1px solid var(--grid);vertical-align:top;overflow-wrap:anywhere}
+.ntab .r{text-align:right;white-space:nowrap}
+.near-h{font-size:15px;margin:22px 0 4px}.ntab.near td{color:var(--ink-2)}
