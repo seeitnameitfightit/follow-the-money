@@ -1,5 +1,11 @@
 /* Follow the Money: Money Web pages (hub, donor, PAC). Data is embedded as JSON by build_site.py / build_network.py. */
 (function () {
+  /* SINIFI brand: logo top-right on every page, small source mark on shareable pieces */
+  const ASSET = ((document.currentScript && document.currentScript.src) || '').replace(/[^/]*$/, '');
+  const LOGO = ASSET + 'sinifi-logo.png';
+  const MARK = `<div class="mark"><img src="${LOGO}" alt="" width="22" height="18">See It. Name It. Fight It. · data.seeitnameitfightit.com</div>`;
+  setTimeout(() => { const app = document.getElementById('app'); if (app && !app.querySelector('.brand')) app.insertAdjacentHTML('afterbegin', `<a class="brand" href="https://seeitnameitfightit.com" target="_blank" rel="noopener"><img src="${LOGO}" alt="See It. Name It. Fight It." width="64" height="52"></a>`); }, 0);
+
   const $ = (s, el = document) => el.querySelector(s);
   const el = $('#net-data'); if (!el) return;
   const N = JSON.parse(el.textContent), M = N.meta, P = N.page;
@@ -38,7 +44,7 @@
     }).join('');
     box.innerHTML = `<div class="pie-head"><b>${esc(title)}</b><span class="num">${fmt$(total)}</span></div>
       <div class="pie-wrap"><svg viewBox="0 0 220 220" role="img" aria-label="${esc(title)}">${paths}</svg><div class="pie-big">${bigLabel}</div></div>
-      <ol class="pie-list">${slices.map((s, i) => `<li data-i="${i}"><i class="sw" style="background:${s.col}"></i><span class="pl-name"><b>${s.other ? '' : (i + 1) + '. '}${a(s.name, s.link)}</b><small>${esc(s.meta || '')}</small></span><span class="pl-amt num">${fmt$(s.amt)}<small>${(s.amt / tot * 100).toFixed(1)}%</small></span></li>`).join('')}</ol>`;
+      <ol class="pie-list">${slices.map((s, i) => `<li data-i="${i}"><i class="sw" style="background:${s.col}"></i><span class="pl-name"><b>${s.other ? '' : (i + 1) + '. '}${a(s.name, s.link)}</b><small>${esc(s.meta || '')}</small></span><span class="pl-amt num">${fmt$(s.amt)}<small>${(s.amt / tot * 100).toFixed(1)}%</small></span></li>`).join('')}</ol>${MARK}`;
     const hl = i => { box.querySelectorAll('.slice').forEach(p => p.style.opacity = (i === null || +p.dataset.i === i) ? 1 : .35); box.querySelectorAll('.pie-list li').forEach(li => li.classList.toggle('on', +li.dataset.i === i)); };
     box.querySelectorAll('.slice, .pie-list li').forEach(n => { n.addEventListener('mouseenter', () => hl(+n.dataset.i)); n.addEventListener('mouseleave', () => hl(null)); n.addEventListener('click', () => hl(+n.dataset.i)); });
   }

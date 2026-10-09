@@ -1,5 +1,11 @@
 /* Follow the Money: renders a race page or the index from the JSON embedded in the page (built by build_site.py). */
 (function () {
+  /* SINIFI brand: logo top-right on every page, small source mark on shareable pieces */
+  const ASSET = ((document.currentScript && document.currentScript.src) || '').replace(/[^/]*$/, '');
+  const LOGO = ASSET + 'sinifi-logo.png';
+  const MARK = `<div class="mark"><img src="${LOGO}" alt="" width="22" height="18">See It. Name It. Fight It. · data.seeitnameitfightit.com</div>`;
+  setTimeout(() => { const app = document.getElementById('app'); if (app && !app.querySelector('.brand')) app.insertAdjacentHTML('afterbegin', `<a class="brand" href="https://seeitnameitfightit.com" target="_blank" rel="noopener"><img src="${LOGO}" alt="See It. Name It. Fight It." width="64" height="52"></a>`); }, 0);
+
   const $ = (s, el = document) => el.querySelector(s);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmt$ = v => '$' + Math.round(v).toLocaleString('en-US');
@@ -118,7 +124,7 @@
         <div class="cand d"><span class="party">Democrat<i class="dot d"></i></span><span class="name">${esc(Dm.name)}</span>${flag(Dm)}</div>
       </div>
       ${tape}
-      <div class="tape-foot">A dot marks who leads. "This period" is the latest report period, ending ${dlabel(M.period_end)}. Loans are the balance owed.</div>
+      <div class="tape-foot">A dot marks who leads. "This period" is the latest report period, ending ${dlabel(M.period_end)}. Loans are the balance owed.${MARK}</div>
     </div>
   </section>
   ${notes ? `<section class="notes" aria-label="Notes on this race">${notes}</section>` : ''}
@@ -288,7 +294,7 @@
     el.innerHTML = `<div class="pie-head"><b><i class="dot ${k}"></i> ${esc(c.name)}</b><span class="num">${fmt$(P.total)} itemized</span></div>
       <div class="pie-wrap"><svg viewBox="0 0 220 220" role="img" aria-label="${esc(c.name)}: top 10 donors gave ${pct(P.topSum, P.total)}% of itemized contributions">${paths}</svg>
       <div class="pie-big"><span class="num">${pct(P.topSum, P.total)}%</span>from the top ${P.top.length} donor${P.top.length === 1 ? '' : 's'}</div></div>
-      <ol class="pie-list">${slices.map((s, i) => `<li data-i="${i}"><i class="sw" style="background:${s.col}"></i><span class="pl-name"><b>${s.rank ? s.rank + '. ' : ''}${s.href ? `<a href="${s.href}" title="See this donor in the Money Web">${esc(s.name)}</a><span class="webtag">Money Web</span>` : esc(s.name)}</b><small>${esc(s.meta || '')}${s.n ? (s.meta ? ' · ' : '') + fmtN(s.n) + ' contribution' + (s.n > 1 ? 's' : '') : ''}</small></span><span class="pl-amt num">${fmt$(s.amt)}<small>${(s.amt / tot * 100).toFixed(1)}%</small></span></li>`).join('')}</ol>`;
+      <ol class="pie-list">${slices.map((s, i) => `<li data-i="${i}"><i class="sw" style="background:${s.col}"></i><span class="pl-name"><b>${s.rank ? s.rank + '. ' : ''}${s.href ? `<a href="${s.href}" title="See this donor in the Money Web">${esc(s.name)}</a><span class="webtag">Money Web</span>` : esc(s.name)}</b><small>${esc(s.meta || '')}${s.n ? (s.meta ? ' · ' : '') + fmtN(s.n) + ' contribution' + (s.n > 1 ? 's' : '') : ''}</small></span><span class="pl-amt num">${fmt$(s.amt)}<small>${(s.amt / tot * 100).toFixed(1)}%</small></span></li>`).join('')}</ol>${MARK}`;
     const hl = i => { el.querySelectorAll('.slice').forEach(p => p.style.opacity = (i === null || +p.dataset.i === i) ? 1 : .35); el.querySelectorAll('.pie-list li').forEach(li => li.classList.toggle('on', +li.dataset.i === i)); };
     el.querySelectorAll('.slice, .pie-list li').forEach(n => {
       n.addEventListener('mouseenter', () => hl(+n.dataset.i)); n.addEventListener('mouseleave', () => hl(null));

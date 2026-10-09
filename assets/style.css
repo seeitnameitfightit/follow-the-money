@@ -198,3 +198,10 @@ a.sec-card:hover{border-color:var(--ink-3)} a.sec-card:focus-visible{outline:2px
 .row .v .na{color:var(--ink-3);font-weight:500}
 .pl-name b a{color:var(--ink);text-decoration-color:var(--ink-3);text-underline-offset:2px}
 .webtag{display:inline-block;margin-left:6px;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--web);border:1px solid color-mix(in oklab,var(--web) 50%,var(--surface));border-radius:3px;padding:0 4px;vertical-align:1px}
+.wrap{position:relative}
+.brand{position:absolute;top:22px;right:16px;display:block;line-height:0;border-radius:3px;overflow:hidden}
+.brand img{display:block;width:64px;height:auto}
+.wrap>.crumb,.wrap>header .eyebrow{padding-right:76px}
+.mark{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;font-weight:600;color:var(--ink-3);letter-spacing:.01em}
+.mark img{width:22px;height:auto;border-radius:2px}
+.tape-foot .mark{margin-top:6px}
