@@ -111,7 +111,7 @@
 
   $('#app').insertAdjacentHTML('beforeend', `
   <header>
-    <div class="eyebrow"><span>Texas · ${esc(D.office)}</span><span>${esc(M.election)}</span></div>
+    <div class="eyebrow"><span>${/^Texas /.test(D.office) ? '' : 'Texas · '}${esc(D.office)}</span><span>${esc(M.election)}</span></div>
     <h1>${esc(h1)}</h1>
     <p class="dek">${dek}</p>
     <div class="asof">${esc(M.period_label)} · through ${dlabel(M.period_end)} · ${LOCAL ? 'Tarrant County filings' : 'Texas Ethics Commission'}</div>
