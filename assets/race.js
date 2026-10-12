@@ -78,7 +78,7 @@
   /* ================= RACE ================= */
   const dataEl = $('#race-data'); if (!dataEl) return;
   const D = JSON.parse(dataEl.textContent), M = D.meta, R = D.r, Dm = D.d;
-  const LOCAL = !!D.local, SINCE = LOCAL ? 'in the 30-day report period' : `since ${dlabel(M.cycle_start)}`, CYC = LOCAL ? 'this period' : 'this cycle';
+  const LOCAL = !!D.local, SINCE = LOCAL ? `in county reports since ${dlabel(D.since || M.period_end)}` : `since ${dlabel(M.cycle_start)}`, CYC = LOCAL ? 'in county reports on file' : 'this cycle';
   const C = { r: R, d: Dm };
 
   // ---- headline & dek
@@ -152,7 +152,7 @@
   <footer><b>How these numbers work</b><ul>
     <li>${LOCAL ? esc(D.source_note || 'Source: Tarrant County campaign finance filings.') : `Source: <a href="https://www.ethics.state.tx.us/search/cf/" target="_blank" rel="noopener">Texas Ethics Commission</a> bulk campaign finance data, downloaded ${esc(M.data_downloaded)}.`}</li>
     ${LOCAL ? '' : '<li>Records replaced by an amended report are left out.</li>'}
-    <li>${LOCAL ? '"Donors" are unique contributors, matched on name. County reports cover only the 30-day period (Jul 1\u2013Sep 24, 2026), so there is no longer history here.' : `"Donors" are unique contributors, matched on name and ZIP code. "This cycle" means ${dlabel(M.cycle_start)} through ${dlabel(M.period_end)}.`}</li>
+    <li>${LOCAL ? `"Donors" are unique contributors, matched on name. The scorecard covers the 30-day pre-election report; donors, pie charts, cities and spending use every report each campaign filed with Tarrant County since ${dlabel(D.since || M.period_end)}.` : `"Donors" are unique contributors, matched on name and ZIP code. "This cycle" means ${dlabel(M.cycle_start)} through ${dlabel(M.period_end)}.`}</li>
     <li>Contribution sizes, donors, cities and monthly figures use itemized monetary contributions. In-kind contributions are not included.</li>
   </ul><a href="https://seeitnameitfightit.com" target="_blank" rel="noopener">${esc(M.org)}</a> · <a href="../../index.html">All races</a></footer>`);
 
@@ -216,7 +216,7 @@
     const big = cands[0].n >= cands[1].n ? cands[0] : cands[1], other = big === cands[0] ? cands[1] : cands[0];
     const [yy, mm] = big.best.m.split('-');
     if (big.n > C[other.k].cycle.donors && C[other.k].cycle.donors > 0)
-      $('#mo-h').textContent = `${C[big.k].short} had more donors in ${FULLM[+mm - 1]} ${yy} than ${C[other.k].short} ${LOCAL ? 'had in the whole period' : V(C[other.k], 'has', 'have') + ' had all cycle'}`;
+      $('#mo-h').textContent = `${C[big.k].short} had more donors in ${FULLM[+mm - 1]} ${yy} than ${C[other.k].short} ${LOCAL ? 'had in all county reports on file' : V(C[other.k], 'has', 'have') + ' had all cycle'}`;
     else $('#mo-h').textContent = `${C[big.k].short} ${V(C[big.k], 'has', 'have')} had ${fmtN(C[big.k].cycle.donors)} donors ${CYC}; ${C[other.k].short} ${V(C[other.k], 'has', 'have')} had ${fmtN(C[other.k].cycle.donors)}`;
     $('#mo-sub').textContent = `Unique donors each month, ${R.short} and ${Dm.short}. Switch to dollars to see how much those donors gave.`;
   })();
@@ -255,7 +255,7 @@
     const share = (c, i, mode) => { const v = c.sizes[mode], t = v.reduce((p, q) => p + q, 0); return t ? v.slice(i).reduce((p, q) => p + q, 0) / t : 0; };
     const small = (c, mode) => { const v = c.sizes[mode], t = v.reduce((p, q) => p + q, 0); return t ? v[0] / t : 0; };
     $('#size-sub').textContent = szMode === 'dollars'
-      ? `${LOCAL ? 'This period' : 'This cycle'}, ${pct(share(R, 3, 'dollars'), 1)}% of ${poss(R.short)} itemized dollars came in checks of $10,000 or more, and ${pct(small(R, 'dollars'), 1)}% in contributions of $100 or less. For ${Dm.short}: ${pct(share(Dm, 3, 'dollars'), 1)}% and ${pct(small(Dm, 'dollars'), 1)}%.`
+      ? `${LOCAL ? 'In county reports on file' : 'This cycle'}, ${pct(share(R, 3, 'dollars'), 1)}% of ${poss(R.short)} itemized dollars came in checks of $10,000 or more, and ${pct(small(R, 'dollars'), 1)}% in contributions of $100 or less. For ${Dm.short}: ${pct(share(Dm, 3, 'dollars'), 1)}% and ${pct(small(Dm, 'dollars'), 1)}%.`
       : `By count, ${pct(small(R, 'count'), 1)}% of ${poss(R.short)} ${fmtN(R.cycle.contributions)} contributions were $100 or less. For ${Dm.short}, it was ${pct(small(Dm, 'count'), 1)}% of ${fmtN(Dm.cycle.contributions)}.`;
     const row = k => { const c = C[k], vals = c.sizes[szMode], tot = vals.reduce((p, q) => p + q, 0);
       return `<div class="sb-row"><div class="sb-label"><b><i class="dot ${k}"></i> ${esc(c.name)}</b><span class="num">${szMode === 'dollars' ? fmt$(tot) + ' itemized' : fmtN(tot) + ' contributions'}</span></div>
