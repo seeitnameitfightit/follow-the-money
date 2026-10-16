@@ -64,9 +64,10 @@
   <section aria-labelledby="tab-h"><h2 id="tab-h">Day by day</h2><p class="sub">Ballots in so far (early in person plus mail), at the same point in each election.</p>
     <div style="overflow-x:auto"><table class="ntab" id="days"></table></div></section>
   <section aria-labelledby="mail-h"><h2 id="mail-h">Mail ballots</h2><p class="sub" id="mail-sub"></p><ul class="kv" id="mail"></ul></section>
-  <section aria-labelledby="who-h" id="who-sec" hidden><h2 id="who-h"></h2><p class="sub" id="who-sub"></p><div class="sizebar" id="who"></div>
-    <div class="two" style="margin-top:18px"><div class="panel"><h3>Who they are</h3><ul class="kv" id="who-kv"></ul></div>
-    <div class="panel"><h3>By commissioner precinct</h3><table class="ntab" id="who-comm"></table></div></div>${MARK}</section>
+  <section aria-labelledby="who-h" id="who-sec" hidden><h2 id="who-h"></h2><p class="sub" id="who-sub"></p>
+    <div class="two"><div class="panel"><h3>Who they are</h3><ul class="kv" id="who-kv"></ul></div>
+    <div class="panel"><h3>By commissioner precinct</h3><table class="ntab" id="who-comm"></table><p class="note">District pages show turnout so far for every precinct, district, city and school district. <a href="../electorate/index.html">The Electorate ›</a></p></div></div>
+    <div class="sizebar" id="who" style="margin-top:20px"></div>${MARK}</section>
   <section aria-labelledby="fin-h"><h2 id="fin-h">How past elections finished</h2><p class="sub">Official totals. Most Tarrant County ballots are cast before Election Day: the early vote is the bulk of the race.</p>
     <div style="overflow-x:auto"><table class="ntab"><thead><tr><th>Election</th><th class="r">In person early</th><th class="r">Mail</th><th class="r">Election Day</th><th class="r">Total</th><th class="r">Turnout</th><th class="r">Before E-Day</th></tr></thead><tbody>
     ${[...Y].reverse().map(y => { const m = y.modes || { early: y.ev_total, mail: y.mail_total, eday: y.eday, total: y.final_total };
@@ -77,7 +78,7 @@
     <li>Source: Tarrant County Elections daily early voting, mail ballot and Election Day reports. Daily counts are preliminary; the final totals are the county’s official canvass, which also counts provisional and late mail ballots, so they run slightly higher than the daily reports add up to.</li>
     <li>2018’s daily reports have no Election Day count. Its split by voting method (36,703 mail, 434,029 early, 161,855 Election Day) comes from the county’s official cumulative report.</li>
     <li>Turnout shares use the registration count for each election: ${Y.map(y => `${y.year} ${fmtN(y.registered)}`).join(', ')}, and for 2026 the ${fmtN(C.registered)} voters on the county’s current voter file (active and suspense).</li>
-    <li>“Who has voted” uses the county’s voter-level lists of returned mail ballots (and early voters, when available), matched by state voter ID to the voter file, with each voter counted once. Only totals are published. A primary vote shows which ballot a voter chose in a primary, not how they will vote in November.</li>
+    <li>“Who has voted” uses the county’s voter-level lists of returned mail ballots and early voters, matched by state voter ID to the voter file, with each voter counted once. Only totals are published. A primary vote shows which ballot a voter chose in a primary, not how they will vote in November.</li>
     <li>Early voting ran 12 days each year, Monday through the Friday before Election Day, including one Sunday. 2026: Oct 19–30.</li>
   </ul><a href="https://seeitnameitfightit.com" target="_blank" rel="noopener">${esc(M.org)}</a> · <a href="../index.html">Follow the Money</a> · <a href="../electorate/index.html">The Electorate</a></footer>`);
 
@@ -137,30 +138,33 @@
   $('#mail').innerHTML = (mailNow ? `<li><span><b>2026</b></span><span>${fmtN(mailNow)}</span></li>` : '') +
     [y22, y18, y24].map(y => `<li><span>${y.year} at ${refOut} days out <small>final ${fmtN(y.mail_total)}</small></span><span>${fmtN(mailBy(y, refOut))}</span></li>`).join('');
 
-  // ---------- who has voted (county voter-level rosters matched to the voter file)
-  const W = C.who, WR = W && (W.rosters.mail || W.rosters['in person']);
-  if (WR) {
-    const kind = W.rosters.mail ? 'mail' : 'in person', B = W.base;
+  // ---------- who has voted (county voter-level lists matched to the voter file)
+  const W = C.who, WA = W && W.all;
+  if (WA) {
+    const B = W.base, REG = W.registered, ref = B['2022 early and mail voters'];
     const sh = (p, i) => p.lean[i] / (p.n || 1), gap = p => (sh(p, 0) - sh(p, 1)) * 100;
     const gtxt = g => `${g >= 0 ? 'D' : 'R'}+${Math.abs(g).toFixed(1)}`;
+    const kinds = Object.keys(W.rosters);
     $('#who-sec').hidden = false;
-    $('#who-h').textContent = `${kind === 'mail' ? 'Mail ballots returned so far' : 'Early voters so far'} lean ${gtxt(gap(WR))} by primary history, against ${gtxt(gap(B['2022 mail voters']))} for 2022 mail voters`;
-    $('#who-sub').textContent = `The ${fmtN(WR.voters)} voters on the county’s list of ${kind === 'mail' ? 'returned mail ballots' : 'early voters'}${WR.through ? ` through ${dlab(WR.through)}` : ''}, matched to the voter file (${fmtN(WR.n)} found), sorted by the most recent party primary each voted in since 2022. Past groups are measured the same way, from today’s voter file.`;
-    const row = (lab, p) => { const t = p.n || 1, seg = (v, col, txt) => v > 0 ? `<div class="sb-seg" style="flex:${v / t} 1 0;background:${col};color:${col === 'var(--grid)' ? 'var(--ink)' : '#fff'}">${v / t >= .1 ? txt + ' ' + Math.round(v / t * 100) + '%' : ''}</div>` : '';
-      return `<div class="sb-row"><div class="sb-label"><b>${esc(lab)}</b><span class="num">${fmtN(p.n)} voters · ${gtxt(gap(p))}</span></div><div class="sb-track">${seg(p.lean[0], 'var(--dem)', 'D')}${seg(p.lean[2], 'var(--grid)', 'Neither')}${seg(p.lean[1], 'var(--rep)', 'R')}</div></div>`; };
-    $('#who').innerHTML = row(`2026 ${kind} so far`, WR) + Object.entries(B).filter(([k, p]) => p).map(([k, p]) => row(k, p)).join('') +
-      `<div class="sb-key"><span><i class="sw" style="background:var(--dem)"></i>Last voted in a Democratic primary</span><span><i class="sw" style="background:var(--rep)"></i>Republican primary</span><span><i class="sw" style="background:var(--grid)"></i>No primary since 2022</span></div>`;
-    const ref = B['2022 mail voters'];
-    const r24 = B['2024 mail voters'];
+    $('#who-h').textContent = `Who has voted so far: ${pc1(WA.dropoff / WA.n)} skipped the 2022 midterm after voting in 2024, and ${pc1(WA.new22 / WA.n)} registered since 2022`;
+    $('#who-sub').textContent = `The ${fmtN(WA.voters)} voters on the county’s lists of ${kinds.map(k => k === 'mail' ? 'returned mail ballots' : 'early voters').join(' and ')}${WA.through ? ` through ${dlab(WA.through)}` : ''}, matched to the voter file by state voter ID (${fmtN(WA.n)} found). Each voter is counted once.`;
     $('#who-kv').innerHTML = [
-      ['Did not vote in the 2022 midterm', WR.skipped22, r24, r24 && r24.skipped22, '2024 mail voters'],
-      ['Age 65 or older', WR.age[3], ref, ref && ref.age[3], '2022 mail voters'],
-      ['Under 50', WR.age[0] + WR.age[1], ref, ref && ref.age[0] + ref.age[1], '2022 mail voters'],
-    ].map(([l, v, rp, rv, rl]) => `<li><span>${l}${rv != null ? ` <small>${rl}: ${pc1(rv / rp.n)}</small>` : ''}</span><span>${pc1(v / WR.n)}</span></li>`).join('');
-    $('#who-comm').innerHTML = `<thead><tr><th>Pct</th><th class="r">Ballots</th><th class="r">Lean</th><th class="r">2022 mail</th></tr></thead><tbody>${['01', '02', '03', '04'].map(c => {
-      const a = WR.comm[c], t = a[0] + a[1] + a[2], b = ref && ref.comm[c], tb = b ? b[0] + b[1] + b[2] : 0;
-      const g = t ? (a[0] - a[1]) / t * 100 : 0, gb = tb ? (b[0] - b[1]) / tb * 100 : 0;
-      return `<tr><td>${+c}</td><td class="r num">${fmtN(t)}</td><td class="r num">${gtxt(g)}</td><td class="r num">${tb ? gtxt(gb) : '—'}</td></tr>`; }).join('')}</tbody>`;
+      ['Voted in 2024 but skipped the 2022 midterm', WA.dropoff, REG.dropoff],
+      ['Registered since the 2022 midterm', WA.new22, REG.new22],
+      ['On the rolls in 2022 but did not vote', WA.skipped22, REG.skipped22],
+      ['Under 50', WA.age[0] + WA.age[1], REG.age[0] + REG.age[1]],
+      ['65 or older', WA.age[3], REG.age[3]],
+    ].map(([l, v, rv]) => `<li><span>${l} <small>all registered: ${pc1(rv / REG.n)}</small></span><span>${pc1(v / WA.n)}</span></li>`).join('') +
+      kinds.map(k => `<li><span>${k === 'mail' ? 'Mail ballots' : 'Early in person'}</span><span>${fmtN(W.rosters[k].voters)}</span></li>`).join('');
+    // primary history: secondary, with its caveat
+    const row = (lab, p) => { const t = p.n || 1, seg = (v, col, txt) => v > 0 ? `<div class="sb-seg" style="flex:${v / t} 1 0;background:${col};color:${col === 'var(--grid)' ? 'var(--ink)' : '#fff'}">${v / t >= .12 ? txt + ' ' + Math.round(v / t * 100) + '%' : ''}</div>` : '';
+      return `<div class="sb-row"><div class="sb-label"><b>${esc(lab)}</b><span class="num">${fmtN(p.n)} · ${gtxt(gap(p))}</span></div><div class="sb-track" style="height:22px">${seg(p.lean[0], 'var(--dem)', 'D')}${seg(p.lean[2], 'var(--grid)', 'Neither')}${seg(p.lean[1], 'var(--rep)', 'R')}</div></div>`; };
+    $('#who').innerHTML = `<p class="note" style="margin:0">By primary history: the most recent party primary each voter chose since 2022. A primary ballot is not a November vote, and the large 2026 Democratic primary makes every 2026 group look more Democratic on this measure.</p>` +
+      row('2026 so far', WA) + kinds.filter(() => kinds.length > 1).map(k => row(`2026 ${k === 'mail' ? 'mail' : 'early in person'}`, W.rosters[k])).join('') +
+      Object.entries(B).filter(([, p]) => p).map(([k, p]) => row(k, p)).join('');
+    $('#who-comm').innerHTML = `<thead><tr><th>Pct</th><th class="r">Voted</th><th class="r">Lean</th><th class="r">2022 early + mail</th></tr></thead><tbody>${['01', '02', '03', '04'].map(c => {
+      const a = WA.comm[c], t = a[0] + a[1] + a[2], b = ref && ref.comm[c], tb = b ? b[0] + b[1] + b[2] : 0;
+      return `<tr><td>${+c}</td><td class="r num">${fmtN(t)}</td><td class="r num">${t ? gtxt((a[0] - a[1]) / t * 100) : '—'}</td><td class="r num">${tb ? gtxt((b[0] - b[1]) / tb * 100) : '—'}</td></tr>`; }).join('')}</tbody>`;
   }
 
   draw();

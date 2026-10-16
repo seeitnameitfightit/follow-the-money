@@ -94,6 +94,18 @@
       <p class="sub">${lines} Official results from the county’s canvass, ${fmtN(r0.precincts)} precincts.</p>
       <div class="sizebar">${S.races.map((r, i) => resRow(Object.assign({}, r, { contest: `${r.contest}, ${r.label.replace(' general election', '')}${i ? ' (last contested race)' : ''}` }), null)).join('')}</div>${MARK}</section>`;
   })();
+  // 2026 turnout so far (county daily lists of returned mail ballots and early voters)
+  const SF = G.so_far, CSF = CTY && CTY.so_far;
+  const sofarHtml = !SF || !SF.voted ? '' : (() => {
+    const of22 = SF.v22 ? SF.voted / SF.v22 : 0, c22 = CSF && CSF.v22 ? CSF.voted / CSF.v22 : null;
+    const rel = c22 ? of22 / c22 - 1 : 0;
+    const pace = c22 && !isCounty ? ` That’s ${Math.abs(rel) < 0.03 ? 'about even with' : `${Math.round(Math.abs(rel) * 100)}% ${rel > 0 ? 'ahead of' : 'behind'}`} the county’s pace (${pc1(c22)} of its 2022 total).` : '';
+    const mx = Math.max(of22, c22 || 0, 0.01);
+    return `<section aria-labelledby="sf-h"><h2 id="sf-h">${fmtN(SF.voted)} ${isCounty ? 'Tarrant County' : ''} voters ${isCounty ? '' : 'here '}have voted so far in the 2026 general election</h2>
+      <p class="sub">Mail ballots returned and early votes cast${SF.through ? ` through ${dlabel(SF.through)}` : ''}, from the county’s daily lists. That’s ${pc(SF.voted, SF.reg)} of registered voters ${isCounty ? 'in the county' : 'here'}, and ${pc1(of22)} of the number who voted ${isCounty ? '' : 'here '}in the entire 2022 midterm.${pace}</p>
+      <div class="hb"><div class="hb-row"><span class="hb-l">Share of 2022 total</span><span class="hb-t"><i style="width:${Math.min(100, of22 / mx * 100)}%;background:var(--ink)"></i>${c22 && !isCounty ? `<em style="left:${Math.min(100, c22 / mx * 100)}%"></em>` : ''}</span><span class="hb-v num">${pc1(of22)}</span></div></div>
+      ${!isCounty ? '<p class="note"><i class="cmk"></i> marks the countywide figure.</p>' : ''}<p class="note"><a href="${up}turnout/index.html">2026 Turnout Tracker ›</a></p>${MARK}</section>`;
+  })();
   const resultsHtml = seatHtml + primaryHtml + (G.results || []).filter(rs => rs.kind !== 'primary').map(rs => {
     const pres = rs.contests.find(c => c.contest === 'President') || rs.contests[0], x = pres ? split(pres) : null;
     const cr = CTY && (CTY.results || []).find(z => z.key === rs.key);
@@ -112,6 +124,7 @@
     <div class="asof">Tarrant County voter file, ${dlabel(M.file_date)} · ${fmtN(M.rows)} registration records</div></header>
   <section aria-label="Key numbers"><div class="stats">${tiles}</div></section>
   ${partialNote}
+  ${sofarHtml}
   ${raceCards ? `<section aria-labelledby="ra-h"><h2 id="ra-h">On the ballot here</h2><p class="sub">${isCounty ? 'Countywide races' : 'Races'} tracked on Follow the Money${G.partial ? '' : ', with each campaign’s cash on hand divided by the number of registered voters'}.</p><ul class="hits">${raceCards}</ul></section>` : ''}
   <section aria-labelledby="to-h"><h2 id="to-h"></h2><p class="sub">Share of today’s registered voters who were on the rolls for each election and cast a ballot in it, back to the 2018 primaries. Hover or tap a bar for the count.</p>
     <div class="legend"><span><i class="sw" style="background:var(--seq-4)"></i>November and local elections</span><span><i class="sw" style="background:var(--dem)"></i>Democratic primary</span><span><i class="sw" style="background:var(--rep)"></i>Republican primary</span></div>
