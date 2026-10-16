@@ -54,6 +54,27 @@
     return `<li><a href="${up}races/${r.slug}/index.html"><b>${esc(r.office)}</b><small>${esc(r.r[0])} (R) vs. ${esc(r.d[0])} (D)${per}</small></a></li>`;
   }).join('');
 
+  // ---------- official precinct results
+  const lastName = nm => nm.replace(/,? (Jr\.|Sr\.|III|II)$/, '').split(' ').pop();
+  const split = c => { const t = c.total || 1, r = c.cands.find(x => x[1] === 'REP'), d = c.cands.find(x => x[1] === 'DEM'), o = c.cands.find(x => x[0] === 'Others');
+    return { r, d, o, rs: r ? r[2] / t : 0, ds: d ? d[2] / t : 0, os: o ? o[2] / t : 0 }; };
+  const marg = c => { const x = split(c), m = (x.rs - x.ds) * 100; if (!x.r || !x.d) return ''; const w = m >= 0 ? x.r : x.d; return `${lastName(w[0])} +${Math.abs(m).toFixed(1)}`; };
+  const resRow = (c, cmp) => { const x = split(c);
+    const seg = (v, col, txt, fg) => v > 0 ? `<div class="sb-seg" style="flex:${v} 1 0;background:${col};color:${fg}" title="${esc(txt)}">${v >= .14 ? esc(txt) : ''}</div>` : '';
+    return `<div class="sb-row"><div class="sb-label"><b>${esc(c.contest)}</b><span class="num">${marg(c)}${cmp ? ` · countywide ${marg(cmp)}` : ''}</span></div>
+      <div class="sb-track">${x.d ? seg(x.ds, 'var(--dem)', `${lastName(x.d[0])} ${pc1(x.ds)}`, '#fff') : ''}${seg(x.os, 'var(--grid)', `Others ${pc1(x.os)}`, 'var(--ink)')}${x.r ? seg(x.rs, 'var(--rep)', `${lastName(x.r[0])} ${pc1(x.rs)}`, '#fff') : ''}</div>
+      <div class="sb-key">${c.cands.map(k => `<span>${k[1] === 'DEM' ? '<i class="dot d"></i>' : k[1] === 'REP' ? '<i class="dot r"></i>' : ''}${esc(k[0])} <b class="num">${fmtS(k[2])}</b></span>`).join('')}</div></div>`; };
+  const resultsHtml = (G.results || []).map(rs => {
+    const pres = rs.contests.find(c => c.contest === 'President') || rs.contests[0], x = pres ? split(pres) : null;
+    const cr = CTY && (CTY.results || []).find(z => z.key === rs.key);
+    let h = `How ${where} voted in ${rs.short}`;
+    if (x && x.r && x.d) { const w = x.rs >= x.ds ? x.r : x.d; h = `${lastName(w[0])} carried ${where} by ${Math.abs((x.rs - x.ds) * 100).toFixed(1)} points in ${rs.short}`; }
+    return `<section aria-labelledby="res-${rs.key}"><h2 id="res-${rs.key}">${esc(h)}</h2>
+      <p class="sub">${rs.method === 'bridged'
+        ? `Official results from the county’s ${esc(rs.label)} canvass, added up within today’s lines.${rs.split >= 0.02 ? ` About ${Math.round(rs.split * 100)}% of these votes come from precincts now split between districts; those are divided by where each precinct’s November 2024 voters live, so treat the figures as close estimates.` : ''}`
+        : `Official results from the county’s ${esc(rs.label)} canvass, added up across ${fmtN(rs.precincts)} precincts${G.partial ? ' in the Tarrant County part of the district' : ''}.`} About ${fmtN(rs.ballots)} ballots were cast, ${pc(rs.ballots, rs.registered)} of the voters registered at the time.</p>
+      <div class="sizebar">${rs.contests.map(c => resRow(c, !c.own && cr ? cr.contests.find(z => z.contest === c.contest) : null)).join('')}</div>${MARK}</section>`; }).join('');
+
   const app = $('#app');
   app.insertAdjacentHTML('beforeend', `${crumb}
   <header><div class="eyebrow"><span>The Electorate</span><span>${esc(isCounty ? 'Countywide' : G.group)}</span></div>
@@ -66,6 +87,7 @@
     <div class="legend"><span><i class="sw" style="background:var(--seq-4)"></i>November and local elections</span><span><i class="sw" style="background:var(--dem)"></i>Democratic primary</span><span><i class="sw" style="background:var(--rep)"></i>Republican primary</span></div>
     <div class="chart" id="turnout"></div>
     <p class="note">May elections are city, school and other local contests. From November 2024 on, voters the county marked ineligible for an election are left out of the count; before that, everyone registered by Election Day is counted.</p></section>
+  ${resultsHtml}
   <section aria-labelledby="ty-h"><h2 id="ty-h"></h2><p class="sub" id="ty-sub"></p><div class="sizebar" id="types"></div>${MARK}</section>
   <section aria-labelledby="pr-h"><h2 id="pr-h"></h2><p class="sub">Each voter is counted once, by the most recent party primary they voted in since 2022. Texas has no party registration, so this is the closest thing the voter file has to party.</p>
     <div class="sizebar" id="prim"></div></section>
@@ -88,6 +110,7 @@
     <li>Ages are figured as of ${dlabel(M.as_of)}. “Suspense” voters are on the rolls but the county has mail returned for them; they can still vote.</li>
     ${G.dim === 'city' ? '<li>City boundaries come from the jurisdiction code on each registration, not the mailing city.</li>' : ''}
     <li>Code definitions come from the county’s voter history file layout and district list.</li>
+    ${(G.results || []).length ? '<li>Election results are the county’s official canvass by precinct. In 2025 the county renumbered its precincts by changing only the first digit, which now gives the commissioner precinct, so 2024 precinct 1001 is today’s x001. State House, State Board of Education and the Senate seats on the 2024 ballot are added up exactly from the precincts that voted in those races. Every other area is added up by today’s precinct lines; where a precinct is split between districts, its votes are divided by where its November 2024 voters live.' + ((G.results || []).filter(r => r.unplaced).map(r => ` ${fmtN(r.unplaced)} ${r.short} ballots from precincts with no clear successor today are left out of these area totals.`).join('')) + '</li>' : ''}
   </ul><a href="https://seeitnameitfightit.com" target="_blank" rel="noopener">${esc(M.org)}</a> · <a href="${up}index.html">Follow the Money</a>${isCounty ? '' : ' · <a href="../index.html">The Electorate</a>'}</footer>`);
 
   // ---------- turnout by election
