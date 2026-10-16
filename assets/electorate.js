@@ -55,7 +55,7 @@
   }).join('');
 
   // ---------- official precinct results
-  const lastName = nm => nm.replace(/,? (Jr\.|Sr\.|III|II)$/, '').split(' ').pop();
+  const lastName = nm => nm.replace(/,?\s+(Jr\.?|Sr\.?|III|II|IV)$/i, '').split(' ').pop();
   const split = c => { const t = c.total || 1, r = c.cands.find(x => x[1] === 'REP'), d = c.cands.find(x => x[1] === 'DEM'), oth = c.cands.filter(x => x[1] !== 'REP' && x[1] !== 'DEM');
     const ov = oth.reduce((a, x) => a + x[2], 0), ol = oth.length === 1 && oth[0][0] !== 'Others' ? `${lastName(oth[0][0])} (${oth[0][1] || 'other'})` : 'Others';
     return { r, d, rs: r ? r[2] / t : 0, ds: d ? d[2] / t : 0, os: ov / t, ol }; };
@@ -82,7 +82,19 @@
         <div class="sb-track"><div class="sb-seg" style="flex:${bd / tb} 1 0;background:var(--dem);color:#fff">${pc1(bd / tb)}</div><div class="sb-seg" style="flex:${br / tb} 1 0;background:var(--rep);color:#fff">${pc1(br / tb)}</div></div></div>
       <div class="two" style="margin-top:18px">${[[PD, '--dem', 'd', 'Democratic primary'], [PR, '--rep', 'r', 'Republican primary']].map(([r, hue, k, lab]) => r ? `<div class="panel"><h3><i class="dot ${k}"></i>${lab}</h3><div class="sizebar">${r.contests.map(c => primRow(c, hue)).join('')}</div></div>` : '').join('')}</div>${MARK}</section>`;
   })();
-  const resultsHtml = primaryHtml + (G.results || []).filter(rs => rs.kind !== 'primary').map(rs => {
+  // the seat's own last race (and the last contested one, if that was unopposed)
+  const seatHtml = !G.seat ? '' : (() => {
+    const S = G.seat, r0 = S.races[0], top = r0.cands.filter(x => x[0] !== 'Others').sort((a, b) => b[2] - a[2]);
+    const h = r0.contested ? `${lastName(top[0][0])} won this ${S.office} by ${((top[0][2] - top[1][2]) / (r0.total || 1) * 100).toFixed(1)} points in ${r0.short}`
+                           : `${lastName(top[0][0])} won this ${S.office} unopposed in ${r0.short}`;
+    const lines = r0.same_lines
+      ? `The last general election for this seat${G.partial ? ', counting only its Tarrant County voters' : ''}. The district’s lines are the same today.`
+      : `The last general election for this seat, under the district lines in place at the time${G.dim === 'cd' ? ' (Tarrant County voters only)' : ''}. Those lines have since been redrawn, so the voters in that race are not exactly the voters on this page.`;
+    return `<section aria-labelledby="seat-h"><h2 id="seat-h">${esc(h)}</h2>
+      <p class="sub">${lines} Official results from the county’s canvass, ${fmtN(r0.precincts)} precincts.</p>
+      <div class="sizebar">${S.races.map((r, i) => resRow(Object.assign({}, r, { contest: `${r.contest}, ${r.label.replace(' general election', '')}${i ? ' (last contested race)' : ''}` }), null)).join('')}</div>${MARK}</section>`;
+  })();
+  const resultsHtml = seatHtml + primaryHtml + (G.results || []).filter(rs => rs.kind !== 'primary').map(rs => {
     const pres = rs.contests.find(c => c.contest === 'President') || rs.contests[0], x = pres ? split(pres) : null;
     const cr = CTY && (CTY.results || []).find(z => z.key === rs.key);
     let h = `How ${where} voted in ${rs.short}`;
