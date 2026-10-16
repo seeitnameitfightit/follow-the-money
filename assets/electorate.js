@@ -56,15 +56,33 @@
 
   // ---------- official precinct results
   const lastName = nm => nm.replace(/,? (Jr\.|Sr\.|III|II)$/, '').split(' ').pop();
-  const split = c => { const t = c.total || 1, r = c.cands.find(x => x[1] === 'REP'), d = c.cands.find(x => x[1] === 'DEM'), o = c.cands.find(x => x[0] === 'Others');
-    return { r, d, o, rs: r ? r[2] / t : 0, ds: d ? d[2] / t : 0, os: o ? o[2] / t : 0 }; };
-  const marg = c => { const x = split(c), m = (x.rs - x.ds) * 100; if (!x.r || !x.d) return ''; const w = m >= 0 ? x.r : x.d; return `${lastName(w[0])} +${Math.abs(m).toFixed(1)}`; };
+  const split = c => { const t = c.total || 1, r = c.cands.find(x => x[1] === 'REP'), d = c.cands.find(x => x[1] === 'DEM'), oth = c.cands.filter(x => x[1] !== 'REP' && x[1] !== 'DEM');
+    const ov = oth.reduce((a, x) => a + x[2], 0), ol = oth.length === 1 && oth[0][0] !== 'Others' ? `${lastName(oth[0][0])} (${oth[0][1] || 'other'})` : 'Others';
+    return { r, d, rs: r ? r[2] / t : 0, ds: d ? d[2] / t : 0, os: ov / t, ol }; };
+  const marg = c => { const top = c.cands.filter(x => x[0] !== 'Others').sort((a, b) => b[2] - a[2]); if (top.length < 2) return top.length ? `${lastName(top[0][0])} unopposed` : '';
+    return `${lastName(top[0][0])} +${((top[0][2] - top[1][2]) / (c.total || 1) * 100).toFixed(1)}`; };
   const resRow = (c, cmp) => { const x = split(c);
     const seg = (v, col, txt, fg) => v > 0 ? `<div class="sb-seg" style="flex:${v} 1 0;background:${col};color:${fg}" title="${esc(txt)}">${v >= .14 ? esc(txt) : ''}</div>` : '';
     return `<div class="sb-row"><div class="sb-label"><b>${esc(c.contest)}</b><span class="num">${marg(c)}${cmp ? ` · countywide ${marg(cmp)}` : ''}</span></div>
-      <div class="sb-track">${x.d ? seg(x.ds, 'var(--dem)', `${lastName(x.d[0])} ${pc1(x.ds)}`, '#fff') : ''}${seg(x.os, 'var(--grid)', `Others ${pc1(x.os)}`, 'var(--ink)')}${x.r ? seg(x.rs, 'var(--rep)', `${lastName(x.r[0])} ${pc1(x.rs)}`, '#fff') : ''}</div>
+      <div class="sb-track">${x.d ? seg(x.ds, 'var(--dem)', `${lastName(x.d[0])} ${pc1(x.ds)}`, '#fff') : ''}${seg(x.os, 'var(--grid)', `${x.ol} ${pc1(x.os)}`, 'var(--ink)')}${x.r ? seg(x.rs, 'var(--rep)', `${lastName(x.r[0])} ${pc1(x.rs)}`, '#fff') : ''}</div>
       <div class="sb-key">${c.cands.map(k => `<span>${k[1] === 'DEM' ? '<i class="dot d"></i>' : k[1] === 'REP' ? '<i class="dot r"></i>' : ''}${esc(k[0])} <b class="num">${fmtS(k[2])}</b></span>`).join('')}</div></div>`; };
-  const resultsHtml = (G.results || []).map(rs => {
+  // primaries: one section, Democratic and Republican side by side
+  const primRow = (c, hue) => { const t = c.total || 1;
+    const segs = c.cands.map((k, i) => ({ k, v: k[2] / t, col: k[0] === 'Others' ? 'var(--grid)' : `color-mix(in oklab, var(${hue}) ${100 - i * 24}%, var(--surface))`, fg: i < 2 && k[0] !== 'Others' ? '#fff' : 'var(--ink)' }));
+    return `<div class="sb-row"><div class="sb-label"><b>${esc(c.contest)}</b><span class="num">${fmtS(c.total)} votes</span></div>
+      <div class="sb-track">${segs.map(x => x.v > 0 ? `<div class="sb-seg" style="flex:${x.v} 1 0;background:${x.col};color:${x.fg}" title="${esc(x.k[0])}: ${fmtS(x.k[2])} (${pc1(x.v)})">${x.v >= .16 ? esc(lastName(x.k[0])) : ''}</div>` : '').join('')}</div>
+      <ul class="kv">${c.cands.map(k => `<li><span>${esc(k[0])}</span><span>${fmtS(k[2])} <small>${pc1(k[2] / t)}</small></span></li>`).join('')}</ul></div>`; };
+  const PD = (G.results || []).find(r => r.kind === 'primary' && r.party === 'DEM'), PR = (G.results || []).find(r => r.kind === 'primary' && r.party === 'REP');
+  const primaryHtml = !(PD || PR) ? '' : (() => {
+    const bd = PD ? PD.ballots : 0, br = PR ? PR.ballots : 0, dl = bd >= br, tb = bd + br || 1;
+    const est = [PD, PR].some(r => r && r.method === 'bridged' && r.split >= 0.02);
+    return `<section aria-labelledby="res-p26"><h2 id="res-p26">${dl ? 'Democratic' : 'Republican'} primary ballots outnumbered ${dl ? 'Republican' : 'Democratic'} ballots ${fmtN(dl ? bd : br)} to ${fmtN(dl ? br : bd)} in March 2026</h2>
+      <p class="sub">Official results from the county’s March 3, 2026 primary canvasses, which already use today’s precincts. May runoffs are not included.${est ? ' Some precincts here are split between districts; their votes are divided by where each precinct’s November 2024 voters live, so treat the figures as close estimates.' : ''}</p>
+      <div class="sb-row"><div class="sb-label"><b>Primary ballots cast</b><span class="num">${fmtN(bd)} D · ${fmtN(br)} R</span></div>
+        <div class="sb-track"><div class="sb-seg" style="flex:${bd / tb} 1 0;background:var(--dem);color:#fff">${pc1(bd / tb)}</div><div class="sb-seg" style="flex:${br / tb} 1 0;background:var(--rep);color:#fff">${pc1(br / tb)}</div></div></div>
+      <div class="two" style="margin-top:18px">${[[PD, '--dem', 'd', 'Democratic primary'], [PR, '--rep', 'r', 'Republican primary']].map(([r, hue, k, lab]) => r ? `<div class="panel"><h3><i class="dot ${k}"></i>${lab}</h3><div class="sizebar">${r.contests.map(c => primRow(c, hue)).join('')}</div></div>` : '').join('')}</div>${MARK}</section>`;
+  })();
+  const resultsHtml = primaryHtml + (G.results || []).filter(rs => rs.kind !== 'primary').map(rs => {
     const pres = rs.contests.find(c => c.contest === 'President') || rs.contests[0], x = pres ? split(pres) : null;
     const cr = CTY && (CTY.results || []).find(z => z.key === rs.key);
     let h = `How ${where} voted in ${rs.short}`;
