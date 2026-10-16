@@ -1,0 +1,22 @@
+/* The Electorate pages: additions on top of style.css */
+.hb{display:flex;flex-direction:column;gap:8px}
+.hb-row{display:grid;grid-template-columns:minmax(0,9.5em) 1fr 3.6em;gap:10px;align-items:center;font-size:13px}
+.hb-l{color:var(--ink);font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hb-t{position:relative;height:14px;background:var(--grid);border-radius:3px}
+.hb-t i{display:block;height:100%;background:var(--seq-4);border-radius:3px}
+.hb-t em{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:var(--ink);border-radius:1px}
+.hb-v{text-align:right;font-weight:600}
+.cmk{display:inline-block;width:2px;height:12px;background:var(--ink);vertical-align:-1px;margin:0 4px 0 2px}
+.stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+.kv .sw{vertical-align:-1px;margin-right:4px}
+.sizebar .kv{margin-top:4px}
+.ntab small.pt{font-size:11px;color:var(--ink-3);font-weight:500;white-space:nowrap}
+.ntab a{color:var(--ink);text-decoration-color:var(--ink-3);text-underline-offset:2px;font-weight:600}
+.ntab tr[hidden],.dir-g[hidden]{display:none}
+#dir .ntab{margin-bottom:6px}
+#dir .ntab th:not(:first-child),#dir .ntab td:not(:first-child){width:1%}
+@media (max-width:480px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}#dir .ntab th:nth-child(3),#dir .ntab td:nth-child(3){display:none}.hb-row{grid-template-columns:minmax(0,7.5em) 1fr 3.4em}}
+/* "Who votes here" panel on race pages */
+.who .stats{margin-top:4px}
+.who .note a{font-weight:600}
+.seg{flex-wrap:wrap}

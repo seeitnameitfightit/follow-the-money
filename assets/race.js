@@ -109,6 +109,14 @@
   const notes = (D.notes || []).map(n => `<p>${esc(n)}</p>`).join('');
   const periodStart = M.period_label;
 
+  // ---- who votes here (totals from the county voter file; see build_electorate.py)
+  const W = D.electorate, perV = v => '$' + (v >= 100 ? Math.round(v).toLocaleString('en-US') : v.toFixed(2));
+  const wp = (a, b) => b && a != null ? Math.round(a / b * 100) + '%' : '—', wn = v => v == null ? 'fewer than 10' : fmtN(v);
+  const who = !W ? '' : `<section aria-labelledby="who-h"><h2 id="who-h">Who votes here</h2>
+    <p class="sub">${W.slug === 'tarrant' ? 'Tarrant County' : esc(W.name)}${W.partial ? ', Tarrant County voters only' : ''}, from the county voter file of ${dlabel(W.file_date)}.</p>
+    <div class="stats"><div><b class="num">${wn(W.reg)}</b><span>registered voters</span></div><div><b class="num">${wp(W.g22[1], W.g22[0])}</b><span>voted in the 2022 midterm</span></div><div><b class="num">${wn(W.sat)}</b><span>sat out both 2022 and 2024</span></div></div>
+    <p class="note">March 2026 primaries: <b class="num">${wn(W.p26[0])}</b> Democratic ballots, <b class="num">${wn(W.p26[1])}</b> Republican.${!W.partial && W.reg ? ` Cash on hand works out to ${perV(R.period.coh / W.reg)} per registered voter for ${esc(R.short)} and ${perV(Dm.period.coh / W.reg)} for ${esc(Dm.short)}.` : ''} <a href="${W.href}">Full electorate profile ›</a></p></section>`;
+
   $('#app').insertAdjacentHTML('beforeend', `
   <header>
     <div class="eyebrow"><span>${/^Texas /.test(D.office) ? '' : 'Texas · '}${esc(D.office)}</span><span>${esc(M.election)}</span></div>
@@ -128,6 +136,7 @@
     </div>
   </section>
   ${notes ? `<section class="notes" aria-label="Notes on this race">${notes}</section>` : ''}
+  ${who}
   <section aria-labelledby="pie-h"><h2 id="pie-h"></h2>
     <p class="sub">Each campaign\u2019s itemized contributions ${SINCE}. The ten biggest donors each get a slice; everyone else is grouped into All others. Hover or tap a slice for details.</p>
     <div class="pies"><div class="pie-panel" id="pie-r"></div><div class="pie-panel" id="pie-d"></div></div></section>
