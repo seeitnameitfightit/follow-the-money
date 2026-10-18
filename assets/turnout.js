@@ -146,10 +146,10 @@
     const gtxt = g => `${g >= 0 ? 'D' : 'R'}+${Math.abs(g).toFixed(1)}`;
     const kinds = Object.keys(W.rosters);
     $('#who-sec').hidden = false;
-    $('#who-h').textContent = `Who has voted so far: ${pc1(WA.dropoff / WA.n)} skipped the 2022 midterm after voting in 2024, and ${pc1(WA.new22 / WA.n)} registered since 2022`;
+    $('#who-h').textContent = `Who has voted so far: ${pc1(WA.dropoff / WA.n)} sat out the 2022 midterm, then voted in 2024, and ${pc1(WA.new22 / WA.n)} registered since 2022`;
     $('#who-sub').textContent = `The ${fmtN(WA.voters)} voters on the county’s lists of ${kinds.map(k => k === 'mail' ? 'returned mail ballots' : 'early voters').join(' and ')}${WA.through ? ` through ${dlab(WA.through)}` : ''}, matched to the voter file by state voter ID (${fmtN(WA.n)} found). Each voter is counted once.`;
     $('#who-kv').innerHTML = [
-      ['Voted in 2024 but skipped the 2022 midterm', WA.dropoff, REG.dropoff],
+      ['Sat out the 2022 midterm, then voted in 2024', WA.dropoff, REG.dropoff],
       ['Registered since the 2022 midterm', WA.new22, REG.new22],
       ['On the rolls in 2022 but did not vote', WA.skipped22, REG.skipped22],
       ['Under 50', WA.age[0] + WA.age[1], REG.age[0] + REG.age[1]],
