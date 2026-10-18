@@ -35,7 +35,7 @@
   if (n) {
     const s22 = same(2022, n).total, s18 = same(2018, n).total, s24 = same(2024, n).total;
     h1 = `Day ${n}: ${fmtN(last.total)} Tarrant County voters have cast ballots, ${vs(last.total, s22)} the 2022 pace`;
-    dek = `That’s <b class="num">${pc1(last.total / C.registered)}</b> of registered voters after ${n} day${n > 1 ? 's' : ''} of early voting. At the same point, 2022 had <b class="num">${fmtN(s22)}</b>, 2018 had <b class="num">${fmtN(s18)}</b> and the 2024 presidential election had <b class="num">${fmtN(s24)}</b>.`;
+    dek = `That’s <b class="num">${pc1(last.total / C.registered)}</b> of registered voters after ${n} day${n > 1 ? 's' : ''} of early voting. At the same point, 2018 had <b class="num">${fmtN(s18)}</b>, 2022 had <b class="num">${fmtN(s22)}</b> and the 2024 presidential election had <b class="num">${fmtN(s24)}</b>.`;
   } else {
     h1 = 'Early voting for the Nov 3 general election starts Monday, Oct 19';
     dek = `This page will track Tarrant County ballots each day of early voting against the last two midterms and the 2024 presidential election.${mailNow ? ` <b class="num">${fmtN(mailNow)}</b> mail ballots are already back.` : ''}`;
@@ -47,7 +47,7 @@
     tile(pc1(last.total / C.registered), 'of registered voters'), tile(fmtK(last.ev), `voted in person on Day ${n}`), tile(fmtK(y22.final_total), 'total 2022 votes, for scale')
   ] : [
     tile(fmtK(C.registered), 'registered voters today'), tile(fmtK(mailNow), 'mail ballots returned so far'), tile('12', 'days of early voting, Oct 19–30'),
-    tile(fmtK(y22.final_total), 'voted in the 2022 midterm'), tile(fmtK(y18.final_total), 'voted in the 2018 midterm'), tile(fmtK(y24.final_total), 'voted in 2024')
+    tile(fmtK(y18.final_total), 'voted in the 2018 midterm'), tile(fmtK(y22.final_total), 'voted in the 2022 midterm'), tile(fmtK(y24.final_total), 'voted in 2024')
   ];
 
   const app = $('#app');
@@ -59,9 +59,9 @@
   <section aria-labelledby="pace-h"><h2 id="pace-h">${n ? 'Ballots in, day by day, against past elections' : 'How past elections built up, day by day'}</h2>
     <p class="sub">Early votes in person plus mail ballots returned, added up through each day of early voting. Days are lined up by their place in the 12-day early voting period. The last point for past years is the final count, including Election Day.</p>
     <div class="seg" role="group" aria-label="Measure"><button type="button" id="m-n" aria-pressed="true">Ballots</button><button type="button" id="m-p" aria-pressed="false">Share of registered voters</button></div>
-    <div class="legend">${[2026, 2022, 2018, 2024].map(y => `<span><i class="sw" style="background:${COL[y]}"></i>${y}${y === 2024 ? ' (presidential)' : ''}</span>`).join('')}</div>
+    <div class="legend">${[2018, 2022, 2024, 2026].map(y => `<span><i class="sw" style="background:${COL[y]}"></i>${y}${y === 2024 ? ' (presidential)' : ''}</span>`).join('')}</div>
     <div class="chart" id="pace"></div>${MARK}</section>
-  <section aria-labelledby="tab-h"><h2 id="tab-h">Day by day</h2><p class="sub">Ballots in so far (early in person plus mail), at the same point in each election.</p>
+  <section aria-labelledby="tab-h"><h2 id="tab-h">Day by day</h2><p class="sub">Ballots in so far (early in person plus mail), at the same point in each election. Percentages show where 2026 stands against each past year.</p>
     <div style="overflow-x:auto"><table class="ntab" id="days"></table></div></section>
   <section aria-labelledby="mail-h"><h2 id="mail-h">Mail ballots</h2><p class="sub" id="mail-sub"></p><ul class="kv" id="mail"></ul></section>
   <section aria-labelledby="who-h" id="who-sec" hidden><h2 id="who-h"></h2><p class="sub" id="who-sub"></p>
@@ -70,7 +70,7 @@
     <div class="sizebar" id="who" style="margin-top:20px"></div>${MARK}</section>
   <section aria-labelledby="fin-h"><h2 id="fin-h">How past elections finished</h2><p class="sub">Official totals. Most Tarrant County ballots are cast before Election Day: the early vote is the bulk of the race.</p>
     <div style="overflow-x:auto"><table class="ntab"><thead><tr><th>Election</th><th class="r">In person early</th><th class="r">Mail</th><th class="r">Election Day</th><th class="r">Total</th><th class="r">Turnout</th><th class="r">Before E-Day</th></tr></thead><tbody>
-    ${[...Y].reverse().map(y => { const m = y.modes || { early: y.ev_total, mail: y.mail_total, eday: y.eday, total: y.final_total };
+    ${[...Y].sort((a, b) => a.year - b.year).map(y => { const m = y.modes || { early: y.ev_total, mail: y.mail_total, eday: y.eday, total: y.final_total };
       const before = (m.early + m.mail) / (m.early + m.mail + m.eday);
       return `<tr><td>${y.year} ${y.kind.toLowerCase()}</td><td class="r num">${fmtN(m.early)}</td><td class="r num">${fmtN(m.mail)}</td><td class="r num">${fmtN(m.eday)}</td><td class="r num"><b>${fmtN(y.final_total)}</b></td><td class="r num">${pc1(y.final_total / y.registered)}</td><td class="r num">${pc1(before)}</td></tr>`; }).join('')}
     </tbody></table></div></section>
@@ -114,7 +114,7 @@
     const tip = $('#p-tip', box);
     box.querySelectorAll('.d-hit').forEach(h => {
       const show = () => { const d = +h.dataset.d, s = box.getBoundingClientRect().width / W;
-        tip.innerHTML = `<b>Day ${d} of early voting</b>` + [C, y22, y18, y24].filter(y => y.rows[d - 1]).map(y => `<div class="t-row"><span><i class="sw" style="background:${COL[y.year]}"></i> ${y.year} · ${dlab(y.rows[d - 1].date).slice(4)}</span><span>${fmtN(y.rows[d - 1].total)} · ${pc1(y.rows[d - 1].total / y.registered)}</span></div>`).join('');
+        tip.innerHTML = `<b>Day ${d} of early voting</b>` + [y18, y22, y24, C].filter(y => y.rows[d - 1]).map(y => `<div class="t-row"><span><i class="sw" style="background:${COL[y.year]}"></i> ${y.year} · ${dlab(y.rows[d - 1].date).slice(4)}</span><span>${fmtN(y.rows[d - 1].total)} · ${pc1(y.rows[d - 1].total / y.registered)}</span></div>`).join('');
         tip.style.opacity = 1; tipPos(tip, box, x(d) * s, 20); };
       const hide = () => { tip.style.opacity = 0; };
       h.addEventListener('mouseenter', show); h.addEventListener('mouseleave', hide);
@@ -126,17 +126,17 @@
 
   // ---------- day table
   const diff = (a, b) => { if (a == null || !b) return ''; const r = a / b - 1; return `<small style="color:${r >= 0 ? 'var(--ink)' : 'var(--ink-3)'}">${r >= 0 ? '+' : '−'}${Math.abs(r * 100).toFixed(0)}%</small>`; };
-  $('#days').innerHTML = `<thead><tr><th>Day</th><th>2026</th><th class="r">2026 in</th><th class="r">2022</th><th class="r">2018</th><th class="r">2024</th></tr></thead><tbody>${
+  $('#days').innerHTML = `<thead><tr><th>Day</th><th>Date (2026)</th><th class="r">2018</th><th class="r">2022</th><th class="r">2024</th><th class="r">2026</th></tr></thead><tbody>${
     D.ev_days_2026.map((d, i) => { const r = C.rows[i], a = r ? r.total : null, s22 = same(2022, i + 1).total, s18 = same(2018, i + 1).total, s24 = same(2024, i + 1).total;
-      return `<tr><td>${i + 1}</td><td>${dlab(d)}</td><td class="r num">${r ? `<b>${fmtN(a)}</b>` : '<span style="color:var(--ink-3)">—</span>'}</td><td class="r num">${fmtN(s22)} ${diff(a, s22)}</td><td class="r num">${fmtN(s18)} ${diff(a, s18)}</td><td class="r num">${fmtN(s24)} ${diff(a, s24)}</td></tr>`; }).join('')}</tbody>`;
+      return `<tr><td>${i + 1}</td><td>${dlab(d)}</td><td class="r num">${fmtN(s18)} ${diff(a, s18)}</td><td class="r num">${fmtN(s22)} ${diff(a, s22)}</td><td class="r num">${fmtN(s24)} ${diff(a, s24)}</td><td class="r num">${r ? `<b>${fmtN(a)}</b>` : '<span style="color:var(--ink-3)">—</span>'}</td></tr>`; }).join('')}</tbody>`;
 
   // ---------- mail
   const refOut = lastMailDate ? daysOut(lastMailDate, C.election) : Math.max(todayOut, 0);
   $('#mail-sub').textContent = mailNow
     ? `Mail ballots returned in 2026 through ${dlab(lastMailDate)}, ${refOut} days before Election Day, against the same point in past elections.`
     : `Mail ballots returned by this many days before Election Day in past elections. 2026 figures appear once the county posts its mail ballot report.`;
-  $('#mail').innerHTML = (mailNow ? `<li><span><b>2026</b></span><span>${fmtN(mailNow)}</span></li>` : '') +
-    [y22, y18, y24].map(y => `<li><span>${y.year} at ${refOut} days out <small>final ${fmtN(y.mail_total)}</small></span><span>${fmtN(mailBy(y, refOut))}</span></li>`).join('');
+  $('#mail').innerHTML = [y18, y22, y24].map(y => `<li><span>${y.year} at ${refOut} days out <small>final ${fmtN(y.mail_total)}</small></span><span>${fmtN(mailBy(y, refOut))}</span></li>`).join('') +
+    (mailNow ? `<li><span><b>2026</b></span><span><b>${fmtN(mailNow)}</b></span></li>` : '');
 
   // ---------- who has voted (county voter-level lists matched to the voter file)
   const W = C.who, WA = W && W.all;
