@@ -103,8 +103,21 @@
     const mx = Math.max(of22, c22 || 0, 0.01);
     return `<section aria-labelledby="sf-h"><h2 id="sf-h">${fmtN(SF.voted)} ${isCounty ? 'Tarrant County' : ''} voters ${isCounty ? '' : 'here '}have voted so far in the 2026 general election</h2>
       <p class="sub">Mail ballots returned and early votes cast${SF.through ? ` through ${dlabel(SF.through)}` : ''}, from the county’s daily lists. That’s ${pc(SF.voted, SF.reg)} of registered voters ${isCounty ? 'in the county' : 'here'}, and ${pc1(of22)} of the number who voted ${isCounty ? '' : 'here '}in the entire 2022 midterm.${pace}</p>
-      <div class="hb"><div class="hb-row"><span class="hb-l">Share of 2022 total</span><span class="hb-t"><i style="width:${Math.min(100, of22 / mx * 100)}%;background:var(--ink)"></i>${c22 && !isCounty ? `<em style="left:${Math.min(100, c22 / mx * 100)}%"></em>` : ''}</span><span class="hb-v num">${pc1(of22)}</span></div></div>
-      ${!isCounty ? '<p class="note"><i class="cmk"></i> marks the countywide figure.</p>' : ''}<p class="note"><a href="${up}turnout/index.html">2026 Turnout Tracker ›</a></p>${MARK}</section>`;
+      <div class="hb"><div class="hb-row"><span class="hb-l">Of 2022 total</span><span class="hb-t"><i style="width:${Math.min(100, of22 / mx * 100)}%;background:var(--ink)"></i>${c22 && !isCounty ? `<em style="left:${Math.min(100, c22 / mx * 100)}%"></em>` : ''}</span><span class="hb-v num">${pc1(of22)}</span></div></div>
+      ${!isCounty ? '<p class="note"><i class="cmk"></i> marks the countywide figure.</p>' : ''}${leanHtml()}<p class="note"><a href="${up}turnout/index.html">2026 Turnout Tracker ›</a></p>${MARK}</section>`;
+    // primary history of the voters so far (D / neither / R), against the area's 2022 early and mail voters
+    function leanHtml() {
+      const ok = a => a && a.length === 3 && a.every(v => v != null), sum = a => a[0] + a[1] + a[2];
+      if (!ok(SF.lean) || sum(SF.lean) < 50) return '';
+      const gt = a => { const g = (a[0] - a[1]) / sum(a) * 100; return `${g >= 0 ? 'D' : 'R'}+${Math.abs(g).toFixed(1)}`; };
+      const row = (lab, a) => { const t = sum(a), seg = (v, col, txt) => v > 0 ? `<div class="sb-seg" style="flex:${v / t} 1 0;background:${col};color:${col === 'var(--grid)' ? 'var(--ink)' : '#fff'}">${v / t >= .12 ? txt + ' ' + Math.round(v / t * 100) + '%' : ''}</div>` : '';
+        return `<div class="sb-row"><div class="sb-label"><b>${lab}</b><span class="num">${fmtN(t)} · ${gt(a)}</span></div><div class="sb-track" style="height:22px">${seg(a[0], 'var(--dem)', 'D')}${seg(a[2], 'var(--grid)', 'Neither')}${seg(a[1], 'var(--rep)', 'R')}</div></div>`; };
+      const rows = [['2026 so far', SF.lean]];
+      if (ok(SF.lean22) && sum(SF.lean22) >= 50) rows.push(['2022 early and mail voters', SF.lean22]);
+      if (!isCounty && CSF && ok(CSF.lean)) rows.push(['2026 so far, all of Tarrant County', CSF.lean]);
+      return `<h3 style="margin:18px 0 4px">Who has voted ${isCounty ? '' : 'here '}so far, by primary history</h3><div class="sizebar">${rows.map(([l, a]) => row(l, a)).join('')}</div>
+        <p class="note">The most recent party primary each voter chose since 2022: Democratic, Republican, or neither. A primary ballot is not a November vote and this is not a forecast; the large 2026 Democratic primary also makes 2026 voters look more Democratic on this measure than 2022 voters.</p>`;
+    }
   })();
   const resultsHtml = seatHtml + primaryHtml + (G.results || []).filter(rs => rs.kind !== 'primary').map(rs => {
     const pres = rs.contests.find(c => c.contest === 'President') || rs.contests[0], x = pres ? split(pres) : null;
