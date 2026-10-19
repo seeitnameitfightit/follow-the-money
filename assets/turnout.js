@@ -67,6 +67,14 @@
     <div class="legend">${[2018, 2022, 2024, 2026].map(y => `<span><i class="sw" style="background:${y === 2024 ? `repeating-linear-gradient(45deg, ${COL[y]} 0 2px, var(--surface) 2px 4px); box-shadow: inset 0 0 0 1px ${COL[y]}` : COL[y]}"></i>${y}${y === 2024 ? ' (presidential)' : ''}</span>`).join('')}</div>
     <p class="note" id="day-call"></p>
     <div class="chart" id="byday"></div>${MARK}</section>
+  <section aria-labelledby="tx-h" id="tx-sec" hidden><h2 id="tx-h"></h2>
+    <p class="sub">Early votes in person plus mail ballots, added up through each day, as a share of registered voters. Both Tarrant and the state are measured with the Texas Secretary of State’s daily county counts, so Tarrant’s numbers here can differ slightly from the county’s own reports above. “Rest of Texas” is every other county combined.</p>
+    <p class="note" id="tx-call"></p>
+    <div class="legend" id="tx-leg"></div>
+    <div class="chart" id="tx"></div>
+    <h3 style="margin-top:22px">Tarrant and the other big counties, through Day <select id="tx-day" aria-label="Early voting day"></select></h3>
+    <div style="overflow-x:auto"><table class="ntab" id="tx-tab"></table></div>
+    <p class="note" id="tx-foot"></p>${MARK}</section>
   <section aria-labelledby="tab-h"><h2 id="tab-h">Day by day</h2><p class="sub">Ballots in so far (early in person plus mail), at the same point in each election. Percentages show where 2026 stands against each past year.</p>
     <div style="overflow-x:auto"><table class="ntab" id="days"></table></div></section>
   <section aria-labelledby="mail-h"><h2 id="mail-h">Mail ballots</h2><p class="sub" id="mail-sub"></p><ul class="kv" id="mail"></ul></section>
@@ -174,6 +182,80 @@
   const setB = k => { bmode = k; $('#b-n').setAttribute('aria-pressed', k === 'n'); $('#b-p').setAttribute('aria-pressed', k === 'p'); drawDays(); };
   $('#b-n').onclick = () => setB('n'); $('#b-p').onclick = () => setB('p');
 
+
+  // ---------- Tarrant against Texas (Secretary of State county counts)
+  const S = D.state || {}, SY = Object.keys(S).map(Number).sort((a, b) => a - b);
+  const sRow = (y, d) => S[y] && S[y].rows.find(r => r.day === d);
+  const share = c => c[4] / c[0];
+  const restSh = r => (r.c.TOTAL[4] - r.c.TARRANT[4]) / (r.c.TOTAL[0] - r.c.TARRANT[0]);
+  const gapPts = r => (share(r.c.TARRANT) - restSh(r)) * 100;
+  const pts = g => `${g >= 0 ? '+' : '−'}${Math.abs(g).toFixed(1)}`;
+  const aheadTxt = g => `${Math.abs(g).toFixed(1)} point${Math.abs(g).toFixed(1) === '1.0' ? '' : 's'} ${g >= 0 ? 'ahead of' : 'behind'}`;
+  const nS = S[2026] ? S[2026].rows.at(-1).day : 0;
+  const CNAME = k => k === 'TOTAL' ? 'Texas' : k.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+  function drawTx() {
+    const box = $('#tx'), W = box.clientWidth, H = Math.max(220, Math.min(300, W * 0.48)), m = { l: 52, r: 74, t: 14, b: 34 };
+    const ser = SY.map(y => ({ y, p: S[y].rows.map(r => ({ d: r.day, g: gapPts(r) })) }));
+    const gs = ser.flatMap(s => s.p.map(p => p.g));
+    let lo = Math.min(0, ...gs), hi = Math.max(0, ...gs); const padv = Math.max(0.5, (hi - lo) * 0.12); lo = Math.floor(lo - padv); hi = Math.ceil(hi + padv);
+    const x = d => m.l + (d - 1) / 11 * (W - m.l - m.r), yy = g => m.t + (hi - g) / (hi - lo) * (H - m.t - m.b);
+    const step = (hi - lo) <= 4 ? 1 : (hi - lo) <= 10 ? 2 : 5;
+    const ticks = []; for (let g = Math.ceil(lo / step) * step; g <= hi; g += step) ticks.push(g);
+    const ly = {}; ser.map(s => ({ y: s.y, v: yy(s.p.at(-1).g) + 4 })).sort((a, b) => a.v - b.v).forEach((o, i, arr) => { if (i && o.v - arr[i - 1].v < 13) o.v = arr[i - 1].v + 13; ly[o.y] = o.v; });
+    const lines = ser.map(s => { const c = COL[s.y], dash = S[s.y].partial ? '1 4' : DASH[s.y] || '';
+      const path = s.p.map((p, i) => `${i ? 'L' : 'M'}${x(p.d).toFixed(1)},${yy(p.g).toFixed(1)}`).join(''), e = s.p.at(-1);
+      return `<path d="${path}" fill="none" stroke="${c}" stroke-width="${s.y === 2026 ? 3 : 2}" ${dash ? `stroke-dasharray="${dash}"` : ''} stroke-linecap="round" stroke-linejoin="round"/>
+        ${s.y === 2026 ? s.p.map(p => `<circle cx="${x(p.d)}" cy="${yy(p.g)}" r="4" fill="var(--ink)" stroke="var(--surface)" stroke-width="2"/>`).join('') : ''}
+        <text x="${x(e.d) + 7}" y="${ly[s.y]}" font-size="11" fill="var(--ink-2)" class="num">${s.y}${S[s.y].partial ? '*' : ''} ${pts(e.g)}</text>`; }).join('');
+    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Tarrant County's early turnout minus the rest of Texas, in percentage points, by day of early voting">
+      ${ticks.map(g => `<line x1="${m.l}" x2="${W - m.r}" y1="${yy(g)}" y2="${yy(g)}" stroke="${g === 0 ? 'var(--ink-3)' : 'var(--grid)'}"/><text x="${m.l - 8}" y="${yy(g) + 4}" text-anchor="end" font-size="11" fill="var(--ink-3)" class="num">${g === 0 ? 'Even' : pts(g)}</text>`).join('')}
+      <text x="${m.l + 4}" y="${m.t + 4}" font-size="11" fill="var(--ink-3)">↑ Tarrant ahead of the rest of Texas</text><text x="${m.l + 4}" y="${H - m.b - 6}" font-size="11" fill="var(--ink-3)">↓ Tarrant behind</text>
+      ${[1, 3, 5, 7, 9, 12].map(d => `<text x="${x(d)}" y="${H - 14}" text-anchor="middle" font-size="11" fill="var(--ink-3)">Day ${d}</text>`).join('')}
+      ${lines}
+      ${Array.from({ length: 12 }, (_, i) => `<rect x="${x(i + 1) - (W - m.l - m.r) / 22}" y="0" width="${(W - m.l - m.r) / 11}" height="${H - m.b}" fill="transparent" class="x-hit" data-d="${i + 1}"/>`).join('')}
+    </svg><div class="tip" id="x-tip"></div>`;
+    const tip = $('#x-tip', box);
+    box.querySelectorAll('.x-hit').forEach(h => {
+      const show = () => { const d = +h.dataset.d, sc = box.getBoundingClientRect().width / W;
+        tip.innerHTML = `<b>Through Day ${d} of early voting</b>` + SY.filter(y => sRow(y, d)).map(y => { const r = sRow(y, d);
+          return `<div class="t-row"><span><i class="sw" style="background:${COL[y]}"></i> ${y}${S[y].partial ? '*' : ''}</span><span>Tarrant ${pc1(share(r.c.TARRANT))} · rest ${pc1(restSh(r))} · <b>${pts(gapPts(r))}</b></span></div>`; }).join('');
+        tip.style.opacity = 1; tipPos(tip, box, x(d) * sc, 20); };
+      const hide = () => { tip.style.opacity = 0; };
+      h.addEventListener('mouseenter', show); h.addEventListener('mouseleave', hide);
+      h.addEventListener('touchstart', () => { show(); setTimeout(hide, 2500); }, { passive: true });
+    });
+  }
+  function txTable(d) {
+    const keys = [...new Set(SY.flatMap(y => Object.keys((sRow(y, d) || S[y].rows.at(-1)).c)))].filter(k => k !== 'TOTAL');
+    keys.sort((a, b) => a === 'TARRANT' ? -1 : b === 'TARRANT' ? 1 : 0);
+    const has26 = !!sRow(2026, d), base = SY.includes(2022) ? 2022 : null;
+    const cell = (y, k) => { const r = sRow(y, d); const c = r && r.c[k]; return c ? pc1(share(c)) : '<span style="color:var(--ink-3)">—</span>'; };
+    const chg = k => { const a = sRow(2026, d), b = sRow(base, d); if (!a || !b || !a.c[k] || !b.c[k]) return ''; const g = (share(a.c[k]) - share(b.c[k])) * 100; return `${pts(g)} pts`; };
+    $('#tx-tab').innerHTML = `<thead><tr><th>County</th>${SY.map(y => `<th class="r">${y}${S[y].partial ? '*' : ''}</th>`).join('')}${has26 && base ? `<th class="r">2026 vs ${base}</th>` : ''}</tr></thead><tbody>${
+      [...keys, 'TOTAL'].map(k => `<tr${k === 'TARRANT' ? ' style="font-weight:600"' : ''}${k === 'TOTAL' ? ' style="border-top:2px solid var(--grid)"' : ''}><td>${CNAME(k)}</td>${SY.map(y => `<td class="r num">${cell(y, k)}</td>`).join('')}${has26 && base ? `<td class="r num">${chg(k)}</td>` : ''}</tr>`).join('')}</tbody>`;
+  }
+  if (SY.length) {
+    $('#tx-sec').hidden = false;
+    const fin = y => S[y].rows.at(-1);
+    if (nS) {
+      const r = sRow(2026, nS), g = gapPts(r);
+      $('#tx-h').textContent = `Tarrant against Texas: ${pc1(share(r.c.TARRANT))} of Tarrant voters have voted early, against ${pc1(restSh(r))} in the rest of the state`;
+      const past = SY.filter(y => y !== 2026 && !S[y].partial && sRow(y, nS)).map(y => `${y}: ${pts(gapPts(sRow(y, nS)))}`).join(', ');
+      const t = r.c.TARRANT, T = r.c.TOTAL, dayT = t[1] / t[0], dayS = (T[1] - t[1]) / (T[0] - t[0]);
+      $('#tx-call').innerHTML = `Through Day ${nS}, Tarrant is <b>${aheadTxt(g)}</b> the rest of Texas${past ? ` (same day in ${past} points)` : ''}. Tarrant has cast <b class="num">${pc1(T[4] ? t[4] / T[4] : 0)}</b> of all early votes in Texas so far, with <b class="num">${pc1(t[0] / T[0])}</b> of the state’s registered voters. On Day ${nS} alone, <b class="num">${pc1(dayT)}</b> of Tarrant’s registered voters voted in person, against <b class="num">${pc1(dayS)}</b> in the rest of Texas.`;
+    } else {
+      $('#tx-h').textContent = 'Tarrant against Texas in past elections';
+      $('#tx-call').innerHTML = SY.filter(y => !S[y].partial).map(y => { const r = fin(y); return `By the end of early voting in ${y}, <b class="num">${pc1(share(r.c.TARRANT))}</b> of Tarrant’s registered voters had voted, against <b class="num">${pc1(restSh(r))}</b> in the rest of Texas (${pts(gapPts(r))} points).`; }).join(' ') + ' 2026 appears here once the state posts its first daily count.';
+    }
+    $('#tx-leg').innerHTML = SY.map(y => `<span><i class="sw" style="background:${COL[y]}"></i>${y}${y === 2024 ? ' (presidential)' : ''}${S[y].partial ? '*' : ''}</span>`).join('') + '<span style="color:var(--ink-3)">Points ahead of (+) or behind (−) the rest of Texas</span>';
+    const part = SY.filter(y => S[y].partial);
+    $('#tx-foot').innerHTML = `Share of registered voters who have voted early (in person plus mail) through the chosen day. Source: Texas Secretary of State, early voting by county.` +
+      (part.length ? ` *${part.join(', ')}: the state tracked only its ${S[part[0]].counties} largest counties, so “Texas” and “rest of Texas” mean those counties combined.` : '');
+    const dsel = $('#tx-day'), dflt = nS || 12;
+    dsel.innerHTML = Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}"${i + 1 === dflt ? ' selected' : ''}>${i + 1}</option>`).join('');
+    dsel.onchange = () => txTable(+dsel.value); txTable(dflt);
+  }
+
   // ---------- day table
   const diff = (a, b) => { if (a == null || !b) return ''; const r = a / b - 1; return `<small style="color:${r >= 0 ? 'var(--ink)' : 'var(--ink-3)'}">${r >= 0 ? '+' : '−'}${Math.abs(r * 100).toFixed(0)}%</small>`; };
   $('#days').innerHTML = `<thead><tr><th>Day</th><th>Date (2026)</th><th class="r">2018</th><th class="r">2022</th><th class="r">2024</th><th class="r">2026</th></tr></thead><tbody>${
@@ -217,6 +299,7 @@
       return `<tr><td>${+c}</td><td class="r num">${fmtN(t)}</td><td class="r num">${t ? gtxt((a[0] - a[1]) / t * 100) : '—'}</td><td class="r num">${tb ? gtxt((b[0] - b[1]) / tb * 100) : '—'}</td></tr>`; }).join('')}</tbody>`;
   }
 
-  draw(); drawDays();
-  let rt; if (window.ResizeObserver) new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(() => { draw(); drawDays(); }, 80); }).observe(app);
+  const drawAll = () => { draw(); drawDays(); if (SY.length) drawTx(); };
+  drawAll();
+  let rt; if (window.ResizeObserver) new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(drawAll, 80); }).observe(app);
 })();
