@@ -108,6 +108,13 @@
     <li>Early voting ran 12 days each year, Monday through the Friday before Election Day, including one Sunday. 2026: Oct 19–30.</li>
   </ul><a href="https://seeitnameitfightit.com" target="_blank" rel="noopener">${esc(M.org)}</a> · <a href="../index.html">Follow the Money</a> · <a href="../electorate/index.html">The Electorate</a></footer>`);
 
+  // ---------- section order (reads as a story): scorecard, build-up, each day, who has voted, Texas, day-by-day table,
+  // sites, mail, past finishes. Sections are moved after they are written, so each keeps its own markup above.
+  ['pace-h', 'day-h', 'who-h', 'tx-h', 'tab-h', 'site-h', 'mail-h', 'fin-h'].forEach(id => {
+    const sec = app.querySelector(`section[aria-labelledby="${id}"]`), foot = app.querySelector('footer');
+    if (sec && foot) app.insertBefore(sec, foot);
+  });
+
   // ---------- pace chart
   let mode = 'n';
   function series(y) {
