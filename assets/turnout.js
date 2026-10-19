@@ -76,6 +76,17 @@
     <h3 style="margin-top:22px">Tarrant and the other big counties, through Day <select id="tx-day" aria-label="Early voting day"></select></h3>
     <div style="overflow-x:auto"><table class="ntab" id="tx-tab"></table></div>
     <p class="note" id="tx-foot"></p>${MARK}</section>
+  <section aria-labelledby="site-h" id="site-sec" hidden><h2 id="site-h"></h2>
+    <p class="sub" id="site-sub"></p>
+    <div class="ctl-row" style="display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;margin:4px 0 6px">
+      <div class="seg" role="group" aria-label="Measure" style="margin:0"><button type="button" id="st-n" aria-pressed="true">Votes</button><button type="button" id="st-p" aria-pressed="false">Share of county</button></div>
+      <label style="font-size:13px;color:var(--ink-2)">Through Day <select id="st-day"></select></label>
+      <label style="font-size:13px;color:var(--ink-2)">Change compared with <select id="st-base"></select></label>
+      <label style="font-size:13px;color:var(--ink-2)"><input type="checkbox" id="st-all"> Include sites used only once</label>
+    </div>
+    <p class="note" id="site-call"></p>
+    <div style="overflow-x:auto"><table class="ntab" id="site-tab"></table></div><button type="button" id="st-more" class="more" style="margin-top:8px;font:inherit;font-size:13px;font-weight:600;border:1px solid var(--rule);background:var(--surface);color:var(--ink);padding:6px 12px;border-radius:6px;cursor:pointer" hidden></button>
+    <p class="note">Voters can use any early voting site in the county, so a site’s count depends partly on which other sites were open nearby that year. “Share of county” is the site’s portion of all in-person early votes in the county through the same day, which takes out the difference between a presidential year and a midterm. Some sites were open only part of the period. Sites renamed between elections (for example the Southwest Sub-Courthouse, now the Dionne Phillips Bagsby Southwest Subcourthouse) are matched; a site that moved to a different building is listed separately.</p>${MARK}</section>
   <section aria-labelledby="tab-h"><h2 id="tab-h">Day by day</h2><p class="sub">Ballots in so far (early in person plus mail), at the same point in each election. Percentages show where 2026 stands against each past year.</p>
     <div style="overflow-x:auto"><table class="ntab" id="days"></table></div></section>
   <section aria-labelledby="mail-h"><h2 id="mail-h">Mail ballots</h2><p class="sub" id="mail-sub"></p><ul class="kv" id="mail"></ul></section>
@@ -279,6 +290,65 @@
     dsel.onchange = () => txTable(+dsel.value); txTable(dflt);
   }
 
+
+  // ---------- early voting sites through the years
+  const SP = D.sites || {}, CS = C.sites || null;
+  const ST = { ...Object.fromEntries(Object.entries(SP).map(([y, v]) => [+y, v])), ...(CS ? { 2026: CS } : {}) };
+  const STY = Object.keys(ST).map(Number).sort((a, b) => a - b);
+  const nSite = CS ? Object.values(CS)[0].length : 0;
+  let stMode = CS ? 'n' : 'p', stSort = { k: 'base', dir: -1 }, stOpen = false;
+  function siteTable() {
+    const d = +$('#st-day').value, base = +$('#st-base').value, last = STY.at(-1), showAll = $('#st-all').checked;
+    const upTo = (y, nm) => { const a = ST[y][nm]; if (!a || (y === 2026 && d > nSite)) return null; return a.slice(0, Math.min(d, a.length)).reduce((x, v) => x + v, 0); };
+    const cTot = {}; STY.forEach(y => { cTot[y] = y === 2026 && d > nSite ? null : Object.values(ST[y]).reduce((t, a) => t + a.slice(0, d).reduce((x, v) => x + v, 0), 0); });
+    const val = (y, nm) => { const v = upTo(y, nm); return v == null ? null : stMode === 'n' ? v : v / cTot[y]; };
+    const names = [...new Set(STY.flatMap(y => Object.keys(ST[y])))];
+    const used = nm => STY.filter(y => ST[y][nm]).length;
+    const rows = names.filter(nm => showAll || used(nm) >= 2).map(nm => {
+      const v = Object.fromEntries(STY.map(y => [y, val(y, nm)])); const a = v[last], b = v[base];
+      const ch = a != null && b != null && b > 0 && last !== base ? (stMode === 'n' ? a / b - 1 : (a - b) * 100) : null;
+      return { nm, v, ch, n: used(nm) };
+    });
+    const key = r => stSort.k === 'name' ? r.nm : stSort.k === 'base' ? (r.ch ?? -1e9) : (r.v[stSort.k] ?? -1);
+    rows.sort((a, b) => { const x = key(a), y = key(b); return (typeof x === 'string' ? x.localeCompare(y) : x - y) * stSort.dir; });
+    const fmt = v => v == null ? '<span style="color:var(--ink-3)">—</span>' : stMode === 'n' ? fmtN(v) : (v * 100).toFixed(1) + '%';
+    const chTxt = c => c == null ? '' : stMode === 'n' ? `${c >= 0 ? '+' : '−'}${Math.abs(c * 100).toFixed(0)}%` : `${c >= 0 ? '+' : '−'}${Math.abs(c).toFixed(1)} pts`;
+    const spark = r => { const vals = STY.map(y => r.v[y]), mx = Math.max(...vals.map(v => v || 0)) || 1, bw = 7;
+      return `<svg width="${STY.length * (bw + 2)}" height="18" aria-hidden="true" style="vertical-align:middle">${vals.map((v, i) => v == null ? '' : `<rect x="${i * (bw + 2)}" y="${18 - Math.max(1, v / mx * 18)}" width="${bw}" height="${Math.max(1, v / mx * 18)}" fill="${y2c(STY[i])}" rx="1"/>`).join('')}</svg>`; };
+    function y2c(y) { return y === 2024 ? 'url(#hatch24s)' : COL[y]; }
+    const arrow = k => stSort.k === k ? (stSort.dir < 0 ? ' ↓' : ' ↑') : '';
+    const narrow = app.clientWidth < 560, COLS = narrow && last !== base ? [base, last] : STY;   // phones: just the two years being compared
+    $('#site-tab').innerHTML = `<thead><tr><th data-k="name" style="cursor:pointer">Site${arrow('name')}</th>${COLS.map(y => `<th class="r" data-k="${y}" style="cursor:pointer">${y}${arrow(String(y))}</th>`).join('')}${narrow ? '' : '<th aria-label="Trend"></th>'}${last !== base ? `<th class="r" data-k="base" style="cursor:pointer">${last} vs ${base}${arrow('base')}</th>` : ''}</tr></thead><tbody>${
+      rows.slice(0, stOpen ? rows.length : 15).map(r => `<tr><td style="min-width:${narrow ? 130 : 170}px;overflow-wrap:normal">${esc(r.nm)}</td>${COLS.map(y => `<td class="r num">${fmt(r.v[y])}</td>`).join('')}${narrow ? '' : `<td>${spark(r)}</td>`}${last !== base ? `<td class="r num"${r.ch != null ? ` style="color:${r.ch >= 0 ? 'var(--ink)' : 'var(--ink-3)'}"` : ''}>${chTxt(r.ch)}</td>` : ''}</tr>`).join('')}
+      <tr style="border-top:2px solid var(--grid)"><td><b>All sites</b></td>${COLS.map(y => `<td class="r num"><b>${cTot[y] == null ? '—' : stMode === 'n' ? fmtN(cTot[y]) : '100%'}</b></td>`).join('')}${narrow ? '' : '<td></td>'}${last !== base ? `<td class="r num">${stMode === 'n' && cTot[base] && cTot[last] != null ? chTxt(cTot[last] / cTot[base] - 1) : ''}</td>` : ''}</tr></tbody>`;
+    const more = $('#st-more'); more.hidden = rows.length <= 15; more.textContent = stOpen ? 'Show fewer sites' : `Show all ${rows.length} sites`; more.onclick = () => { stOpen = !stOpen; siteTable(); };
+    $('#site-tab').querySelectorAll('th[data-k]').forEach(th => th.onclick = () => { const k = th.dataset.k; stSort = { k, dir: stSort.k === k ? -stSort.dir : (k === 'name' ? 1 : -1) }; siteTable(); });
+    // summary sentence
+    const both = rows.filter(r => r.v[last] != null && r.v[base] != null && last !== base);
+    if (both.length) {
+      const up = both.filter(r => (stMode === 'n' ? r.v[last] / r.v[base] - 1 : r.v[last] - r.v[base]) >= 0).length;
+      const byCh = [...both].sort((a, b) => b.ch - a.ch);
+      const nm = r => `${esc(r.nm)} (${chTxt(r.ch)})`, low = byCh.slice(-3).reverse();
+      $('#site-call').innerHTML = `Through Day ${d}, <b>${up} of ${both.length}</b> sites used in both ${base} and ${last} drew ${stMode === 'n' ? 'more early voters' : 'a bigger share of the county’s early vote'} in ${last}. Biggest gains: ${byCh.slice(0, 3).map(nm).join(', ')}. ${low.every(r => r.ch >= 0) ? 'Smallest gains' : 'Biggest drops'}: ${low.map(nm).join(', ')}.`;
+    } else $('#site-call').textContent = '';
+  }
+  if (STY.length >= 2) {
+    $('#site-sec').hidden = false;
+    $('#site-h').textContent = CS ? `Early voting sites: Day ${nSite} against the same sites in past elections` : 'Early voting sites: how turnout changed at the same locations';
+    const cnt = y => Object.keys(ST[y]).length, past = STY.filter(y => y !== 2026);
+    const every = Object.keys(ST[past[0]]).filter(nm => past.every(y => ST[y][nm])).length;
+    $('#site-sub').textContent = `In-person early votes at each voting location, added up through the chosen day. The county used ${STY.map(y => `${cnt(y)} sites in ${y}`).join(', ')}; ${every} were used in every one of ${past.join(', ')}. Click a column heading to sort.`;
+    $('#st-day').innerHTML = Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}"${i + 1 === (nSite || 12) ? ' selected' : ''}>${i + 1}</option>`).join('');
+    const bases = STY.slice(0, -1);
+    $('#st-base').innerHTML = bases.map(y => `<option value="${y}"${y === (CS ? 2022 : bases.at(-1)) ? ' selected' : ''}>${y}</option>`).join('');
+    $('#st-n').setAttribute('aria-pressed', stMode === 'n'); $('#st-p').setAttribute('aria-pressed', stMode === 'p');
+    const setSt = k => { stMode = k; $('#st-n').setAttribute('aria-pressed', k === 'n'); $('#st-p').setAttribute('aria-pressed', k === 'p'); siteTable(); };
+    $('#st-n').onclick = () => setSt('n'); $('#st-p').onclick = () => setSt('p');
+    ['#st-day', '#st-base', '#st-all'].forEach(q => $(q).onchange = siteTable);
+    document.body.insertAdjacentHTML('beforeend', `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><pattern id="hatch24s" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="4" height="4" fill="var(--surface)"/><rect width="2" height="4" fill="${COL[2024]}"/></pattern></defs></svg>`);
+    siteTable();
+  }
+
   // ---------- day table
   const diff = (a, b) => { if (a == null || !b) return ''; const r = a / b - 1; return `<small style="color:${r >= 0 ? 'var(--ink)' : 'var(--ink-3)'}">${r >= 0 ? '+' : '−'}${Math.abs(r * 100).toFixed(0)}%</small>`; };
   $('#days').innerHTML = `<thead><tr><th>Day</th><th>Date (2026)</th><th class="r">2018</th><th class="r">2022</th><th class="r">2024</th><th class="r">2026</th></tr></thead><tbody>${
@@ -322,7 +392,7 @@
       return `<tr><td>${+c}</td><td class="r num">${fmtN(t)}</td><td class="r num">${t ? gtxt((a[0] - a[1]) / t * 100) : '—'}</td><td class="r num">${tb ? gtxt((b[0] - b[1]) / tb * 100) : '—'}</td></tr>`; }).join('')}</tbody>`;
   }
 
-  const drawAll = () => { draw(); drawDays(); if (SY.length) drawTx(); };
+  const drawAll = () => { draw(); drawDays(); if (SY.length) drawTx(); if (STY.length >= 2) siteTable(); };
   drawAll();
   let rt; if (window.ResizeObserver) new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(drawAll, 80); }).observe(app);
 })();
