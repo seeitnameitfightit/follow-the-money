@@ -61,6 +61,12 @@
     <div class="seg" role="group" aria-label="Measure"><button type="button" id="m-n" aria-pressed="true">Ballots</button><button type="button" id="m-p" aria-pressed="false">Share of registered voters</button></div>
     <div class="legend">${[2018, 2022, 2024, 2026].map(y => `<span><i class="sw" style="background:${COL[y]}"></i>${y}${y === 2024 ? ' (presidential)' : ''}</span>`).join('')}</div>
     <div class="chart" id="pace"></div>${MARK}</section>
+  <section aria-labelledby="day-h"><h2 id="day-h">${n ? `Each day on its own: Day ${n} against the same day in past elections` : 'Each day on its own, in past elections'}</h2>
+    <p class="sub">People who voted in person on each day of early voting, not added up. This shows whether a single day beat the same day in past elections. Mail ballots are left out because they arrive on their own schedule. Day 7 is the Sunday each year.</p>
+    <div class="seg" role="group" aria-label="Measure"><button type="button" id="b-n" aria-pressed="true">Voters</button><button type="button" id="b-p" aria-pressed="false">Share of registered voters</button></div>
+    <div class="legend">${[2018, 2022, 2024, 2026].map(y => `<span><i class="sw" style="background:${y === 2024 ? `repeating-linear-gradient(45deg, ${COL[y]} 0 2px, var(--surface) 2px 4px); box-shadow: inset 0 0 0 1px ${COL[y]}` : COL[y]}"></i>${y}${y === 2024 ? ' (presidential)' : ''}</span>`).join('')}</div>
+    <p class="note" id="day-call"></p>
+    <div class="chart" id="byday"></div>${MARK}</section>
   <section aria-labelledby="tab-h"><h2 id="tab-h">Day by day</h2><p class="sub">Ballots in so far (early in person plus mail), at the same point in each election. Percentages show where 2026 stands against each past year.</p>
     <div style="overflow-x:auto"><table class="ntab" id="days"></table></div></section>
   <section aria-labelledby="mail-h"><h2 id="mail-h">Mail ballots</h2><p class="sub" id="mail-sub"></p><ul class="kv" id="mail"></ul></section>
@@ -124,6 +130,50 @@
   const setMode = k => { mode = k; $('#m-n').setAttribute('aria-pressed', k === 'n'); $('#m-p').setAttribute('aria-pressed', k === 'p'); draw(); };
   $('#m-n').onclick = () => setMode('n'); $('#m-p').onclick = () => setMode('p');
 
+
+  // ---------- each day on its own (in-person early votes that day)
+  let bmode = 'n';
+  function drawDays() {
+    const box = $('#byday'), W = box.clientWidth, H = Math.max(240, Math.min(320, W * 0.52)), m = { l: 52, r: 12, t: 14, b: 34 };
+    const yrs = [y18, y22, y24, C];
+    const val = (y, r) => !r ? null : bmode === 'n' ? r.ev : r.ev / y.registered;
+    const max = niceMax(Math.max(...yrs.flatMap(y => y.rows.map(r => val(y, r)))));
+    const fv = v => bmode === 'n' ? fmtK(v) : (v * 100).toFixed(v * 100 < 10 ? 1 : 0) + '%';
+    const gw = (W - m.l - m.r) / 12, pad = Math.max(2, gw * 0.14), bw = (gw - pad * 2) / 4;
+    const yy = v => m.t + (1 - v / max) * (H - m.t - m.b);
+    const ticks = [0, max / 4, max / 2, max * 3 / 4, max];
+    let bars = '';
+    for (let d = 1; d <= 12; d++) yrs.forEach((y, k) => { const v = val(y, y.rows[d - 1]); if (v == null) return;
+      const x0 = m.l + (d - 1) * gw + pad + k * bw;
+      bars += `<rect x="${(x0 + 0.5).toFixed(1)}" y="${yy(v).toFixed(1)}" width="${Math.max(1, bw - 1).toFixed(1)}" height="${(yy(0) - yy(v)).toFixed(1)}" fill="${y.year === 2024 ? 'url(#hatch24)' : COL[y.year]}" ${y.year === 2024 ? `stroke="${COL[2024]}" stroke-width="1"` : ''} rx="1"/>`; });
+    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="In-person early votes cast each day, 2026 against 2018, 2022 and 2024">
+      <defs><pattern id="hatch24" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="var(--surface)"/><rect width="2.5" height="5" fill="${COL[2024]}"/></pattern></defs>
+      ${ticks.map(v => `<line x1="${m.l}" x2="${W - m.r}" y1="${yy(v)}" y2="${yy(v)}" stroke="var(--grid)"/><text x="${m.l - 8}" y="${yy(v) + 4}" text-anchor="end" font-size="11" fill="var(--ink-3)" class="num">${fv(v)}</text>`).join('')}
+      ${bars}
+      ${Array.from({ length: 12 }, (_, i) => `<text x="${m.l + (i + 0.5) * gw}" y="${H - 14}" text-anchor="middle" font-size="11" fill="var(--ink-3)">${W < 520 ? i + 1 : 'Day ' + (i + 1)}</text>`).join('')}
+      ${Array.from({ length: 12 }, (_, i) => `<rect x="${m.l + i * gw}" y="0" width="${gw}" height="${H - m.b}" fill="transparent" class="b-hit" data-d="${i + 1}"/>`).join('')}
+    </svg><div class="tip" id="b-tip"></div>`;
+    const tip = $('#b-tip', box);
+    box.querySelectorAll('.b-hit').forEach(h => {
+      const show = () => { const d = +h.dataset.d, s = box.getBoundingClientRect().width / W, now = C.rows[d - 1];
+        tip.innerHTML = `<b>Day ${d} of early voting, in person</b>` + yrs.filter(y => y.rows[d - 1]).map(y => { const r = y.rows[d - 1];
+          const cmp = now && y !== C ? ` <small>${now.ev >= r.ev ? '2026 +' : '2026 −'}${Math.abs((now.ev / r.ev - 1) * 100).toFixed(0)}%</small>` : '';
+          return `<div class="t-row"><span><i class="sw" style="background:${COL[y.year]}"></i> ${y.year} · ${dlab(r.date).slice(4)}</span><span>${fmtN(r.ev)} · ${pc1(r.ev / y.registered)}${cmp}</span></div>`; }).join('');
+        tip.style.opacity = 1; tipPos(tip, box, (m.l + (d - 0.5) * gw) * s, 20); };
+      const hide = () => { tip.style.opacity = 0; };
+      h.addEventListener('mouseenter', show); h.addEventListener('mouseleave', hide);
+      h.addEventListener('touchstart', () => { show(); setTimeout(hide, 2500); }, { passive: true });
+    });
+  }
+  (function dayCall() {
+    const c = $('#day-call'); if (!n) { c.hidden = true; return; }
+    const r = C.rows[n - 1];
+    const parts = [[2022, same(2022, n).ev], [2018, same(2018, n).ev], [2024, same(2024, n).ev]].map(([yr, b]) => { const x = r.ev / b - 1; return `${x >= 0 ? 'beat' : 'trailed'} ${yr} by <b class="num">${Math.abs(x * 100).toFixed(0)}%</b>`; });
+    c.innerHTML = `Day ${n} (${dlab(r.date)}): <b class="num">${fmtN(r.ev)}</b> people voted in person. That ${parts[0]}, ${parts[1]} and ${parts[2]} on the same day.`;
+  })();
+  const setB = k => { bmode = k; $('#b-n').setAttribute('aria-pressed', k === 'n'); $('#b-p').setAttribute('aria-pressed', k === 'p'); drawDays(); };
+  $('#b-n').onclick = () => setB('n'); $('#b-p').onclick = () => setB('p');
+
   // ---------- day table
   const diff = (a, b) => { if (a == null || !b) return ''; const r = a / b - 1; return `<small style="color:${r >= 0 ? 'var(--ink)' : 'var(--ink-3)'}">${r >= 0 ? '+' : '−'}${Math.abs(r * 100).toFixed(0)}%</small>`; };
   $('#days').innerHTML = `<thead><tr><th>Day</th><th>Date (2026)</th><th class="r">2018</th><th class="r">2022</th><th class="r">2024</th><th class="r">2026</th></tr></thead><tbody>${
@@ -167,6 +217,6 @@
       return `<tr><td>${+c}</td><td class="r num">${fmtN(t)}</td><td class="r num">${t ? gtxt((a[0] - a[1]) / t * 100) : '—'}</td><td class="r num">${tb ? gtxt((b[0] - b[1]) / tb * 100) : '—'}</td></tr>`; }).join('')}</tbody>`;
   }
 
-  draw();
-  let rt; if (window.ResizeObserver) new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(draw, 80); }).observe(app);
+  draw(); drawDays();
+  let rt; if (window.ResizeObserver) new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(() => { draw(); drawDays(); }, 80); }).observe(app);
 })();
