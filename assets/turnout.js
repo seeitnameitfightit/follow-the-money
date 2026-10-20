@@ -279,6 +279,8 @@
   if (SY.length) {
     $('#tx-sec').hidden = false;
     const r0 = nS ? sRow(2026, nS) : null;
+    // the state posts its county counts about a day after the county does, so this section can trail the rest of the page
+    if (n && nS && nS < n) $('#tx-sec .sub').insertAdjacentHTML('beforeend', ` <b>The state’s figures run about a day behind the county’s: ${nS ? `this section is through Day ${nS}` : '2026 appears once the state posts its first daily count'}, while the rest of this page is through Day ${n}.</b>`);
     $('#tx-h').textContent = r0
       ? `Tarrant against Texas: ${pc1(share(r0.c.TARRANT))} of Tarrant voters have voted early, against ${pc1(restSh(r0))} in the rest of the state`
       : 'Tarrant against Texas in past elections';
@@ -334,9 +336,13 @@
     const both = rows.filter(r => r.v[last] != null && r.v[base] != null && last !== base);
     if (both.length) {
       const up = both.filter(r => (stMode === 'n' ? r.v[last] / r.v[base] - 1 : r.v[last] - r.v[base]) >= 0).length;
-      const byCh = [...both].sort((a, b) => b.ch - a.ch);
-      const nm = r => `${esc(r.nm)} (${chTxt(r.ch)})`, low = byCh.slice(-3).reverse();
-      $('#site-call').innerHTML = `Through Day ${d}, <b>${up} of ${both.length}</b> sites used in both ${base} and ${last} drew ${stMode === 'n' ? 'more early voters' : 'a bigger share of the county’s early vote'} in ${last}. Biggest gains: ${byCh.slice(0, 3).map(nm).join(', ')}. ${low.every(r => r.ch >= 0) ? 'Smallest gains' : 'Biggest drops'}: ${low.map(nm).join(', ')}.`;
+      // gains and drops: leave out sites with a tiny base, where a few hundred votes read as a huge percentage
+      const big = both.filter(r => stMode === 'p' || (upTo(base, r.nm) || 0) >= 250 * d);
+      const byCh = [...big].sort((a, b) => b.ch - a.ch), drops = byCh.filter(r => r.ch < 0).reverse().slice(0, 3);
+      const nm = r => `${esc(r.nm)} (${chTxt(r.ch)})`;
+      $('#site-call').innerHTML = `Through Day ${d}, <b>${up} of ${both.length}</b> sites used in both ${base} and ${last} drew ${stMode === 'n' ? 'more early voters' : 'a bigger share of the county’s early vote'} in ${last}.` +
+        (byCh.length ? ` Biggest gains${stMode === 'n' ? ' among the busier sites' : ''}: ${byCh.filter(r => r.ch >= 0).slice(0, 3).map(nm).join(', ')}.` : '') +
+        (drops.length ? ` ${drops.length === 1 ? 'Only drop' : 'Biggest drops'}: ${drops.map(nm).join(', ')}.` : byCh.length ? ` Smallest gains: ${byCh.slice(-3).reverse().map(nm).join(', ')}.` : '');
     } else $('#site-call').textContent = '';
   }
   if (STY.length >= 2) {
