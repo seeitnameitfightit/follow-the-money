@@ -68,7 +68,7 @@
     <p class="note" id="day-call"></p>
     <div class="chart" id="byday"></div>${MARK}</section>
   <section aria-labelledby="tx-h" id="tx-sec" hidden><h2 id="tx-h"></h2>
-    <p class="sub">Early votes in person plus mail ballots, added up through each day, as a share of registered voters. Both Tarrant and the state are measured with the Texas Secretary of State’s daily county counts, so Tarrant’s numbers here can differ slightly from the county’s own reports above.</p>
+    <p class="sub">In-person early votes, added up through each day, as a share of registered voters. Mail ballots are left out here because many counties are slow to report them to the state. Past years use the Texas Secretary of State’s daily county counts for Tarrant and every other county, so Tarrant’s numbers here can differ slightly from the county’s own reports above.</p>
     <div class="seg" role="group" aria-label="Compare Tarrant with" id="tx-seg" hidden><button type="button" id="tx-all" aria-pressed="true">Rest of Texas</button><button type="button" id="tx-big" aria-pressed="false"></button></div>
     <p class="note" id="tx-call"></p>
     <div class="legend" id="tx-leg"></div>
@@ -209,8 +209,8 @@
   const NB = Math.max(0, ...SY.map(y => S[y].basis_n || 0));
   let txB = 'TOTAL';
   const sRow = (y, d) => S[y] && S[y].rows.find(r => r.day === d);
-  const share = c => c[4] / c[0];
-  const restSh = r => (r.c[txB][4] - r.c.TARRANT[4]) / (r.c[txB][0] - r.c.TARRANT[0]);
+  const share = c => c[2] / c[0];          // in-person early votes so far, as a share of registered voters
+  const restSh = r => (r.c[txB][2] - r.c.TARRANT[2]) / (r.c[txB][0] - r.c.TARRANT[0]);
   const gapPts = r => (share(r.c.TARRANT) - restSh(r)) * 100;
   const txYears = () => SY.filter(y => txB === 'BASIS' ? S[y].rows.every(r => r.c.BASIS) : !S[y].partial);
   const restName = () => txB === 'BASIS' ? `the other ${NB - 1} largest counties` : 'the rest of Texas';
@@ -226,7 +226,7 @@
     const x = d => m.l + (d - 1) / 11 * (W - m.l - m.r), yy = g => m.t + (hi - g) / (hi - lo) * (H - m.t - m.b);
     const step = (hi - lo) <= 4 ? 1 : (hi - lo) <= 10 ? 2 : 5;
     const ticks = []; for (let g = Math.ceil(lo / step) * step; g <= hi; g += step) ticks.push(g);
-    const ly = {}; ser.map(s => ({ y: s.y, v: yy(s.p.at(-1).g) + 4 })).sort((a, b) => a.v - b.v).forEach((o, i, arr) => { if (i && o.v - arr[i - 1].v < 13) o.v = arr[i - 1].v + 13; ly[o.y] = o.v; });
+    const ly = {}; ser.map(s => ({ y: s.y, v: yy(s.p.at(-1).g) + (s.y === 2026 ? -9 : 4) })).sort((a, b) => a.v - b.v).forEach((o, i, arr) => { if (i && o.v - arr[i - 1].v < 13) o.v = arr[i - 1].v + 13; ly[o.y] = o.v; });
     const lines = ser.map(s => { const c = COL[s.y], dash = DASH[s.y] || '';
       const path = s.p.map((p, i) => `${i ? 'L' : 'M'}${x(p.d).toFixed(1)},${yy(p.g).toFixed(1)}`).join(''), e = s.p.at(-1);
       return `<path d="${path}" fill="none" stroke="${c}" stroke-width="${s.y === 2026 ? 3 : 2}" ${dash ? `stroke-dasharray="${dash}"` : ''} stroke-linecap="round" stroke-linejoin="round"/>
@@ -254,13 +254,17 @@
     const ys = txYears(), fin = y => S[y].rows.at(-1), rn = restName();
     if (nS) {
       const r = sRow(2026, nS), g = gapPts(r);
-      const past = ys.filter(y => y !== 2026 && sRow(y, nS)).map(y => `${y}: ${pts(gapPts(sRow(y, nS)))}`).join(', ');
+      // 2026 compares Tarrant with the counties that have reported; past years on that day use the same counties
+      const cmpGap = y => { const c = txB === 'TOTAL' && r.cmp && r.cmp[y]; if (!c) return gapPts(sRow(y, nS)); const [t0, a] = c; return (share(t0) - (a[2] - t0[2]) / (a[0] - t0[0])) * 100; };
+      const past = ys.filter(y => y !== 2026 && sRow(y, nS)).map(y => `${y}: ${pts(cmpGap(String(y)))}`).join(', ');
       const t = r.c.TARRANT, T = r.c[txB], dayT = t[1] / t[0], dayS = (T[1] - t[1]) / (T[0] - t[0]);
-      $('#tx-call').innerHTML = `Through Day ${nS}, Tarrant is <b>${aheadTxt(g)}</b> ${rn}${past ? ` (same day in ${past} points)` : ''}.` +
-        (txB === 'TOTAL' ? ` Tarrant has cast <b class="num">${pc1(t[4] / T[4])}</b> of all early votes in Texas so far, with <b class="num">${pc1(t[0] / T[0])}</b> of the state’s registered voters.` : '') +
-        ` On Day ${nS} alone, <b class="num">${pc1(dayT)}</b> of Tarrant’s registered voters voted in person, against <b class="num">${pc1(dayS)}</b> in ${rn}.`;
+      const rp = txB === 'TOTAL' && r.rep, rn2 = rp ? 'the other Texas counties that have reported' : rn;
+      $('#tx-call').innerHTML = `Through Day ${nS}, Tarrant is <b>${aheadTxt(g)}</b> ${rn2}${past ? ` (same day in ${past} points${rp ? ', measured on the same counties' : ''})` : ''}.` +
+        (txB === 'TOTAL' && !r.rep ? ` Tarrant has cast <b class="num">${pc1(t[2] / T[2])}</b> of all in-person early votes in Texas so far, with <b class="num">${pc1(t[0] / T[0])}</b> of the state’s registered voters.` : '') +
+        (txB === 'TOTAL' && r.rep ? ` The state has usable counts from <b>${r.rep} of 254 counties</b> for Day ${nS}${r.unrep && r.unrep.length ? `; not yet reported or incomplete: ${r.unrep.map(CNAME).join(', ')}${r.rep < 250 ? ' and others' : ''}` : ''}.${r.src === 'county' ? ' Tarrant’s 2026 figure comes from the county’s own report because the state’s was incomplete.' : ''}${r.fed && r.fed.length ? ` ${r.fed.map(CNAME).join(' and ')} ${r.fed.length > 1 ? 'come' : 'comes'} from ${r.fed.length > 1 ? 'those counties’ own reports' : 'the county’s own report'}, because the state’s figure was wrong.` : ''}` : '') +
+        ` On Day ${nS} alone, <b class="num">${pc1(dayT)}</b> of Tarrant’s registered voters voted in person, against <b class="num">${pc1(dayS)}</b> in ${rn2}.`;
     } else {
-      $('#tx-call').innerHTML = `Share of registered voters who voted early, Tarrant against ${rn}, by the end of early voting: ` +
+      $('#tx-call').innerHTML = `Share of registered voters who voted early in person, Tarrant against ${rn}, by the end of early voting: ` +
         ys.map(y => { const r = fin(y); return `${y}, <b class="num">${pc1(share(r.c.TARRANT))}</b> to <b class="num">${pc1(restSh(r))}</b> (${pts(gapPts(r))} points)`; }).join('; ') + '. 2026 appears here once the state posts its first daily count.';
     }
     $('#tx-leg').innerHTML = ys.map(y => `<span><i class="sw" style="background:${COL[y]}"></i>${y}${y === 2024 ? ' (presidential)' : ''}</span>`).join('') + `<span style="color:var(--ink-3)">Points ahead of (+) or behind (−) ${rn}</span>`;
@@ -270,8 +274,8 @@
     keys.sort((a, b) => a === 'TARRANT' ? -1 : b === 'TARRANT' ? 1 : 0);
     const totals = [...(NB ? ['BASIS'] : []), 'TOTAL'];
     const has26 = !!sRow(2026, d), base = SY.includes(2022) ? 2022 : null;
-    const val = (y, k) => { const r = sRow(y, d); if (!r || (k === 'TOTAL' && S[y].partial)) return null; const c = r.c[k]; return c ? share(c) : null; };
-    const cell = (y, k) => { const v = val(y, k); return v == null ? '<span style="color:var(--ink-3)">—</span>' : pc1(v); };
+    const val = (y, k) => { const r = sRow(y, d); if (!r || (k === 'TOTAL' && (S[y].partial || r.rep))) return null; const c = r.c[k]; return c ? share(c) : null; };
+    const cell = (y, k) => { const v = val(y, k), r = sRow(y, d); if (v == null && r && r.unrep && r.unrep.includes(k)) return '<span style="color:var(--ink-3)">not reported</span>'; return v == null ? '<span style="color:var(--ink-3)">—</span>' : pc1(v); };
     const chg = k => { const a = val(2026, k), b = val(base, k); return a == null || b == null ? '' : `${pts((a - b) * 100)} pts`; };
     $('#tx-tab').innerHTML = `<thead><tr><th>County</th>${SY.map(y => `<th class="r">${y}</th>`).join('')}${has26 && base ? `<th class="r">2026 vs ${base}</th>` : ''}</tr></thead><tbody>${
       [...keys, ...totals].map((k, i) => `<tr${k === 'TARRANT' ? ' style="font-weight:600"' : ''}${i === keys.length ? ' style="border-top:2px solid var(--grid)"' : ''}><td>${CNAME(k)}</td>${SY.map(y => `<td class="r num">${cell(y, k)}</td>`).join('')}${has26 && base ? `<td class="r num">${chg(k)}</td>` : ''}</tr>`).join('')}</tbody>`;
@@ -282,7 +286,7 @@
     // the state posts its county counts about a day after the county does, so this section can trail the rest of the page
     if (n && nS && nS < n) $('#tx-sec .sub').insertAdjacentHTML('beforeend', ` <b>The state’s figures run about a day behind the county’s: ${nS ? `this section is through Day ${nS}` : '2026 appears once the state posts its first daily count'}, while the rest of this page is through Day ${n}.</b>`);
     $('#tx-h').textContent = r0
-      ? `Tarrant against Texas: ${pc1(share(r0.c.TARRANT))} of Tarrant voters have voted early, against ${pc1(restSh(r0))} in the rest of the state`
+      ? `Tarrant against Texas: ${pc1(share(r0.c.TARRANT))} of Tarrant voters have voted early in person, against ${pc1(restSh(r0))} ${r0.rep ? 'in the Texas counties that have reported' : 'in the rest of the state'}`
       : 'Tarrant against Texas in past elections';
     if (NB) {
       const part = SY.filter(y => S[y].partial);
@@ -292,7 +296,8 @@
     }
     txText();
     const part = SY.filter(y => S[y].partial);
-    $('#tx-foot').innerHTML = `Share of registered voters who have voted early (in person plus mail) through the chosen day. Source: Texas Secretary of State, early voting by county. “Rest of Texas” is every other county combined.` +
+    $('#tx-foot').innerHTML = `Share of registered voters who have voted early in person through the chosen day. Source: Texas Secretary of State, early voting by county. “Rest of Texas” is every other county combined.` +
+      (S[2026] && S[2026].screened ? ' In 2026 many counties report to the state late or only in part, so a county is left out of a day’s comparison when its count is missing or less than half the typical county’s pace against its own 2022 count; the 2022 and 2024 comparisons for that day use the same counties, and the Texas row stays blank until every county has reported.' : '') +
       (part.length ? ` In ${part.join(', ')} the state reported only its ${NB} largest counties, so there is no statewide figure for that year; the “${NB} largest counties” comparison uses those same counties in every year.` : '');
     const dsel = $('#tx-day'), dflt = nS || 12;
     dsel.innerHTML = Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}"${i + 1 === dflt ? ' selected' : ''}>${i + 1}</option>`).join('');
