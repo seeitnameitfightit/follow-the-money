@@ -74,6 +74,7 @@
     <div class="legend" id="tx-leg"></div>
     <div class="chart" id="tx"></div>
     <h3 style="margin-top:22px">Tarrant and the other big counties, through Day <select id="tx-day" aria-label="Early voting day"></select></h3>
+    <div class="seg" role="group" aria-label="Show"><button type="button" id="tt-p" aria-pressed="true">Share of registered voters</button><button type="button" id="tt-n" aria-pressed="false">Votes cast</button></div>
     <div style="overflow-x:auto"><table class="ntab" id="tx-tab"></table></div>
     <p class="note" id="tx-foot"></p>${MARK}</section>
   <section aria-labelledby="site-h" id="site-sec" hidden><h2 id="site-h"></h2>
@@ -269,16 +270,22 @@
     }
     $('#tx-leg').innerHTML = ys.map(y => `<span><i class="sw" style="background:${COL[y]}"></i>${y}${y === 2024 ? ' (presidential)' : ''}</span>`).join('') + `<span style="color:var(--ink-3)">Points ahead of (+) or behind (−) ${rn}</span>`;
   }
+  let ttMode = 'p';
   function txTable(d) {
     const keys = [...new Set(SY.flatMap(y => Object.keys((sRow(y, d) || S[y].rows.at(-1)).c)))].filter(k => k !== 'TOTAL' && k !== 'BASIS');
     keys.sort((a, b) => a === 'TARRANT' ? -1 : b === 'TARRANT' ? 1 : 0);
     const totals = [...(NB ? ['BASIS'] : []), 'TOTAL'];
     const has26 = !!sRow(2026, d), base = SY.includes(2022) ? 2022 : null;
-    const val = (y, k) => { const r = sRow(y, d); if (!r || (k === 'TOTAL' && (S[y].partial || r.rep))) return null; const c = r.c[k]; return c ? share(c) : null; };
-    const cell = (y, k) => { const v = val(y, k), r = sRow(y, d); if (v == null && r && r.unrep && r.unrep.includes(k)) return '<span style="color:var(--ink-3)">not reported</span>'; return v == null ? '<span style="color:var(--ink-3)">—</span>' : pc1(v); };
-    const chg = k => { const a = val(2026, k), b = val(base, k); return a == null || b == null ? '' : `${pts((a - b) * 100)} pts`; };
-    $('#tx-tab').innerHTML = `<thead><tr><th>County</th>${SY.map(y => `<th class="r">${y}</th>`).join('')}${has26 && base ? `<th class="r">2026 vs ${base}</th>` : ''}</tr></thead><tbody>${
-      [...keys, ...totals].map((k, i) => `<tr${k === 'TARRANT' ? ' style="font-weight:600"' : ''}${i === keys.length ? ' style="border-top:2px solid var(--grid)"' : ''}><td>${CNAME(k)}</td>${SY.map(y => `<td class="r num">${cell(y, k)}</td>`).join('')}${has26 && base ? `<td class="r num">${chg(k)}</td>` : ''}</tr>`).join('')}</tbody>`;
+    const N = ttMode === 'n';                  // votes cast instead of share of registered voters
+    const val = (y, k) => { const r = sRow(y, d); if (!r || (k === 'TOTAL' && (S[y].partial || r.rep))) return null; const c = r.c[k]; return c ? (N ? c[2] : share(c)) : null; };
+    const cell = (y, k) => { const v = val(y, k), r = sRow(y, d); if (v == null && r && r.unrep && r.unrep.includes(k)) return '<span style="color:var(--ink-3)">not reported</span>'; return v == null ? '<span style="color:var(--ink-3)">—</span>' : N ? fmtN(v) : pc1(v); };
+    const chg = k => { const a = val(2026, k), b = val(base, k); if (a == null || b == null || !b) return ''; return N ? `${a >= b ? '+' : '−'}${Math.abs((a / b - 1) * 100).toFixed(0)}%` : `${pts((a - b) * 100)} pts`; };
+    // registered voters, newest year the county appears in (any day), to show each county's size
+    const regOf = k => { for (const y of [...SY].reverse()) { if (k === 'TOTAL' && S[y].partial) continue; const r = S[y].rows.find(x => x.c[k]); if (r && !(k === 'TOTAL' && r.rep)) return r.c[k][0]; } return null; };
+    const lastY = has26 ? 2026 : SY.filter(y => !S[y].partial).at(-1) || SY.at(-1), mxv = N ? Math.max(...keys.map(k => val(lastY, k) || 0), 1) : 1;
+    const bar = k => { const v = val(lastY, k); return N && v != null && k !== 'TOTAL' && k !== 'BASIS' ? `<span aria-hidden="true" style="display:inline-block;vertical-align:middle;height:8px;width:${Math.max(2, v / mxv * 90)}px;background:${k === 'TARRANT' ? 'var(--ink)' : 'var(--ink-3)'};border-radius:2px;margin-left:6px"></span>` : ''; };
+    $('#tx-tab').innerHTML = `<thead><tr><th>County</th>${N ? '<th class="r">Registered</th>' : ''}${SY.map(y => `<th class="r">${y}</th>`).join('')}${has26 && base ? `<th class="r">2026 vs ${base}</th>` : ''}${N ? `<th aria-label="${lastY} votes, to scale"></th>` : ''}</tr></thead><tbody>${
+      [...keys, ...totals].map((k, i) => `<tr${k === 'TARRANT' ? ' style="font-weight:600"' : ''}${i === keys.length ? ' style="border-top:2px solid var(--grid)"' : ''}><td style="white-space:nowrap;overflow-wrap:normal">${CNAME(k)}</td>${N ? `<td class="r num" style="color:var(--ink-2)">${regOf(k) ? fmtN(regOf(k)) : '—'}</td>` : ''}${SY.map(y => `<td class="r num">${cell(y, k)}</td>`).join('')}${has26 && base ? `<td class="r num">${chg(k)}</td>` : ''}${N ? `<td style="min-width:96px">${bar(k)}</td>` : ''}</tr>`).join('')}</tbody>`;
   }
   if (SY.length) {
     $('#tx-sec').hidden = false;
@@ -296,12 +303,18 @@
     }
     txText();
     const part = SY.filter(y => S[y].partial);
-    $('#tx-foot').innerHTML = `Share of registered voters who have voted early in person through the chosen day. Source: Texas Secretary of State, early voting by county. “Rest of Texas” is every other county combined.` +
+    const txFoot = () => $('#tx-foot').innerHTML = (ttMode === 'n'
+      ? `In-person early votes cast through the chosen day, next to each county’s registered voters (the newest count available), with bars drawn to scale for the latest year shown.`
+      : `Share of registered voters who have voted early in person through the chosen day.`) + ` Source: Texas Secretary of State, early voting by county. “Rest of Texas” is every other county combined.` +
       (S[2026] && S[2026].screened ? ' In 2026 many counties report to the state late or only in part, so a county is left out of a day’s comparison when its count is missing or less than half the typical county’s pace against its own 2022 count; the 2022 and 2024 comparisons for that day use the same counties, and the Texas row stays blank until every county has reported.' : '') +
       (part.length ? ` In ${part.join(', ')} the state reported only its ${NB} largest counties, so there is no statewide figure for that year; the “${NB} largest counties” comparison uses those same counties in every year.` : '');
+    txFoot();
     const dsel = $('#tx-day'), dflt = nS || 12;
     dsel.innerHTML = Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}"${i + 1 === dflt ? ' selected' : ''}>${i + 1}</option>`).join('');
     dsel.onchange = () => txTable(+dsel.value); txTable(dflt);
+    const setTt = k => { ttMode = k; $('#tt-p').setAttribute('aria-pressed', k === 'p'); $('#tt-n').setAttribute('aria-pressed', k === 'n');
+      txTable(+dsel.value); txFoot(); };
+    $('#tt-p').onclick = () => setTt('p'); $('#tt-n').onclick = () => setTt('n');
   }
 
 
