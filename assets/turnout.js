@@ -408,9 +408,13 @@
       ['Sat out the 2022 midterm, then voted in 2024', WA.dropoff, REG.dropoff],
       ['Registered since the 2022 midterm', WA.new22, REG.new22],
       ['On the rolls in 2022 but did not vote', WA.skipped22, REG.skipped22],
-      ['Under 50', WA.age[0] + WA.age[1], REG.age[0] + REG.age[1]],
-      ['65 or older', WA.age[3], REG.age[3]],
     ].map(([l, v, rv]) => `<li><span>${l} <small>all registered: ${pc1(rv / REG.n)}</small></span><span>${pc1(v / WA.n)}</span></li>`).join('') +
+      // age and sex, each against all registered voters
+      `<li class="kv-h"><span><b>Age</b></span><span></span></li>` +
+      ['18 to 34', '35 to 49', '50 to 64', '65 and older'].map((l, i) => `<li><span>${l} <small>all registered: ${pc1(REG.age[i] / REG.n)}</small></span><span>${pc1(WA.age[i] / WA.n)}</span></li>`).join('') +
+      (WA.sex && REG.sex ? `<li class="kv-h"><span><b>Sex, as recorded</b></span><span></span></li>` +
+        ['Women', 'Men', 'Not recorded'].map((l, i) => `<li><span>${l} <small>all registered: ${pc1(REG.sex[i] / REG.n)}</small></span><span>${pc1(WA.sex[i] / WA.n)}</span></li>`).join('') : '') +
+      `<li class="kv-h"><span><b>How they voted</b></span><span></span></li>` +
       kinds.map(k => `<li><span>${k === 'mail' ? 'Mail ballots' : 'Early in person'}</span><span>${fmtN(W.rosters[k].voters)}</span></li>`).join('');
     // primary history: secondary, with its caveat
     const row = (lab, p) => { const t = p.n || 1, seg = (v, col, txt) => v > 0 ? `<div class="sb-seg" style="flex:${v / t} 1 0;background:${col};color:${col === 'var(--grid)' ? 'var(--ink)' : '#fff'}">${v / t >= .12 ? txt + ' ' + Math.round(v / t * 100) + '%' : ''}</div>` : '';
