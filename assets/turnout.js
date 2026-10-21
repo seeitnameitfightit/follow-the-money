@@ -94,6 +94,9 @@
   <section aria-labelledby="who-h" id="who-sec" hidden><h2 id="who-h"></h2><p class="sub" id="who-sub"></p>
     <div class="two"><div class="panel"><h3>Who they are</h3><ul class="kv" id="who-kv"></ul></div>
     <div class="panel"><h3>By commissioner precinct</h3><table class="ntab" id="who-comm"></table><p class="note">District pages show turnout so far for every precinct, district, city and school district. <a href="../electorate/index.html">The Electorate ›</a></p></div></div>
+    <div id="bloc-wrap" hidden><h3 style="margin:22px 0 4px">By voting history, 2018 to 2026</h3>
+    <p class="note" style="margin-top:0">Each registered voter falls in one group, from the March primaries of 2018, 2020, 2022, 2024 and 2026 and the November generals of 2018, 2020, 2022 and 2024. “Of voters” and “Of registered” show each group’s share of those who have voted and of all registered voters; “Turnout so far” is the share of the group that has already voted.</p>
+    <div style="overflow-x:auto"><table class="ntab" id="bloc"></table></div></div>
     <div class="sizebar" id="who" style="margin-top:20px"></div>${MARK}</section>
   <section aria-labelledby="fin-h"><h2 id="fin-h">How past elections finished</h2><p class="sub">Official totals. Most Tarrant County ballots are cast before Election Day: the early vote is the bulk of the race.</p>
     <div style="overflow-x:auto"><table class="ntab"><thead><tr><th>Election</th><th class="r">In person early</th><th class="r">Mail</th><th class="r">Election Day</th><th class="r">Total</th><th class="r">Turnout</th><th class="r">Before E-Day</th></tr></thead><tbody>
@@ -422,6 +425,22 @@
     $('#who').innerHTML = `<p class="note" style="margin:0">By primary history: the most recent party primary each voter chose since 2022. A primary ballot is not a November vote, and the large 2026 Democratic primary makes every 2026 group look more Democratic on this measure.</p>` +
       row('2026 so far', WA) + kinds.filter(() => kinds.length > 1).map(k => row(`2026 ${k === 'mail' ? 'mail' : 'early in person'}`, W.rosters[k])).join('') +
       Object.entries(B).filter(([, p]) => p).map(([k, p]) => row(k, p)).join('');
+    if (WA.bloc && REG.bloc && WA.bloc.length === 16) {
+      const BL = [['Democratic primaries only'], ['D1', 'Voted in 1'], ['D2', 'Voted in 2'], ['D3', 'Voted in 3'], ['D4', 'Voted in 4'], ['D5', 'Voted in all 5'],
+        ['Republican primaries only'], ['R1', 'Voted in 1'], ['R2', 'Voted in 2'], ['R3', 'Voted in 3'], ['R4', 'Voted in 4'], ['R5', 'Voted in all 5'],
+        ['Both parties’ primaries'], ['MIXD', 'Most recent: Democratic'], ['MIXR', 'Most recent: Republican'],
+        ['Other voters'], ['GEN', 'No primaries; voted in a midterm November'],
+        ['PRES1', 'No primaries; one presidential November only'], ['PRES2', 'No primaries; both presidential Novembers only'], ['NONE', 'No vote on record, 2018 to 2026']];
+      const KEYS = ['D1', 'D2', 'D3', 'D4', 'D5', 'R1', 'R2', 'R3', 'R4', 'R5', 'MIXD', 'MIXR', 'PRES1', 'PRES2', 'GEN', 'NONE'];
+      const at = k => KEYS.indexOf(k), sumK = (p, ks) => ks.reduce((t, k) => t + p.bloc[at(k)], 0);
+      const row = (lab, ks, strong) => { const w = sumK(WA, ks), r = sumK(REG, ks);
+        return `<tr${strong ? ' style="font-weight:600"' : ''}><td style="${strong ? '' : 'padding-left:14px;'}white-space:nowrap">${lab}</td><td class="r num">${fmtN(r)}</td><td class="r num">${fmtN(w)}</td><td class="r num">${pc1(w / WA.n)}</td><td class="r num">${pc1(r / REG.n)}</td><td class="r num">${r ? pc1(w / r) : '—'}</td></tr>`; };
+      const groups = { 'Democratic primaries only': ['D1', 'D2', 'D3', 'D4', 'D5'], 'Republican primaries only': ['R1', 'R2', 'R3', 'R4', 'R5'], 'Both parties’ primaries': ['MIXD', 'MIXR'] };
+      $('#bloc').innerHTML = `<thead><tr><th>Group</th><th class="r">Registered</th><th class="r">Voted</th><th class="r">Of voters</th><th class="r">Of registered</th><th class="r">Turnout so far</th></tr></thead><tbody>${
+        BL.map(([a, b]) => b ? row(b, [a]) : groups[a] ? row(a, groups[a], true) : `<tr><td colspan="6" style="font-weight:600;padding-top:12px">${a}</td></tr>`).join('')}
+        <tr style="border-top:2px solid var(--grid);font-weight:600"><td>Everyone</td><td class="r num">${fmtN(REG.n)}</td><td class="r num">${fmtN(WA.n)}</td><td class="r num">100%</td><td class="r num">100%</td><td class="r num">${pc1(WA.n / REG.n)}</td></tr></tbody>`;
+      $('#bloc-wrap').hidden = false;
+    }
     $('#who-comm').innerHTML = `<thead><tr><th>Pct</th><th class="r">Voted</th><th class="r">Lean</th><th class="r">2022 early + mail</th></tr></thead><tbody>${['01', '02', '03', '04'].map(c => {
       const a = WA.comm[c], t = a[0] + a[1] + a[2], b = ref && ref.comm[c], tb = b ? b[0] + b[1] + b[2] : 0;
       return `<tr><td>${+c}</td><td class="r num">${fmtN(t)}</td><td class="r num">${t ? gtxt((a[0] - a[1]) / t * 100) : '—'}</td><td class="r num">${tb ? gtxt((b[0] - b[1]) / tb * 100) : '—'}</td></tr>`; }).join('')}</tbody>`;
