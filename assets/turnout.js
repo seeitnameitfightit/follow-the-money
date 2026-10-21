@@ -96,6 +96,7 @@
     <div class="panel"><h3>By commissioner precinct</h3><table class="ntab" id="who-comm"></table><p class="note">District pages show turnout so far for every precinct, district, city and school district. <a href="../electorate/index.html">The Electorate ›</a></p></div></div>
     <div id="bloc-wrap" hidden><h3 style="margin:22px 0 4px">By voting history, 2018 to 2026</h3>
     <p class="note" style="margin-top:0">Each registered voter falls in one group, from the March primaries of 2018, 2020, 2022, 2024 and 2026 and the November generals of 2018, 2020, 2022 and 2024. “Of voters” and “Of registered” show each group’s share of those who have voted and of all registered voters; “Turnout so far” is the share of the group that has already voted.</p>
+    <div id="bloc-pies" style="display:flex;flex-wrap:wrap;gap:12px 36px;align-items:center;margin:10px 0 14px"></div>
     <div style="overflow-x:auto"><table class="ntab" id="bloc"></table></div></div>
     <div class="sizebar" id="who" style="margin-top:20px"></div>${MARK}</section>
   <section aria-labelledby="fin-h"><h2 id="fin-h">How past elections finished</h2><p class="sub">Official totals. Most Tarrant County ballots are cast before Election Day: the early vote is the bulk of the race.</p>
@@ -439,6 +440,21 @@
       $('#bloc').innerHTML = `<thead><tr><th>Group</th><th class="r">Registered</th><th class="r">Voted</th><th class="r">Of voters</th><th class="r">Of registered</th><th class="r">Turnout so far</th></tr></thead><tbody>${
         BL.map(([a, b]) => b ? row(b, [a]) : groups[a] ? row(a, groups[a], true) : `<tr><td colspan="6" style="font-weight:600;padding-top:12px">${a}</td></tr>`).join('')}
         <tr style="border-top:2px solid var(--grid);font-weight:600"><td>Everyone</td><td class="r num">${fmtN(REG.n)}</td><td class="r num">${fmtN(WA.n)}</td><td class="r num">100%</td><td class="r num">100%</td><td class="r num">${pc1(WA.n / REG.n)}</td></tr></tbody>`;
+      // pie charts: the five big groups, for those who have voted so far and for all registered voters
+      const BIG = [['Democratic primaries only', ['D1', 'D2', 'D3', 'D4', 'D5'], 'var(--dem)'],
+        ['Republican primaries only', ['R1', 'R2', 'R3', 'R4', 'R5'], 'var(--rep)'],
+        ['Both parties’ primaries', ['MIXD', 'MIXR'], 'color-mix(in srgb, var(--dem) 50%, var(--rep))'],
+        ['Novembers only, no primaries', ['GEN', 'PRES1', 'PRES2'], 'var(--ink-3)'],
+        ['No vote on record', ['NONE'], 'color-mix(in srgb, var(--ink-3) 35%, var(--surface))']];
+      const pie = (p, title, size) => { const tot = p.n, R0 = size / 2, r0 = R0 * 0.56; let a = -Math.PI / 2;
+        const arcs = BIG.map(([l, ks, col]) => { const v = sumK(p, ks), da = v / tot * 2 * Math.PI; if (!v) return '';
+          const a1 = a + Math.min(da, 2 * Math.PI - 1e-4), lg = da > Math.PI ? 1 : 0, P = (r, t) => `${(R0 + r * Math.cos(t)).toFixed(2)},${(R0 + r * Math.sin(t)).toFixed(2)}`;
+          const d = `M${P(R0, a)} A${R0},${R0} 0 ${lg} 1 ${P(R0, a1)} L${P(r0, a1)} A${r0},${r0} 0 ${lg} 0 ${P(r0, a)} Z`; a = a1;
+          return `<path d="${d}" fill="${col}" stroke="var(--surface)" stroke-width="1.5"><title>${l}: ${pc1(v / tot)}</title></path>`; }).join('');
+        return `<figure style="margin:0;text-align:center"><svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" role="img" aria-label="${title} by voting history">${arcs}
+          <text x="${R0}" y="${R0 - 2}" text-anchor="middle" font-size="12" fill="var(--ink-2)">${title.split(' ')[0]}</text><text x="${R0}" y="${R0 + 14}" text-anchor="middle" font-size="12" fill="var(--ink-2)">${title.split(' ').slice(1).join(' ')}</text></svg></figure>`; };
+      $('#bloc-pies').innerHTML = pie(WA, 'Voted so far', 168) + pie(REG, 'All registered', 132) +
+        `<ul class="kv" style="flex:1 1 260px;margin:0">${BIG.map(([l, ks, col]) => `<li><span><i class="sw" style="background:${col}"></i> ${l}</span><span><b class="num">${pc1(sumK(WA, ks) / WA.n)}</b> <small>of registered: ${pc1(sumK(REG, ks) / REG.n)}</small></span></li>`).join('')}</ul>`;
       $('#bloc-wrap').hidden = false;
     }
     $('#who-comm').innerHTML = `<thead><tr><th>Pct</th><th class="r">Voted</th><th class="r">Lean</th><th class="r">2022 early + mail</th></tr></thead><tbody>${['01', '02', '03', '04'].map(c => {
