@@ -115,8 +115,16 @@
       const rows = [['2026 so far', SF.lean]];
       if (ok(SF.lean22) && sum(SF.lean22) >= 50) rows.push(['2022 early and mail voters', SF.lean22]);
       if (!isCounty && CSF && ok(CSF.lean)) rows.push(['2026 so far, all of Tarrant County', CSF.lean]);
-      return `<h3 style="margin:18px 0 4px">Who has voted ${isCounty ? '' : 'here '}so far, by primary history</h3><div class="sizebar">${rows.map(([l, a]) => row(l, a)).join('')}</div>
-        <p class="note">The most recent party primary each voter chose since 2022: Democratic, Republican, or neither. A primary ballot is not a November vote and this is not a forecast; the large 2026 Democratic primary also makes 2026 voters look more Democratic on this measure than 2022 voters.</p>`;
+      // the last general-election result here, for comparison: the seat's own last contested race, or else the 2024 presidential
+      const seatRace = G.seat && G.seat.races.find(r => r.contested);
+      const pres = (G.results || []).filter(rs => rs.kind !== 'primary').map(rs => rs.contests.find(c => c.contest === 'President')).find(Boolean);
+      const L = seatRace || pres, lrs = !seatRace && pres ? (G.results || []).find(rs => rs.contests.includes(pres)) : null;
+      const lastRow = !L ? '' : (() => { const x = split(L), lab = seatRace ? `${L.contest}, ${L.short}` : `President, ${lrs ? lrs.short : '2024'}`;
+        const mg = x.d && x.r ? `${x.ds >= x.rs ? 'D' : 'R'}+${(Math.abs(x.ds - x.rs) * 100).toFixed(1)}` : marg(L);
+        const seg = (v, col, txt, fg) => v > 0 ? `<div class="sb-seg" style="flex:${v} 1 0;background:${col};color:${fg}">${v >= .12 ? txt + ' ' + Math.round(v * 100) + '%' : ''}</div>` : '';
+        return `<div class="sb-row"><div class="sb-label"><b>Result: ${esc(lab)}</b><span class="num">${fmtN(L.total)} votes · ${mg}</span></div><div class="sb-track" style="height:22px">${seg(x.ds, 'var(--dem)', 'D', '#fff')}${seg(x.os, 'var(--grid)', x.ol === 'Others' ? 'Other' : x.ol, 'var(--ink)')}${seg(x.rs, 'var(--rep)', 'R', '#fff')}</div></div>`; })();
+      return `<h3 style="margin:18px 0 4px">Who has voted ${isCounty ? '' : 'here '}so far, by primary history</h3><div class="sizebar">${rows.map(([l, a]) => row(l, a)).join('')}${lastRow}</div>
+        <p class="note">The most recent party primary each voter chose since 2022: Democratic, Republican, or neither. A primary ballot is not a November vote and this is not a forecast; the large 2026 Democratic primary also makes 2026 voters look more Democratic on this measure than 2022 voters.${L ? ` The last bar is the actual November result ${seatRace ? `the last time this seat was contested${L.same_lines ? '' : ' (under the district lines of that election)'}` : `here in the ${lrs ? lrs.short : '2024'} presidential race`}, for comparison.` : ''}</p>`;
     }
   })();
   const resultsHtml = seatHtml + primaryHtml + (G.results || []).filter(rs => rs.kind !== 'primary').map(rs => {
