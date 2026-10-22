@@ -98,7 +98,10 @@
     <p class="note" style="margin-top:0">Each registered voter falls in one group, from the March primaries of 2018, 2020, 2022, 2024 and 2026 and the November generals of 2018, 2020, 2022 and 2024. “Of voters” and “Of registered” show each group’s share of those who have voted and of all registered voters; “Turnout so far” is the share of the group that has already voted.</p>
     <div id="bloc-pies" style="display:flex;flex-wrap:wrap;gap:12px 36px;align-items:center;margin:10px 0 14px"></div>
     <div style="overflow-x:auto"><table class="ntab" id="bloc"></table></div></div>
-    <div class="sizebar" id="who" style="margin-top:20px"></div>${MARK}</section>
+    <div class="sizebar" id="who" style="margin-top:20px"></div>
+    <div id="nei-wrap" hidden><h3 style="margin:22px 0 4px" id="nei-h"></h3>
+      <p class="note" style="margin-top:0">Share of 2026 voters so far with no Democratic or Republican primary on record since 2022, after each day of early voting. The dashed lines show the same share among past electorates: the higher the turnout, the more of these less predictable voters it brings in.</p>
+      <div class="chart" id="nei"></div></div>${MARK}</section>
   <section aria-labelledby="fin-h"><h2 id="fin-h">How past elections finished</h2><p class="sub">Official totals. Most Tarrant County ballots are cast before Election Day: the early vote is the bulk of the race.</p>
     <div style="overflow-x:auto"><table class="ntab"><thead><tr><th>Election</th><th class="r">In person early</th><th class="r">Mail</th><th class="r">Election Day</th><th class="r">Total</th><th class="r">Turnout</th><th class="r">Before E-Day</th></tr></thead><tbody>
     ${[...Y].sort((a, b) => a.year - b.year).map(y => { const m = y.modes || { early: y.ev_total, mail: y.mail_total, eday: y.eday, total: y.final_total };
@@ -384,6 +387,27 @@
     siteTable();
   }
 
+
+  // ---------- "neither" share of 2026 voters, day by day, against past electorates
+  function drawNei() {
+    const NE = D.current.who.neither, box = $('#nei'); $('#nei-wrap').hidden = false;
+    const evs = D.ev_days_2026, pts = NE.series.filter(([d]) => evs.includes(d)).map(([d, n, v]) => ({ x: evs.indexOf(d) + 1, v, n, d }));
+    const last = NE.series.at(-1), refs = Object.entries(NE.ref);
+    $('#nei-h').textContent = `${pc1(last[2])} of 2026 voters so far have no primary on record, against ${pc1(NE.ref['All 2022 voters'])} of all 2022 voters and ${pc1(NE.ref['All 2024 voters'])} of all 2024 voters`;
+    const W = box.clientWidth, H = Math.max(200, Math.min(260, W * 0.42)), m = { l: 40, r: 10, t: 12, b: 30 };
+    const max = Math.max(0.6, ...refs.map(([, v]) => v + 0.05)), x = d => m.l + (d - 1) / 11 * (W - m.l - m.r), yy = v => m.t + (1 - v / max) * (H - m.t - m.b);
+    const short = k => W < 520 ? k.replace('early and mail voters', 'early+mail').replace('All ', 'all ') : k;
+    const path = pts.map((p, i) => `${i ? 'L' : 'M'}${x(p.x).toFixed(1)},${yy(p.v).toFixed(1)}`).join('');
+    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Share of 2026 voters with no primary history, by day of early voting, against past electorates">
+      ${[0, .2, .4, .6].filter(v => v <= max).map(v => `<line x1="${m.l}" x2="${W - m.r}" y1="${yy(v)}" y2="${yy(v)}" stroke="var(--grid)"/><text x="${m.l - 6}" y="${yy(v) + 4}" text-anchor="end" font-size="11" fill="var(--ink-3)" class="num">${v * 100}%</text>`).join('')}
+      ${refs.map(([k, v]) => `<line x1="${m.l}" x2="${W - m.r}" y1="${yy(v)}" y2="${yy(v)}" stroke="${/2024/.test(k) ? COL[2024] : COL[2022]}" stroke-width="1.5" stroke-dasharray="4 4"/><text x="${W - m.r}" y="${yy(v) - 4}" text-anchor="end" font-size="11" fill="var(--ink-2)">${short(k)} <tspan class="num">${pc1(v)}</tspan></text>`).join('')}
+      ${[1, 3, 5, 7, 9, 12].map(d => `<text x="${x(d)}" y="${H - 10}" text-anchor="${d === 1 ? 'start' : d === 12 ? 'end' : 'middle'}" font-size="11" fill="var(--ink-3)">Day ${d}</text>`).join('')}
+      <path d="${path}" fill="none" stroke="var(--ink)" stroke-width="3" stroke-linejoin="round"/>
+      ${pts.map(p => `<circle cx="${x(p.x)}" cy="${yy(p.v)}" r="4" fill="var(--ink)" stroke="var(--surface)" stroke-width="2"><title>Day ${p.x} (${dlab(p.d)}): ${pc1(p.v)} of ${fmtN(p.n)} voters</title></circle>`).join('')}
+      ${pts.length ? `<text x="${x(pts.at(-1).x)}" y="${yy(pts.at(-1).v) - 10}" text-anchor="middle" font-size="12" font-weight="600" fill="var(--ink)" class="num">2026 ${pc1(pts.at(-1).v)}</text>` : ''}
+    </svg>`;
+  }
+
   // ---------- day table
   const diff = (a, b) => { if (a == null || !b) return ''; const r = a / b - 1; return `<small style="color:${r >= 0 ? 'var(--ink)' : 'var(--ink-3)'}">${r >= 0 ? '+' : '−'}${Math.abs(r * 100).toFixed(0)}%</small>`; };
   $('#days').innerHTML = `<thead><tr><th>Day</th><th>Date (2026)</th><th class="r">2018</th><th class="r">2022</th><th class="r">2024</th><th class="r">2026</th></tr></thead><tbody>${
@@ -457,12 +481,13 @@
         `<ul class="kv" style="flex:1 1 260px;margin:0">${BIG.map(([l, ks, col]) => `<li><span><i class="sw" style="background:${col}"></i> ${l}</span><span><b class="num">${pc1(sumK(WA, ks) / WA.n)}</b> <small>of registered: ${pc1(sumK(REG, ks) / REG.n)}</small></span></li>`).join('')}</ul>`;
       $('#bloc-wrap').hidden = false;
     }
+    if (W.neither && W.neither.series.length) drawNei();
     $('#who-comm').innerHTML = `<thead><tr><th>Pct</th><th class="r">Voted</th><th class="r">Lean</th><th class="r">2022 early + mail</th></tr></thead><tbody>${['01', '02', '03', '04'].map(c => {
       const a = WA.comm[c], t = a[0] + a[1] + a[2], b = ref && ref.comm[c], tb = b ? b[0] + b[1] + b[2] : 0;
       return `<tr><td>${+c}</td><td class="r num">${fmtN(t)}</td><td class="r num">${t ? gtxt((a[0] - a[1]) / t * 100) : '—'}</td><td class="r num">${tb ? gtxt((b[0] - b[1]) / tb * 100) : '—'}</td></tr>`; }).join('')}</tbody>`;
   }
 
-  const drawAll = () => { draw(); drawDays(); if (SY.length) drawTx(); if (STY.length >= 2) siteTable(); };
+  const drawAll = () => { draw(); drawDays(); if (SY.length) drawTx(); if (STY.length >= 2) siteTable(); if (C.who && C.who.neither && C.who.neither.series.length) drawNei(); };
   drawAll();
   let rt; if (window.ResizeObserver) new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(drawAll, 80); }).observe(app);
 })();
