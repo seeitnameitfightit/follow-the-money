@@ -37,12 +37,12 @@
 
   const tile = (v, l) => `<div><b class="num">${v}</b><span>${l}</span></div>`;
   const tiles = [
-    tile(fmtK(G.reg), 'registered voters'),
+    tile(fmtK(G.reg), 'active registered voters'),
     tile(pc(g22.voted, g22.elig), 'voted in the Nov 2022 midterm'),
     tile(pc(g24.voted, g24.elig), 'voted in the Nov 2024 presidential'),
-    tile(fmtK(n0(G.active)), 'active registrations'),
-    tile(fmtK(n0(G.inactive)), 'on the suspense list'),
+    tile(fmtK(n0(G.inactive)), 'on the suspense list, not counted here'),
     tile(fmtK(newTot), 'registered since Nov 2022'),
+    tile(fmtK(G.reg + n0(G.inactive)), 'on the rolls, counting suspense'),
   ].join('');
 
   const partialNote = G.partial ? `<section class="notes"><p>${esc(G.name)} reaches beyond Tarrant County. This page covers only the voters on the Tarrant County rolls.</p></section>` : '';
@@ -172,7 +172,8 @@
     <li>Starting with the November 2024 election, the county marks every voter as eligible or ineligible for each election, so those turnout figures leave out voters it marked ineligible. For earlier elections, everyone registered by Election Day is counted as eligible.</li>
     ${M.history_file ? `<li>The county’s October file stops its election history at 2022. Elections from 2018 through 2021, May 2022 and November 2023 come from the county’s July 14, 2026 extract, matched by voter ID; voters who registered after that extract are left out of those elections. In the November 2020 column the county coded Election Day ballots as “P,” and they are counted as votes.</li>` : ''}
     <li>${fmtN(G.redacted)} records with history withheld by the county are left out of the turnout figures.${G.precincts ? ` This area covers ${fmtN(G.precincts)} voting precinct${G.precincts === 1 ? '' : 's'} with registered voters.` : ''}</li>
-    <li>Ages are figured as of ${dlabel(M.as_of)}. “Suspense” voters are on the rolls but the county has mail returned for them; they can still vote.</li>
+    <li>Every figure on this page counts active voters only, which lines up with the Texas Secretary of State’s registration count. ${G.inactive ? `The ${fmtN(G.inactive)} voters here on the county’s suspense list` : 'Voters on the county’s suspense list'} are left out: the county has had mail returned for them, so most have moved. They can still vote, and the county reactivates anyone who does.</li>
+    <li>Ages are figured as of ${dlabel(M.as_of)}.</li>
     ${G.dim === 'city' ? '<li>City boundaries come from the jurisdiction code on each registration, not the mailing city.</li>' : ''}
     <li>Code definitions come from the county’s voter history file layout and district list.</li>
     ${(G.results || []).length ? '<li>Election results are the county’s official canvass by precinct. In 2025 the county renumbered its precincts by changing only the first digit, which now gives the commissioner precinct, so 2024 precinct 1001 is today’s x001. State House, State Board of Education and the Senate seats on the 2024 ballot are added up exactly from the precincts that voted in those races. Every other area is added up by today’s precinct lines; where a precinct is split between districts, its votes are divided by where its November 2024 voters live.' + ((G.results || []).filter(r => r.unplaced).map(r => ` ${fmtN(r.unplaced)} ${r.short} ballots from precincts with no clear successor today are left out of these area totals.`).join('')) + '</li>' : ''}
