@@ -73,8 +73,12 @@
     <p class="note" id="tx-call"></p>
     <div class="legend" id="tx-leg"></div>
     <div class="chart" id="tx"></div>
-    <h3 style="margin-top:22px">Tarrant and the other big counties, through Day <select id="tx-day" aria-label="Early voting day"></select></h3>
-    <div class="seg" role="group" aria-label="Show"><button type="button" id="tt-p" aria-pressed="true">Share of registered voters</button><button type="button" id="tt-n" aria-pressed="false">Votes cast</button></div>
+    <h3 style="margin-top:22px">Tarrant and other Texas counties, through Day <select id="tx-day" aria-label="Early voting day"></select></h3>
+    <div style="display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;margin:2px 0 10px">
+      <div class="seg" role="group" aria-label="Show" style="margin:0"><button type="button" id="tt-p" aria-pressed="true">Share of registered voters</button><button type="button" id="tt-n" aria-pressed="false">Votes cast</button></div>
+      <label style="font-size:13px;color:var(--ink-2)"><input type="checkbox" id="tt-all"> Show all Texas counties</label>
+      <input type="search" id="tt-q" placeholder="Find a county" aria-label="Find a county" hidden style="font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink)">
+    </div>
     <div style="overflow-x:auto"><table class="ntab" id="tx-tab"></table></div>
     <p class="note" id="tx-foot"></p>${MARK}</section>
   <section aria-labelledby="site-h" id="site-sec" hidden><h2 id="site-h"></h2>
@@ -279,16 +283,24 @@
   }
   let ttMode = 'p';
   function txTable(d) {
-    const keys = [...new Set(SY.flatMap(y => Object.keys((sRow(y, d) || S[y].rows.at(-1)).c)))].filter(k => k !== 'TOTAL' && k !== 'BASIS');
-    keys.sort((a, b) => a === 'TARRANT' ? -1 : b === 'TARRANT' ? 1 : 0);
+    const showAll = $('#tt-all') && $('#tt-all').checked, q = showAll ? ($('#tt-q').value || '').trim().toUpperCase() : '';
+    // a county's numbers for this day: the full record for the big counties, or the compact all-county list
+    const getC = (y, k) => { const r = sRow(y, d); if (!r) return null; if (r.c[k]) return r.c[k];
+      const A = S[y].all && S[y].all[k]; if (!A) return null; const v = A[1][S[y].rows.indexOf(r)]; return v == null || !A[0] ? null : [A[0], 0, v, 0, 0]; };
+    const unrepAt = (y, k) => { const r = sRow(y, d); if (!r || y !== 2026) return false; if (r.unrep && r.unrep.includes(k)) return true;
+      const A = S[y].all && S[y].all[k]; return !!A && A[1][S[y].rows.indexOf(r)] == null; };
+    let keys = [...new Set(SY.flatMap(y => Object.keys((sRow(y, d) || S[y].rows.at(-1)).c)))].filter(k => k !== 'TOTAL' && k !== 'BASIS');
+    if (showAll) keys = [...new Set(SY.flatMap(y => Object.keys(S[y].all || {})))].filter(k => !q || k.includes(q) || k === 'TARRANT');   // Tarrant stays in for comparison
+    const regAll = k => { for (const y of [...SY].reverse()) { const A = S[y].all && S[y].all[k]; if (A && A[0]) return A[0]; } return 0; };
+    keys.sort((a, b) => a === 'TARRANT' ? -1 : b === 'TARRANT' ? 1 : showAll ? regAll(b) - regAll(a) : 0);
     const totals = [...(NB ? ['BASIS'] : []), 'TOTAL'];
     const has26 = !!sRow(2026, d), base = SY.includes(2022) ? 2022 : null;
     const N = ttMode === 'n';                  // votes cast instead of share of registered voters
-    const val = (y, k) => { const r = sRow(y, d); if (!r || (k === 'TOTAL' && (S[y].partial || r.rep))) return null; const c = r.c[k]; return c ? (N ? c[2] : share(c)) : null; };
-    const cell = (y, k) => { const v = val(y, k), r = sRow(y, d); if (v == null && r && r.unrep && r.unrep.includes(k)) return '<span style="color:var(--ink-3)">not reported</span>'; return v == null ? '<span style="color:var(--ink-3)">—</span>' : N ? fmtN(v) : pc1(v); };
+    const val = (y, k) => { const r = sRow(y, d); if (!r || (k === 'TOTAL' && (S[y].partial || r.rep))) return null; const c = k === 'TOTAL' || k === 'BASIS' ? r.c[k] : getC(y, k); return c ? (N ? c[2] : share(c)) : null; };
+    const cell = (y, k) => { const v = val(y, k); if (v == null && unrepAt(y, k)) return '<span style="color:var(--ink-3)">not reported</span>'; return v == null ? '<span style="color:var(--ink-3)">—</span>' : N ? fmtN(v) : pc1(v); };
     const chg = k => { const a = val(2026, k), b = val(base, k); if (a == null || b == null || !b) return ''; return N ? `${a >= b ? '+' : '−'}${Math.abs((a / b - 1) * 100).toFixed(0)}%` : `${pts((a - b) * 100)} pts`; };
     // registered voters, newest year the county appears in (any day), to show each county's size
-    const regOf = k => { for (const y of [...SY].reverse()) { if (k === 'TOTAL' && S[y].partial) continue; const r = S[y].rows.find(x => x.c[k]); if (r && !(k === 'TOTAL' && r.rep)) return r.c[k][0]; } return null; };
+    const regOf = k => { for (const y of [...SY].reverse()) { if (k === 'TOTAL' && S[y].partial) continue; const r = S[y].rows.find(x => x.c[k]); if (r && !(k === 'TOTAL' && r.rep)) return r.c[k][0]; } return regAll(k) || null; };
     const lastY = has26 ? 2026 : SY.filter(y => !S[y].partial).at(-1) || SY.at(-1), mxv = N ? Math.max(...keys.map(k => val(lastY, k) || 0), 1) : 1;
     const bar = k => { const v = val(lastY, k); return N && v != null && k !== 'TOTAL' && k !== 'BASIS' ? `<span aria-hidden="true" style="display:inline-block;vertical-align:middle;height:8px;width:${Math.max(2, v / mxv * 90)}px;background:${k === 'TARRANT' ? 'var(--ink)' : 'var(--ink-3)'};border-radius:2px;margin-left:6px"></span>` : ''; };
     $('#tx-tab').innerHTML = `<thead><tr><th>County</th>${N ? '<th class="r">Registered</th>' : ''}${SY.map(y => `<th class="r">${y}</th>`).join('')}${has26 && base ? `<th class="r">2026 vs ${base}</th>` : ''}${N ? `<th aria-label="${lastY} votes, to scale"></th>` : ''}</tr></thead><tbody>${
@@ -322,6 +334,8 @@
     const setTt = k => { ttMode = k; $('#tt-p').setAttribute('aria-pressed', k === 'p'); $('#tt-n').setAttribute('aria-pressed', k === 'n');
       txTable(+dsel.value); txFoot(); };
     $('#tt-p').onclick = () => setTt('p'); $('#tt-n').onclick = () => setTt('n');
+    $('#tt-all').onchange = () => { $('#tt-q').hidden = !$('#tt-all').checked; txTable(+dsel.value); };
+    $('#tt-q').oninput = () => txTable(+dsel.value);
   }
 
 
