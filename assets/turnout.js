@@ -117,6 +117,7 @@
     <li>2018’s daily reports have no Election Day count. Its split by voting method (36,703 mail, 434,029 early, 161,855 Election Day) comes from the county’s official cumulative report.</li>
     <li>Turnout shares use the registration count for each election: ${Y.map(y => `${y.year} ${fmtN(y.registered)}`).join(', ')}, and for 2026 ${C.registered_src === 'state' ? `the Texas Secretary of State’s count of ${fmtN(C.registered)} registered voters in Tarrant County` : `the ${fmtN(C.registered)} active voters on the county’s current voter file`}. Voters on the county’s suspense list (mostly people who have moved) are left out of every comparison on this page unless they have voted.</li>
     <li>“Who has voted” uses the county’s voter-level lists of returned mail ballots and early voters, matched by state voter ID to the voter file, with each voter counted once. Only totals are published. A primary vote shows which ballot a voter chose in a primary, not how they will vote in November.</li>
+    ${C.who && C.who.all && C.who.all.race ? '<li>Race and ethnicity are estimates, not counts: each voter’s chances come from Census surname and first-name data and their Census block, adjusted so each tract matches its citizen voting-age makeup in the American Community Survey, then added up. Only totals are published.</li>' : ''}
     <li>Early voting ran 12 days each year, Monday through the Friday before Election Day, including one Sunday. 2026: Oct 19–30.</li>
   </ul><a href="https://seeitnameitfightit.com" target="_blank" rel="noopener">${esc(M.org)}</a> · <a href="../index.html">Follow the Money</a> · <a href="../electorate/index.html">The Electorate</a></footer>`);
 
@@ -456,6 +457,8 @@
       ['18 to 34', '35 to 49', '50 to 64', '65 and older'].map((l, i) => `<li><span>${l} <small>all registered: ${pc1(REG.age[i] / REG.n)}</small></span><span>${pc1(WA.age[i] / WA.n)}</span></li>`).join('') +
       (WA.sex && REG.sex ? `<li class="kv-h"><span><b>Sex, as recorded</b></span><span></span></li>` +
         ['Women', 'Men', 'Not recorded'].map((l, i) => `<li><span>${l} <small>all registered: ${pc1(REG.sex[i] / REG.n)}</small></span><span>${pc1(WA.sex[i] / WA.n)}</span></li>`).join('') : '') +
+      (WA.race && REG.race ? `<li class="kv-h"><span><b>Race and ethnicity, estimated</b></span><span></span></li>` +
+        ['Hispanic', 'White', 'Black', 'Asian or Pacific Islander', 'Other or multiracial'].map((l, i) => `<li><span>${l} <small>all registered: ${pc1(REG.race[i] / REG.n)}</small></span><span>${pc1(WA.race[i] / WA.n)}</span></li>`).join('') : '') +
       `<li class="kv-h"><span><b>How they voted</b></span><span></span></li>` +
       kinds.map(k => `<li><span>${k === 'mail' ? 'Mail ballots' : 'Early in person'}</span><span>${fmtN(W.rosters[k].voters)}</span></li>`).join('');
     // primary history: secondary, with its caveat

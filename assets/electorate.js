@@ -94,6 +94,19 @@
       <p class="sub">${lines} Official results from the county’s canvass, ${fmtN(r0.precincts)} precincts.</p>
       <div class="sizebar">${S.races.map((r, i) => resRow(Object.assign({}, r, { contest: `${r.contest}, ${r.label.replace(' general election', '')}${i ? ' (last contested race)' : ''}` }), null)).join('')}</div>${MARK}</section>`;
   })();
+  // estimated race and ethnicity (BIFSG estimates summed over voters; only shown once published, see race_bisg.py)
+  const raceHtml = !G.race ? '' : (() => {
+    const RL = ['Hispanic', 'White', 'Black', 'Asian or Pacific Islander', 'Other or multiracial'], tot = G.race.reduce((a, v) => a + n0(v), 0) || 1;
+    const RT = G.race_turnout || {}, tp = (key, i) => RT[key] && RT[key][i] && RT[key][i][0] ? pc(RT[key][i][1], RT[key][i][0]) : '—';
+    const big = G.race.map((v, i) => [i, n0(v)]).sort((a, b) => b[1] - a[1]);
+    const r100 = v => v == null ? '<100' : v < 100 ? '<100' : (Math.round(v / 100) * 100).toLocaleString('en-US');   // estimates: rounded
+    return `<section aria-labelledby="race-h"><h2 id="race-h">An estimated ${pc(big[0][1], tot)} of active voters ${isCounty ? 'in the county' : 'here'} are ${RL[big[0][0]]}, and ${pc(big[1][1], tot)} are ${RL[big[1][0]]}</h2>
+      <p class="sub">Estimates, not counts: the voter file does not record race or ethnicity. Each voter’s chances are figured from Census surname and first-name data and the makeup of their Census block, then adjusted so each Census tract’s totals match its citizen voting-age makeup in the Census Bureau’s American Community Survey, and added up.</p>
+      <div style="overflow-x:auto"><table class="ntab"><thead><tr><th>Group</th><th class="r">Active voters</th><th class="r">Share</th><th class="r">Voted Nov 2022</th><th class="r">Voted Nov 2024</th><th class="r">Voted Mar 2026 primary</th></tr></thead><tbody>
+      ${RL.map((l, i) => `<tr><td>${l}</td><td class="r num">${r100(G.race[i])}</td><td class="r num">${pc(G.race[i], tot)}</td><td class="r num">${tp('g22', i)}</td><td class="r num">${tp('g24', i)}</td><td class="r num">${tp('p26', i)}</td></tr>`).join('')}
+      </tbody></table></div>
+      <p class="note">Voter counts are rounded to the nearest 100 because they are estimates. Turnout is the estimated share of each group’s eligible active voters who voted. The tract adjustment corrects a known tilt (many surnames are shared by Black and White Americans, which on their own push mixed neighborhoods toward White) and assumes each group registers at a similar rate within a tract, so groups that register less often, such as Hispanic voters, may be slightly overstated. Estimates are firmer for large groups and large areas; multiracial voters fold into “other.”</p></section>`;
+  })();
   // 2026 turnout so far (county daily lists of returned mail ballots and early voters)
   const SF = G.so_far, CSF = CTY && CTY.so_far;
   const sofarHtml = !SF || !SF.voted ? '' : (() => {
@@ -158,6 +171,7 @@
     <div class="sizebar" id="prim"></div></section>
   <section aria-labelledby="ag-h"><h2 id="ag-h"></h2><p class="sub" id="ag-sub"></p>
     <div class="seg" role="group" aria-label="Measure" id="ag-seg"></div><div class="hb" id="age"></div>${CTY ? '<p class="note"><i class="cmk"></i> marks the countywide figure.</p>' : ''}</section>
+  ${raceHtml}
   <section aria-labelledby="rg-h"><h2 id="rg-h">How long they’ve been registered</h2><p class="sub">Registered voters by the date of their current registration.</p><div class="hb" id="regb"></div></section>
   <section><div class="two">
     <div class="panel"><h3>Sex, as recorded</h3><ul class="kv">${['Women', 'Men', 'Not recorded'].map((l, i) => `<li><span>${l}</span><span>${fmtS(G.sex[i])} <small>${pc(G.sex[i], G.reg)}</small></span></li>`).join('')}</ul></div>
