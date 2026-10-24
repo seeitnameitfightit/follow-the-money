@@ -142,8 +142,8 @@
     const pct = (a, b) => b ? Math.round(n0(a) / b * 100) + '%' : '—';
     const tp = (k, i) => RT[k] && RT[k][i] && RT[k][i][0] ? pct(RT[k][i][1], RT[k][i][0]) : '—';
     return `<h3 style="margin:20px 0 4px">Race and ethnicity, estimated</h3>
-      <div style="overflow-x:auto"><table class="ntab"><thead><tr><th>Group</th><th class="r">Active voters</th><th class="r">Share</th><th class="r">Voted Nov 2022</th><th class="r">Voted Nov 2024</th></tr></thead><tbody>
-      ${RL.map((l, i) => `<tr><td style="white-space:nowrap">${l}</td><td class="r num">${r100(W.race[i])}</td><td class="r num">${pct(W.race[i], tot)}</td><td class="r num">${tp('g22', i)}</td><td class="r num">${tp('g24', i)}</td></tr>`).join('')}
+      <div style="overflow-x:auto"><table class="ntab race-tab" style="white-space:nowrap"><thead><tr><th>Group</th><th class="r">Active voters</th><th class="r">Share</th><th class="r">Voted Nov 2022</th><th class="r">Voted Nov 2024</th></tr></thead><tbody>
+      ${RL.map((l, i) => `<tr><td style="overflow-wrap:normal">${l}</td><td class="r num">${r100(W.race[i])}</td><td class="r num">${pct(W.race[i], tot)}</td><td class="r num">${tp('g22', i)}</td><td class="r num">${tp('g24', i)}</td></tr>`).join('')}
       </tbody></table></div>
       <p class="note">Estimates, not counts: figured from Census surname and first-name data and each voter’s Census block, adjusted so each tract matches its citizen voting-age makeup, then added up and rounded to the nearest 100. Turnout is the estimated share of each group’s eligible active voters who voted.${W.partial ? ' Tarrant County voters only.' : ''}</p>`;
   };
