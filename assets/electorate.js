@@ -117,7 +117,25 @@
     return `<section aria-labelledby="sf-h"><h2 id="sf-h">${fmtN(SF.voted)} ${isCounty ? 'Tarrant County' : ''} voters ${isCounty ? '' : 'here '}have voted so far in the 2026 general election</h2>
       <p class="sub">Mail ballots returned and early votes cast${SF.through ? ` through ${dlabel(SF.through)}` : ''}, from the county’s daily lists. That’s ${pc(SF.voted, SF.reg)} of registered voters ${isCounty ? 'in the county' : 'here'}, and ${pc1(of22)} of the number who voted ${isCounty ? '' : 'here '}in the entire 2022 midterm.${pace}</p>
       <div class="hb"><div class="hb-row"><span class="hb-l">Of 2022 total</span><span class="hb-t"><i style="width:${Math.min(100, of22 / mx * 100)}%;background:var(--ink)"></i>${c22 && !isCounty ? `<em style="left:${Math.min(100, c22 / mx * 100)}%"></em>` : ''}</span><span class="hb-v num">${pc1(of22)}</span></div></div>
-      ${!isCounty ? '<p class="note"><i class="cmk"></i> marks the countywide figure.</p>' : ''}${leanHtml()}<p class="note"><a href="${up}turnout/index.html">2026 Turnout Tracker ›</a></p>${MARK}</section>`;
+      ${!isCounty ? '<p class="note"><i class="cmk"></i> marks the countywide figure.</p>' : ''}${leanHtml()}${demoHtml()}<p class="note"><a href="${up}turnout/index.html">2026 Turnout Tracker ›</a></p>${MARK}</section>`;
+    // who has voted so far by age, sex and estimated race, against the active voters here
+    function demoHtml() {
+      if (!SF.age || !SF.sex) return '';
+      const z = v => v == null ? 0 : v, vt = SF.age.reduce((a, v) => a + z(v), 0) || 1, gt = G.age.reduce((a, v) => a + z(v), 0) || 1;
+      const p0 = (a, b) => b && a != null ? Math.round(a / b * 100) + '%' : '—';
+      const r10 = v => v == null || v < 10 ? '<10' : (Math.round(v / 10) * 10).toLocaleString('en-US');
+      const row = (l, v, g, vT, gT, est) => `<tr><td style="overflow-wrap:normal">${l}</td><td class="r num">${est ? r10(v) : v == null ? '<10' : fmtN(v)}</td><td class="r num">${p0(v, vT)}</td><td class="r num">${p0(g, gT)}</td><td class="r num">${g && v != null ? p0(v, g) : '—'}</td></tr>`;
+      const grp = l => `<tr><th colspan="5" style="text-align:left;padding-top:12px">${l}</th></tr>`;
+      const sxT = SF.sex.reduce((a, v) => a + z(v), 0) || 1, gsT = G.sex.reduce((a, v) => a + z(v), 0) || 1;
+      let body = grp('Age on Election Day') + M.age_bands.map((b, i) => row(b, SF.age[i], G.age[i], vt, gt)).join('')
+        + grp('Sex, as recorded') + ['Women', 'Men', 'Not recorded'].map((l, i) => row(l, SF.sex[i], G.sex[i], sxT, gsT)).join('');
+      if (SF.race && G.race) { const RL = ['Hispanic', 'White', 'Black', 'Asian or Pacific Islander', 'Other or multiracial'];
+        const rT = SF.race.reduce((a, v) => a + z(v), 0) || 1, gR = G.race.reduce((a, v) => a + z(v), 0) || 1;
+        body += grp('Race and ethnicity, estimated') + RL.map((l, i) => row(l, SF.race[i], G.race[i], rT, gR, true)).join(''); }
+      return `<h3 style="margin:22px 0 4px">Who has voted ${isCounty ? '' : 'here '}so far, by age, sex${SF.race ? ' and race' : ''}</h3>
+        <div style="overflow-x:auto"><table class="ntab race-tab" style="white-space:nowrap"><thead><tr><th>Group</th><th class="r">Voted so far</th><th class="r">Share of voters</th><th class="r">Share of active voters</th><th class="r">Turnout so far</th></tr></thead><tbody>${body}</tbody></table></div>
+        <p class="note">Compare the two share columns: a group whose share of voters is bigger than its share of active voters is turning out ahead of the rest. Turnout so far is each group’s voters so far divided by its active registered voters.${SF.race ? ' Race and ethnicity are estimates (see the race and ethnicity section below), rounded to the nearest 10.' : ''} Counts under 10 are withheld.</p>`;
+    }
     // primary history of the voters so far (D / neither / R), against the area's 2022 early and mail voters
     function leanHtml() {
       const ok = a => a && a.length === 3 && a.every(v => v != null), sum = a => a[0] + a[1] + a[2];

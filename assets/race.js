@@ -133,6 +133,22 @@
     return `<h3 style="margin:20px 0 4px">Who has voted so far, by primary history${SF.through ? ` <small style="font-weight:400;color:var(--ink-3)">through ${dlabel(SF.through)}</small>` : ''}</h3><div class="sizebar">${out}</div>
       <p class="note">The most recent party primary each voter chose since 2022: Democratic, Republican, or neither. A primary ballot is not a November vote and this is not a forecast; the large 2026 Democratic primary also makes 2026 voters look more Democratic on this measure.${C ? ` The last bar is the actual November result ${L ? `the last time this office was contested${L.same_lines === false ? ' (under the district lines of that election)' : ''}` : 'in the 2024 presidential race'}, for comparison.` : ''}</p>`;
   };
+  // who has voted so far by age, sex and estimated race, against the active voters here
+  const whoDemo = () => {
+    const SF = W.so_far; if (!SF || !SF.age || !SF.sex || !W.age || !W.sex || !W.age_bands) return '';
+    const z = v => v == null ? 0 : v, T = a => a.reduce((s, v) => s + z(v), 0) || 1;
+    const p0 = (a, b) => b && a != null ? Math.round(a / b * 100) + '%' : '—';
+    const r10 = v => v == null || v < 10 ? '<10' : (Math.round(v / 10) * 10).toLocaleString('en-US');
+    const row = (l, v, g, vT, gT, est) => `<tr><td style="overflow-wrap:normal">${l}</td><td class="r num">${est ? r10(v) : v == null ? '<10' : fmtN(v)}</td><td class="r num">${p0(v, vT)}</td><td class="r num">${p0(g, gT)}</td><td class="r num">${g && v != null ? p0(v, g) : '—'}</td></tr>`;
+    const grp = l => `<tr><th colspan="5" style="text-align:left;padding-top:12px">${l}</th></tr>`;
+    let body = grp('Age on Election Day') + W.age_bands.map((b, i) => row(b, SF.age[i], W.age[i], T(SF.age), T(W.age))).join('')
+      + grp('Sex, as recorded') + ['Women', 'Men', 'Not recorded'].map((l, i) => row(l, SF.sex[i], W.sex[i], T(SF.sex), T(W.sex))).join('');
+    const rc = SF.race && W.race;
+    if (rc) body += grp('Race and ethnicity, estimated') + ['Hispanic', 'White', 'Black', 'Asian or Pacific Islander', 'Other or multiracial'].map((l, i) => row(l, SF.race[i], W.race[i], T(SF.race), T(W.race), true)).join('');
+    return `<h3 style="margin:20px 0 4px">Who has voted so far, by age, sex${rc ? ' and race' : ''}</h3>
+      <div style="overflow-x:auto"><table class="ntab race-tab" style="white-space:nowrap"><thead><tr><th>Group</th><th class="r">Voted so far</th><th class="r">Share of voters</th><th class="r">Share of active voters</th><th class="r">Turnout so far</th></tr></thead><tbody>${body}</tbody></table></div>
+      <p class="note">A group whose share of voters is bigger than its share of active voters is turning out ahead of the rest. Turnout so far is each group’s voters so far divided by its active registered voters.${rc ? ' Race and ethnicity are estimates, rounded to the nearest 10.' : ''} Counts under 10 are withheld.${W.partial ? ' Tarrant County voters only.' : ''}</p>`;
+  };
   // estimated race and ethnicity of the active voters here (sums of BIFSG estimates; see race_bisg.py)
   const whoRace = () => {
     if (!W.race) return '';
@@ -150,7 +166,7 @@
   const who = !W ? '' : `<section aria-labelledby="who-h"><h2 id="who-h">Who votes here</h2>
     <p class="sub">${W.slug === 'tarrant' ? 'Tarrant County' : esc(W.name)}${W.partial ? ', Tarrant County voters only' : ''}, from the county voter file of ${dlabel(W.file_date)}.</p>
     <div class="stats"><div><b class="num">${wn(W.reg)}</b><span>active registered voters</span></div><div><b class="num">${wp(W.g22[1], W.g22[0])}</b><span>voted in the 2022 midterm</span></div><div><b class="num">${wn(W.sat)}</b><span>sat out both 2022 and 2024</span></div></div>
-    <p class="note">March 2026 primaries: <b class="num">${wn(W.p26[0])}</b> Democratic ballots, <b class="num">${wn(W.p26[1])}</b> Republican.${!W.partial && W.reg ? ` Cash on hand works out to ${perV(R.period.coh / W.reg)} per registered voter for ${esc(R.short)} and ${perV(Dm.period.coh / W.reg)} for ${esc(Dm.short)}.` : ''} ${W.r24 ? (() => { const t = W.r24.total || 1, r = W.r24.cands.find(x => x[1] === 'REP'), d = W.r24.cands.find(x => x[1] === 'DEM'); if (!r || !d) return ''; const ln = n => n.split(' ').pop(), w = r[2] >= d[2] ? r : d, l = w === r ? d : r; return ` In the 2024 presidential race, ${esc(ln(w[0]))} carried ${W.slug === 'tarrant' ? 'the county' : 'this district'} ${Math.round(w[2] / t * 100)}% to ${Math.round(l[2] / t * 100)}%.`; })() : ''} <a href="${W.href}">Full electorate profile ›</a></p>${whoBars()}${whoRace()}</section>`;
+    <p class="note">March 2026 primaries: <b class="num">${wn(W.p26[0])}</b> Democratic ballots, <b class="num">${wn(W.p26[1])}</b> Republican.${!W.partial && W.reg ? ` Cash on hand works out to ${perV(R.period.coh / W.reg)} per registered voter for ${esc(R.short)} and ${perV(Dm.period.coh / W.reg)} for ${esc(Dm.short)}.` : ''} ${W.r24 ? (() => { const t = W.r24.total || 1, r = W.r24.cands.find(x => x[1] === 'REP'), d = W.r24.cands.find(x => x[1] === 'DEM'); if (!r || !d) return ''; const ln = n => n.split(' ').pop(), w = r[2] >= d[2] ? r : d, l = w === r ? d : r; return ` In the 2024 presidential race, ${esc(ln(w[0]))} carried ${W.slug === 'tarrant' ? 'the county' : 'this district'} ${Math.round(w[2] / t * 100)}% to ${Math.round(l[2] / t * 100)}%.`; })() : ''} <a href="${W.href}">Full electorate profile ›</a></p>${whoBars()}${whoDemo()}${whoRace()}</section>`;
 
   $('#app').insertAdjacentHTML('beforeend', `
   <header>
