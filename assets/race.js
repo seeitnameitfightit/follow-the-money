@@ -41,7 +41,7 @@
       const line = (c, k) => `<span class="nm"><i class="dot ${k}"></i>${esc(c[0])}</span><span class="trk"><i style="width:${Math.max(1, c[1] / max * 100)}%;background:var(--${k === 'r' ? 'rep' : 'dem'})"></i></span><span class="amt">${fmtK(c[1])}</span>`;
       return `<a class="card" href="${raceHref(r.slug, depth)}" data-q="${esc((r.office + ' ' + r.r[0] + ' ' + r.d[0] + ' ' + (r.district || '')).toLowerCase())}"><div class="office">${esc(r.office)}<span>Cash on hand ›</span></div>
         <div class="cm">${line(r.r, 'r')}${line(r.d, 'd')}</div>
-        <div class="foot num">Donors this period: ${fmtN(r.r[3])} (R) · ${fmtN(r.d[3])} (D)</div></a>`;
+        <div class="foot num">Donors this period: ${fmtN(r.r[3])} (R) · ${fmtN(r.d[3])} (D)${r.thru ? ` · <b>${esc(r.rep)} reports through ${dlabel(r.thru)}</b>` : ''}</div></a>`;
     };
     const asof = `<div class="asof">${esc(M.period_label)} through ${dlabel(M.period_end)}</div>`;
     const foot = `<footer>Figures come from <a href="https://www.ethics.state.tx.us/search/cf/" target="_blank" rel="noopener">Texas Ethics Commission</a> filings, downloaded ${esc(M.data_downloaded)}, and from local filings for Tarrant County races. Records replaced by amended reports are left out. <a href="https://seeitnameitfightit.com" target="_blank" rel="noopener">${esc(M.org)}</a></footer>`;
@@ -257,7 +257,7 @@
   <footer><b>How these numbers work</b><ul>
     <li>${LOCAL ? esc(D.source_note || 'Source: Tarrant County campaign finance filings.') : `Source: <a href="https://www.ethics.state.tx.us/search/cf/" target="_blank" rel="noopener">Texas Ethics Commission</a> bulk campaign finance data, downloaded ${esc(M.data_downloaded)}.`}</li>
     ${LOCAL ? '' : '<li>Records replaced by an amended report are left out.</li>'}
-    <li>${LOCAL ? `"Donors" are unique contributors, matched on name. The scorecard covers the 30-day pre-election report; donors, pie charts, cities and spending use every report each campaign filed with Tarrant County since ${dlabel(D.since || M.period_end)}.` : `"Donors" are unique contributors, matched on name and ZIP code. "This cycle" means ${dlabel(M.cycle_start)} through ${dlabel(M.period_end)}.`}</li>
+    <li>${LOCAL ? `"Donors" are unique contributors, matched on name. The scorecard covers the ${esc(M.period_label.replace(/s$/, ""))}; donors, pie charts, cities and spending use every report each campaign filed with Tarrant County since ${dlabel(D.since || M.period_end)}.` : `"Donors" are unique contributors, matched on name and ZIP code. "This cycle" means ${dlabel(M.cycle_start)} through ${dlabel(M.period_end)}.`}</li>
     <li>Contribution sizes, donors, cities and monthly figures use itemized monetary contributions. In-kind contributions are not included.</li>
   </ul><a href="https://seeitnameitfightit.com" target="_blank" rel="noopener">${esc(M.org)}</a> · <a href="../../index.html">All races</a></footer>`);
 
