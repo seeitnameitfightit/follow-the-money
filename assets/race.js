@@ -247,6 +247,10 @@
   <section><h2>Big checks vs. small contributions</h2><p class="sub" id="size-sub"></p>
     <div class="seg" role="group" aria-label="Measure"><button type="button" id="sz-dollars" aria-pressed="true">Share of dollars</button><button type="button" id="sz-count" aria-pressed="false">Share of contributions</button></div>
     <div class="sizebar" id="sizebar"></div></section>
+  ${R.kinds && Dm.kinds ? `<section><h2 id="kind-h">People vs. organizations</h2><p class="sub" id="kind-sub"></p>
+    <div class="seg" role="group" aria-label="Measure"><button type="button" id="kd-dollars" aria-pressed="true">Share of dollars</button><button type="button" id="kd-count" aria-pressed="false">Share of contributions</button></div>
+    <div class="sizebar" id="kindbar"></div>
+    <p class="note">${LOCAL ? 'County filings do not mark contributor type, so contributors listed by personal name (Last, First) are counted as individuals and all others as organizations.' : 'Contributor type is as reported to the Texas Ethics Commission: individuals, or entities such as PACs, businesses, unions and party committees.'} Itemized monetary contributions ${SINCE}.</p></section>` : ''}
 
   <section><h2>Where the money comes from</h2><p class="sub">Top ${LOCAL ? '' : 'Texas '}cities by itemized dollars ${CYC}, with the number of contributions behind each.</p>
     <div class="two"><div class="panel"><h3><i class="dot r"></i>${esc(R.short)}</h3><ul class="kv" id="geo-r"></ul></div>
@@ -370,6 +374,28 @@
   const setSz = mode => { szMode = mode; $('#sz-dollars').setAttribute('aria-pressed', mode === 'dollars'); $('#sz-count').setAttribute('aria-pressed', mode === 'count'); drawSizes(); };
   $('#sz-dollars').onclick = () => setSz('dollars'); $('#sz-count').onclick = () => setSz('count');
 
+  // ---- individuals vs. entities
+  const KINDS = ['Individuals', 'Organizations'], KCOLS = ['--seq-2', '--seq-4'];
+  let kdMode = 'dollars';
+  function drawKinds() {
+    if (!R.kinds || !Dm.kinds) return;
+    const sh = (c, mode) => { const v = c.kinds[mode], t = v[0] + v[1]; return t ? v[0] / t : 0; };
+    const lead = [R, Dm].map(c => sh(c, 'dollars'));
+    $('#kind-h').textContent = Math.abs(lead[0] - lead[1]) < 0.05 ? 'People vs. organizations'
+      : `${(lead[0] > lead[1] ? R : Dm).short} ${V(lead[0] > lead[1] ? R : Dm, 'leans', 'lean')} more on individual donors`;
+    $('#kind-sub').textContent = kdMode === 'dollars'
+      ? `${pct(sh(R, 'dollars'), 1)}% of ${poss(R.short)} itemized dollars came from individuals (${fmtN(R.kinds.donors[0])} people) and ${pct(1 - sh(R, 'dollars'), 1)}% from ${fmtN(R.kinds.donors[1])} organizations. For ${Dm.short}: ${pct(sh(Dm, 'dollars'), 1)}% from ${fmtN(Dm.kinds.donors[0])} people, ${pct(1 - sh(Dm, 'dollars'), 1)}% from ${fmtN(Dm.kinds.donors[1])} organizations.`
+      : `By count, ${pct(sh(R, 'count'), 1)}% of ${poss(R.short)} ${fmtN(R.kinds.count[0] + R.kinds.count[1])} contributions came from individuals. For ${Dm.short}, it was ${pct(sh(Dm, 'count'), 1)}% of ${fmtN(Dm.kinds.count[0] + Dm.kinds.count[1])}.`;
+    const row = k => { const c = C[k], vals = c.kinds[kdMode], tot = vals[0] + vals[1];
+      return `<div class="sb-row"><div class="sb-label"><b><i class="dot ${k}"></i> ${esc(c.name)}</b><span class="num">${kdMode === 'dollars' ? fmt$(tot) + ' itemized' : fmtN(tot) + ' contributions'}</span></div>
+        <div class="sb-track">${tot ? vals.map((v, i) => { if (!v) return ''; const p = v / tot; return `<div class="sb-seg" style="flex:${p} 1 0;background:var(${KCOLS[i]});color:${i ? 'var(--bg)' : 'var(--ink)'}" title="${KINDS[i]}: ${kdMode === 'dollars' ? fmt$(v) : fmtN(v) + ' contributions'} (${(p * 100).toFixed(1)}%)">${p >= .08 ? Math.round(p * 100) + '%' : ''}</div>`; }).join('') : ''}</div></div>`; };
+    $('#kindbar').innerHTML = row('r') + row('d') + `<div class="sb-key">${KINDS.map((b, i) => `<span><i class="sw" style="background:var(${KCOLS[i]})"></i>${b}</span>`).join('')}</div>`;
+  }
+  if (R.kinds && Dm.kinds) {
+    const setKd = mode => { kdMode = mode; $('#kd-dollars').setAttribute('aria-pressed', mode === 'dollars'); $('#kd-count').setAttribute('aria-pressed', mode === 'count'); drawKinds(); };
+    $('#kd-dollars').onclick = () => setKd('dollars'); $('#kd-count').onclick = () => setKd('count');
+  }
+
   // ---- donor pies (top 10 donors + All others)
   function pieData(c) {
     const top = c.donors.slice(0, 10), topSum = top.reduce((p, r) => p + r[2], 0);
@@ -419,6 +445,6 @@
   const hasHist = cohSeries.r.length > 1 || cohSeries.d.length > 1;
   if (!hasHist) $('#coh-sec').hidden = true;
   const drawAll = () => { if (hasHist) drawCOH(); drawMonthly(); };
-  drawAll(); drawSizes(); drawPie('r'); drawPie('d');
+  drawAll(); drawSizes(); drawKinds(); drawPie('r'); drawPie('d');
   let rt; if (window.ResizeObserver) new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(drawAll, 80); }).observe($('#app'));
 })();
