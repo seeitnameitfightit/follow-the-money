@@ -133,6 +133,51 @@
     return `<h3 style="margin:20px 0 4px">Who has voted so far, by primary history${SF.through ? ` <small style="font-weight:400;color:var(--ink-3)">through ${dlabel(SF.through)}</small>` : ''}</h3><div class="sizebar">${out}</div>
       <p class="note">The most recent party primary each voter chose since 2022: Democratic, Republican, or neither. A primary ballot is not a November vote and this is not a forecast; the large 2026 Democratic primary also makes 2026 voters look more Democratic on this measure.${C ? ` The last bar is the actual November result ${L ? `the last time this office was contested${L.same_lines === false ? ' (under the district lines of that election)' : ''}` : 'in the 2024 presidential race'}, for comparison.` : ''}</p>`;
   };
+  // primary history (D / neither / R) of each early-voting day's voters here, as 100% bars building to Election Day
+  const dayLeanHtml = (SF, where, refs) => {
+    if (!SF || !SF.days || !SF.days.length || !SF.day1) return '';
+    const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const d0 = new Date(SF.day1 + 'T12:00:00'), dd = i => { const d = new Date(d0); d.setDate(d.getDate() + i); return `${MON[d.getMonth()]} ${d.getDate()}`; };
+    const z = v => v == null ? 0 : v, tot = r => r ? z(r[0]) + z(r[1]) + z(r[2]) : 0, ok = r => tot(r) >= 50;
+    const P = (r, i) => z(r[i]) / (tot(r) || 1), mg = r => { const g = (P(r, 0) - P(r, 1)) * 100; return `${g >= 0 ? 'D' : 'R'}+${Math.abs(g).toFixed(1)}`; };
+    const f = v => Math.round(v).toLocaleString('en-US'), p1 = x => (x * 100).toFixed(1) + '%';
+    const segs = r => [[P(r, 0), 'var(--dem)', '#fff'], [P(r, 2), 'var(--grid)', 'var(--ink)'], [P(r, 1), 'var(--rep)', '#fff']];
+    const tip = s => s.r ? (ok(s.r) ? `${s.lab}${s.sub ? ` (${s.sub})` : ''}: ${f(tot(s.r))} voters · D ${p1(P(s.r, 0))} · Neither ${p1(P(s.r, 2))} · R ${p1(P(s.r, 1))} · ${mg(s.r)}` : `${s.lab}: fewer than 50 voters`) : `${s.lab}: still to come`;
+    const build = arr => {
+      const sl = Array.from({ length: 12 }, (_, i) => ({ lab: `Day ${i + 1}`, sm: String(i + 1), sub: dd(i), r: arr[i] || null, fut: i >= arr.length }));
+      sl.push({ lab: 'Election Day', sm: 'ED', sub: 'Nov 3', r: null, fut: true, gap: true });
+      (refs || []).forEach(([lab, sm, r], i) => r && sl.push({ lab, sm, sub: '', r, ref: true, gap: i === 0 }));
+      // columns (wide screens)
+      const W = 680, H = 290, m = { l: 34, r: 2, t: 20, b: 38 }, ng = sl.filter(x => x.gap).length, gw = (W - m.l - m.r) / (sl.length + ng * 0.6), bw = Math.min(40, gw * 0.78), ch = H - m.t - m.b;
+      let x = m.l, svg = '';
+      sl.forEach(s => { if (s.gap) x += gw * 0.6; const cx = x + gw / 2, x0 = cx - bw / 2;
+        if (!s.r || !ok(s.r)) svg += `<rect x="${x0}" y="${m.t}" width="${bw}" height="${ch}" fill="none" stroke="var(--grid)" stroke-dasharray="3 3"><title>${tip(s)}</title></rect>` + (s.r && !s.fut ? `<text x="${cx}" y="${m.t + ch / 2}" text-anchor="middle" font-size="9" fill="var(--ink-3)">few</text>` : '');
+        else { let y = m.t + ch; svg += `<g opacity="${s.ref ? .75 : 1}"><title>${tip(s)}</title>` + segs(s.r).map(([v, col, fg]) => { const h = v * ch; y -= h;
+            return `<rect x="${x0}" y="${y.toFixed(1)}" width="${bw}" height="${h.toFixed(1)}" fill="${col}"/>` + (h >= 15 ? `<text x="${cx}" y="${(y + h / 2 + 4).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="600" fill="${fg}" class="num">${Math.round(v * 100)}</text>` : ''); }).join('') + '</g>'
+            + `<text x="${cx}" y="${m.t - 6}" text-anchor="middle" font-size="9.5" fill="var(--ink-2)" class="num">${mg(s.r)}</text>`; }
+        svg += `<text x="${cx}" y="${H - 21}" text-anchor="middle" font-size="10.5" fill="${s.fut && !s.ref ? 'var(--ink-3)' : 'var(--ink-2)'}">${s.sm}</text><text x="${cx}" y="${H - 8}" text-anchor="middle" font-size="9" fill="var(--ink-3)">${s.ref ? '' : s.sub}</text>`;
+        x += gw; });
+      svg += [0, .5, 1].map(v => `<text x="${m.l - 5}" y="${(m.t + (1 - v) * ch + 4).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--ink-3)" class="num">${v * 100}%</text>`).join('');
+      const cols = `<svg class="dl-cols" viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Primary history of each early-voting day's voters, as shares adding to 100%">${svg}</svg>`;
+      // rows (phones)
+      const rows = `<div class="dl-rows sizebar">${sl.filter(s => !s.fut || s.lab === 'Election Day').map(s => `<div class="sb-row" style="margin:${s.gap ? '12px' : '3px'} 0 3px" title="${tip(s)}"><div class="sb-label"><b>${s.lab}${s.sub ? ` <small style="font-weight:400;color:var(--ink-3)">${s.sub}</small>` : ''}</b><span class="num">${s.r && ok(s.r) ? `${f(tot(s.r))} · ${mg(s.r)}` : s.r ? 'fewer than 50' : ''}</span></div>
+        <div class="sb-track" style="height:18px;${s.r && ok(s.r) ? '' : 'background:none;border:1px dashed var(--grid)'}${s.ref ? ';opacity:.75' : ''}">${s.r && ok(s.r) ? segs(s.r).map(([v, col, fg]) => v > 0 ? `<div class="sb-seg" style="flex:${v} 1 0;background:${col};color:${fg}">${v >= .12 ? Math.round(v * 100) + '%' : ''}</div>` : '').join('') : ''}</div></div>`).join('')}</div>`;
+      return cols + rows;
+    };
+    const last = SF.days.at(-1), n = SF.days.length, prev = SF.days[n - 2];
+    const h = ok(last) ? `Day ${n} here: ${Math.round(P(last, 0) * 100)}% of the day’s in-person voters chose a Democratic primary last, ${Math.round(P(last, 2) * 100)}% neither, ${Math.round(P(last, 1) * 100)}% Republican (${mg(last)}${prev && ok(prev) ? `, against ${mg(prev)} on Day ${n - 1}` : ''})` : 'Who voted each day, by primary history';
+    const id = 'dl' + Math.random().toString(36).slice(2, 7);
+    return `<style>.dl-rows{display:none!important}@media (max-width:599px){.dl-cols{display:none!important}.dl-rows{display:block!important}}</style>
+      <h3 style="margin:22px 0 4px">${h}</h3>
+      <p class="note" style="margin-top:0">Each early-voting day ${where}, by the most recent party primary each voter chose since 2022. “Each day on its own” counts only that day’s in-person voters; “All voters so far” is the running total, mail ballots included. Days with fewer than 50 voters are left blank.</p>
+      <div class="seg" role="group" aria-label="Voters shown" id="${id}"><button type="button" aria-pressed="true" data-m="d">Each day on its own</button><button type="button" aria-pressed="false" data-m="c">All voters so far</button></div>
+      <div class="chart" data-dl="${id}" data-m="d">${build(SF.days)}</div><div class="chart" data-dl="${id}" data-m="c" hidden>${build(SF.cum || [])}</div>
+      <div class="sb-key"><span><i class="sw" style="background:var(--dem)"></i>Democratic primary</span><span><i class="sw" style="background:var(--grid)"></i>Neither</span><span><i class="sw" style="background:var(--rep)"></i>Republican primary</span></div>
+      <p class="note">A primary ballot is not a November vote, and this is not a forecast.${(refs || []).some(r => r[2]) ? ' The bars on the right are for comparison.' : ''}</p>`;
+  };
+  document.addEventListener('click', e => { const b = e.target.closest('button[data-m]'); const g = b && b.parentElement; if (!g || !g.id || !g.id.startsWith('dl')) return;
+    g.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
+    document.querySelectorAll(`[data-dl="${g.id}"]`).forEach(c => { c.hidden = c.dataset.m !== b.dataset.m; }); });
   // who has voted so far by age, sex and estimated race, against the active voters here
   const whoDemo = () => {
     const SF = W.so_far; if (!SF || !SF.age || !SF.sex || !W.age || !W.sex || !W.age_bands) return '';
@@ -166,7 +211,7 @@
   const who = !W ? '' : `<section aria-labelledby="who-h"><h2 id="who-h">Who votes here</h2>
     <p class="sub">${W.slug === 'tarrant' ? 'Tarrant County' : esc(W.name)}${W.partial ? ', Tarrant County voters only' : ''}, from the county voter file of ${dlabel(W.file_date)}.</p>
     <div class="stats"><div><b class="num">${wn(W.reg)}</b><span>active registered voters</span></div><div><b class="num">${wp(W.g22[1], W.g22[0])}</b><span>voted in the 2022 midterm</span></div><div><b class="num">${wn(W.sat)}</b><span>sat out both 2022 and 2024</span></div></div>
-    <p class="note">March 2026 primaries: <b class="num">${wn(W.p26[0])}</b> Democratic ballots, <b class="num">${wn(W.p26[1])}</b> Republican.${!W.partial && W.reg ? ` Cash on hand works out to ${perV(R.period.coh / W.reg)} per registered voter for ${esc(R.short)} and ${perV(Dm.period.coh / W.reg)} for ${esc(Dm.short)}.` : ''} ${W.r24 ? (() => { const t = W.r24.total || 1, r = W.r24.cands.find(x => x[1] === 'REP'), d = W.r24.cands.find(x => x[1] === 'DEM'); if (!r || !d) return ''; const ln = n => n.split(' ').pop(), w = r[2] >= d[2] ? r : d, l = w === r ? d : r; return ` In the 2024 presidential race, ${esc(ln(w[0]))} carried ${W.slug === 'tarrant' ? 'the county' : 'this district'} ${Math.round(w[2] / t * 100)}% to ${Math.round(l[2] / t * 100)}%.`; })() : ''} <a href="${W.href}">Full electorate profile ›</a></p>${whoBars()}${whoDemo()}${whoRace()}</section>`;
+    <p class="note">March 2026 primaries: <b class="num">${wn(W.p26[0])}</b> Democratic ballots, <b class="num">${wn(W.p26[1])}</b> Republican.${!W.partial && W.reg ? ` Cash on hand works out to ${perV(R.period.coh / W.reg)} per registered voter for ${esc(R.short)} and ${perV(Dm.period.coh / W.reg)} for ${esc(Dm.short)}.` : ''} ${W.r24 ? (() => { const t = W.r24.total || 1, r = W.r24.cands.find(x => x[1] === 'REP'), d = W.r24.cands.find(x => x[1] === 'DEM'); if (!r || !d) return ''; const ln = n => n.split(' ').pop(), w = r[2] >= d[2] ? r : d, l = w === r ? d : r; return ` In the 2024 presidential race, ${esc(ln(w[0]))} carried ${W.slug === 'tarrant' ? 'the county' : 'this district'} ${Math.round(w[2] / t * 100)}% to ${Math.round(l[2] / t * 100)}%.`; })() : ''} <a href="${W.href}">Full electorate profile ›</a></p>${whoBars()}${dayLeanHtml(W.so_far, W.slug === 'tarrant' ? 'in the county' : 'in this district', [['2022 early and mail voters', '2022', W.so_far && W.so_far.lean22 && W.so_far.lean22.every(v => v != null) ? W.so_far.lean22 : null]])}${whoDemo()}${whoRace()}</section>`;
 
   $('#app').insertAdjacentHTML('beforeend', `
   <header>
