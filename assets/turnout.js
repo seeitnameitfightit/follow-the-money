@@ -103,6 +103,12 @@
     <div id="bloc-pies" style="display:flex;flex-wrap:wrap;gap:12px 36px;align-items:center;margin:10px 0 14px"></div>
     <div style="overflow-x:auto"><table class="ntab" id="bloc"></table></div></div>
     <div class="sizebar" id="who" style="margin-top:20px"></div>
+    <div id="dl-wrap" hidden><h3 style="margin:22px 0 4px" id="dl-h"></h3>
+      <p class="note" style="margin-top:0" id="dl-sub"></p>
+      <div class="seg" role="group" aria-label="Voters shown"><button type="button" id="dl-day" aria-pressed="true">Each day on its own</button><button type="button" id="dl-cum" aria-pressed="false">All voters so far</button></div>
+      <div class="chart" id="dl"></div>
+      <div class="sb-key"><span><i class="sw" style="background:var(--dem)"></i>Democratic primary</span><span><i class="sw" style="background:var(--grid)"></i>Neither</span><span><i class="sw" style="background:var(--rep)"></i>Republican primary</span></div>
+      <p class="note">Each voter’s most recent party primary since 2022. A primary ballot is not a November vote, and this is not a forecast. The bars on the right are past electorates, for scale.</p></div>
     <div id="nei-wrap" hidden><h3 style="margin:22px 0 4px" id="nei-h"></h3>
       <p class="note" style="margin-top:0">Share of 2026 voters so far with no Democratic or Republican primary on record since 2022, after each day of early voting. The dashed lines show the same share among past electorates: the higher the turnout, the more of these less predictable voters it brings in.</p>
       <div class="chart" id="nei"></div></div>${MARK}</section>
@@ -403,6 +409,53 @@
   }
 
 
+  // ---------- primary history (D / neither / R) of each early-voting day's voters, as 100% bars building to Election Day
+  let dlMode = 'day';
+  function drawLean() {
+    const NE = D.current.who.neither, B = D.current.who.base, box = $('#dl'); $('#dl-wrap').hidden = false;
+    const evs = D.ev_days_2026, cum = dlMode === 'cum';
+    const src = cum ? (NE.series || []).filter(r => r[3] && evs.includes(r[0])).map(r => [r[0], r[1], r[3][0], r[3][1], r[3][2]]) : (NE.daily || []).filter(r => evs.includes(r[0]));
+    const byDay = {}; src.forEach(r => { byDay[evs.indexOf(r[0]) + 1] = r; });
+    const slots = evs.map((d, i) => ({ lab: `Day ${i + 1}`, sm: String(i + 1), sub: dlab(d), r: byDay[i + 1] }));
+    slots.push({ lab: 'Election Day', sm: 'ED', sub: dlab(D.current.election), r: null, gap: true });
+    [['All 2022 voters', '2022'], ['All 2024 voters', '2024']].forEach(([k, sm], i) => { const p = B[k]; if (p) slots.push({ lab: k, sm, sub: 'all voters', r: [null, p.n, p.lean[0], p.lean[1], p.lean[2]], ref: true, gap: i === 0 }); });
+    const done = src.at(-1), dn = done ? evs.indexOf(done[0]) + 1 : 0;
+    const pct = (r, i) => r[i] / ((r[2] + r[3] + r[4]) || 1), mg = r => { const g = (pct(r, 2) - pct(r, 3)) * 100; return `${g >= 0 ? 'D' : 'R'}+${Math.abs(g).toFixed(1)}`; };
+    if (done) {
+      const prev = byDay[dn - 1];
+      $('#dl-h').textContent = cum
+        ? `After ${dn} day${dn > 1 ? 's' : ''}: ${Math.round(pct(done, 2) * 100)}% of all 2026 voters so far chose a Democratic primary last, ${Math.round(pct(done, 4) * 100)}% neither, ${Math.round(pct(done, 3) * 100)}% Republican (${mg(done)})`
+        : `Day ${dn} (${dlab(done[0])}): ${Math.round(pct(done, 2) * 100)}% of the day’s in-person voters chose a Democratic primary last, ${Math.round(pct(done, 4) * 100)}% neither, ${Math.round(pct(done, 3) * 100)}% Republican (${mg(done)}${prev ? `, against ${mg(prev)} on Day ${dn - 1}` : ''})`;
+    }
+    $('#dl-sub').textContent = cum
+      ? 'Everyone who has voted so far after each day of early voting, mail ballots included, by the most recent party primary they voted in.'
+      : 'The voters who voted in person on each day of early voting (new names on that day’s county list), by the most recent party primary they voted in. Mail ballots are left out here.';
+    const W = box.clientWidth, seg = (v, col, fg) => ({ v, col, fg });
+    const parts = r => [seg(pct(r, 2), 'var(--dem)', '#fff'), seg(pct(r, 4), 'var(--grid)', 'var(--ink)'), seg(pct(r, 3), 'var(--rep)', '#fff')];
+    const tipTxt = s => s.r ? `${s.lab}${s.ref ? '' : ` (${s.sub})`}: ${fmtN(s.r[2] + s.r[3] + s.r[4])} voters · D ${pc1(pct(s.r, 2))} · Neither ${pc1(pct(s.r, 4))} · R ${pc1(pct(s.r, 3))} · ${mg(s.r)}` : `${s.lab}: still to come`;
+    if (W >= 600) {           // columns, left to right toward Election Day
+      const H = 300, m = { l: 38, r: 4, t: 22, b: 40 }, gaps = slots.filter(x => x.gap).length;
+      const gw = (W - m.l - m.r) / (slots.length + gaps * 0.6), bw = Math.min(46, gw * 0.78), ch = H - m.t - m.b;
+      let x = m.l, out = '';
+      slots.forEach(sl => { if (sl.gap) x += gw * 0.6; const cx = x + gw / 2, x0 = cx - bw / 2;
+        if (!sl.r) out += `<rect x="${x0}" y="${m.t}" width="${bw}" height="${ch}" fill="none" stroke="var(--grid)" stroke-dasharray="3 3"><title>${esc(tipTxt(sl))}</title></rect>`;
+        else { let y = m.t + ch; out += `<g opacity="${sl.ref ? 0.75 : 1}"><title>${esc(tipTxt(sl))}</title>` + parts(sl.r).map(p => { const h = p.v * ch; y -= h;
+            return `<rect x="${x0}" y="${y.toFixed(1)}" width="${bw}" height="${Math.max(0, h).toFixed(1)}" fill="${p.col}"/>` + (h >= 15 && bw >= 24 ? `<text x="${cx}" y="${(y + h / 2 + 4).toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="600" fill="${p.fg}" class="num">${Math.round(p.v * 100)}</text>` : ''); }).join('') + '</g>';
+          out += `<text x="${cx}" y="${m.t - 7}" text-anchor="middle" font-size="10" fill="var(--ink-2)" class="num">${mg(sl.r)}</text>`; }
+        out += `<text x="${cx}" y="${H - 22}" text-anchor="middle" font-size="11" fill="${sl.r || sl.ref ? 'var(--ink-2)' : 'var(--ink-3)'}">${bw >= 34 && !sl.ref ? sl.lab.replace('Election Day', 'E-Day') : sl.sm}</text>`;
+        if (!sl.ref) out += `<text x="${cx}" y="${H - 8}" text-anchor="middle" font-size="9.5" fill="var(--ink-3)">${sl.sub.slice(4)}</text>`;
+        else out += `<text x="${cx}" y="${H - 8}" text-anchor="middle" font-size="9.5" fill="var(--ink-3)">all</text>`;
+        x += gw; });
+      out += [0, .5, 1].map(v => `<text x="${m.l - 6}" y="${(m.t + (1 - v) * ch + 4).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--ink-3)" class="num">${v * 100}%</text>`).join('');
+      box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Primary history of each early-voting day's voters, as shares adding to 100%">${out}</svg>`;
+    } else {                  // phones: one row per day, top to bottom toward Election Day
+      box.innerHTML = `<div class="sizebar">${slots.map(sl => `<div class="sb-row" style="margin:${sl.gap ? '14px' : '4px'} 0 4px" title="${esc(tipTxt(sl))}"><div class="sb-label"><b>${esc(sl.lab)}${sl.ref ? '' : ` <small style="font-weight:400;color:var(--ink-3)">${sl.sub}</small>`}</b><span class="num">${sl.r ? `${fmtN(sl.r[2] + sl.r[3] + sl.r[4])} · ${mg(sl.r)}` : ''}</span></div>
+        <div class="sb-track" style="height:20px;${sl.r ? '' : 'background:none;border:1px dashed var(--grid)'}${sl.ref ? ';opacity:.75' : ''}">${sl.r ? parts(sl.r).map(p => p.v > 0 ? `<div class="sb-seg" style="flex:${p.v} 1 0;background:${p.col};color:${p.fg}">${p.v >= .12 ? Math.round(p.v * 100) + '%' : ''}</div>` : '').join('') : ''}</div></div>`).join('')}</div>`;
+    }
+  }
+  const setDl = k => { dlMode = k; $('#dl-day').setAttribute('aria-pressed', k === 'day'); $('#dl-cum').setAttribute('aria-pressed', k === 'cum'); drawLean(); };
+  $('#dl-day').onclick = () => setDl('day'); $('#dl-cum').onclick = () => setDl('cum');
+
   // ---------- "neither" share of 2026 voters, day by day, against past electorates
   function drawNei() {
     const NE = D.current.who.neither, box = $('#nei'); $('#nei-wrap').hidden = false;
@@ -499,12 +552,13 @@
       $('#bloc-wrap').hidden = false;
     }
     if (W.neither && W.neither.series.length) drawNei();
+    if (W.neither && (W.neither.daily || []).length) drawLean();
     $('#who-comm').innerHTML = `<thead><tr><th>Pct</th><th class="r">Voted</th><th class="r">Lean</th><th class="r">2022 early + mail</th></tr></thead><tbody>${['01', '02', '03', '04'].map(c => {
       const a = WA.comm[c], t = a[0] + a[1] + a[2], b = ref && ref.comm[c], tb = b ? b[0] + b[1] + b[2] : 0;
       return `<tr><td>${+c}</td><td class="r num">${fmtN(t)}</td><td class="r num">${t ? gtxt((a[0] - a[1]) / t * 100) : '—'}</td><td class="r num">${tb ? gtxt((b[0] - b[1]) / tb * 100) : '—'}</td></tr>`; }).join('')}</tbody>`;
   }
 
-  const drawAll = () => { draw(); drawDays(); if (SY.length) drawTx(); if (STY.length >= 2) siteTable(); if (C.who && C.who.neither && C.who.neither.series.length) drawNei(); };
+  const drawAll = () => { draw(); drawDays(); if (SY.length) drawTx(); if (STY.length >= 2) siteTable(); if (C.who && C.who.neither && C.who.neither.series.length) drawNei(); if (C.who && C.who.neither && (C.who.neither.daily || []).length) drawLean(); };
   drawAll();
   let rt; if (window.ResizeObserver) new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(drawAll, 80); }).observe(app);
 })();
