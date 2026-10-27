@@ -43,7 +43,7 @@
         <div class="cm">${line(r.r, 'r')}${line(r.d, 'd')}</div>
         <div class="foot num">Donors this period: ${fmtN(r.r[3])} (R) · ${fmtN(r.d[3])} (D)</div></a>`;
     };
-    const asof = `<div class="asof">${esc(M.period_label)} through ${dlabel(M.period_end)}</div>`;
+    const asof = `<div class="asof">Pre-election reports: 8-day (through Oct 24, 2026) where both candidates have filed one, otherwise 30-day (through ${dlabel(M.period_end)})</div>`;
     const foot = `<footer>Figures come from <a href="https://www.ethics.state.tx.us/search/cf/" target="_blank" rel="noopener">Texas Ethics Commission</a> filings, downloaded ${esc(M.data_downloaded)}, and from local filings for Tarrant County races. Records replaced by amended reports are left out. <a href="https://seeitnameitfightit.com" target="_blank" rel="noopener">${esc(M.org)}</a></footer>`;
     if (I.page === 'home') {
       const secs = I.sections.map(s => s.count
@@ -65,7 +65,7 @@
     if (I.page === 'section') {
       const S = I.section, list = I.races;
       $('#app').insertAdjacentHTML('beforeend', `<header><div class="eyebrow"><span>${esc(M.org)}</span><span>${esc(M.election)}</span></div>
-        <h1>${esc(S.label)}</h1><p class="dek">${esc(S.desc)}</p>${asof}</header>
+        <h1>${esc(S.label)}</h1><p class="dek">${esc(S.desc)}</p>${S.key === 'parties' ? '<div class="asof">Each committee’s latest 2026 report</div>' : asof}</header>
         ${list.length > 8 ? `<section aria-label="Filter"><label class="srch"><span>Filter</span><input id="f" type="search" placeholder="District number or candidate name" autocomplete="off"></label></section>` : ''}
         <section class="idx-list" id="list" aria-label="Races">${list.length ? list.map(r => card(r, 1)).join('') : '<p class="note">Races for this section are coming soon.</p>'}</section>${foot}`);
       const f = $('#f'); if (f) f.addEventListener('input', () => { const v = f.value.trim().toLowerCase();
