@@ -96,7 +96,7 @@
     <div style="overflow-x:auto"><table class="ntab" id="days"></table></div></section>
   <section aria-labelledby="mail-h"><h2 id="mail-h">Mail ballots</h2><p class="sub" id="mail-sub"></p><ul class="kv" id="mail"></ul></section>
   <section aria-labelledby="who-h" id="who-sec" hidden><h2 id="who-h"></h2><p class="sub" id="who-sub"></p>
-    <div class="two"><div class="panel"><h3>Who they are</h3><ul class="kv" id="who-kv"></ul></div>
+    <div class="two"><div class="panel"><h3>Their voting history</h3><ul class="kv" id="who-kv"></ul><p class="note">Age, sex and race are in the day-by-day table below.</p></div>
     <div class="panel"><h3>By commissioner precinct</h3><table class="ntab" id="who-comm"></table><p class="note">District pages show turnout so far for every precinct, district, city and school district. <a href="../electorate/index.html">The Electorate ›</a></p></div></div>
     <div id="bloc-wrap" hidden><h3 style="margin:22px 0 4px">By voting history, 2018 to 2026</h3>
     <p class="note" style="margin-top:0">Each registered voter falls in one group, from the March primaries of 2018, 2020, 2022, 2024 and 2026 and the November generals of 2018, 2020, 2022 and 2024. “Of voters” and “Of registered” show each group’s share of those who have voted and of all registered voters; “Turnout so far” is the share of the group that has already voted.</p>
@@ -537,13 +537,6 @@
       ['Registered since the 2022 midterm', WA.new22, REG.new22],
       ['On the rolls in 2022 but did not vote', WA.skipped22, REG.skipped22],
     ].map(([l, v, rv]) => `<li><span>${l} <small>all registered: ${pc1(rv / REG.n)}</small></span><span>${pc1(v / WA.n)}</span></li>`).join('') +
-      // age and sex, each against all registered voters
-      `<li class="kv-h"><span><b>Age</b></span><span></span></li>` +
-      ['18 to 34', '35 to 49', '50 to 64', '65 and older'].map((l, i) => `<li><span>${l} <small>all registered: ${pc1(REG.age[i] / REG.n)}</small></span><span>${pc1(WA.age[i] / WA.n)}</span></li>`).join('') +
-      (WA.sex && REG.sex ? `<li class="kv-h"><span><b>Sex, as recorded</b></span><span></span></li>` +
-        ['Women', 'Men', 'Not recorded'].map((l, i) => `<li><span>${l} <small>all registered: ${pc1(REG.sex[i] / REG.n)}</small></span><span>${pc1(WA.sex[i] / WA.n)}</span></li>`).join('') : '') +
-      (WA.race && REG.race ? `<li class="kv-h"><span><b>Race and ethnicity, estimated</b></span><span></span></li>` +
-        ['Hispanic', 'White', 'Black', 'Asian or Pacific Islander', 'Other or multiracial'].map((l, i) => `<li><span>${l} <small>all registered: ${pc1(REG.race[i] / REG.n)}</small></span><span>${pc1(WA.race[i] / WA.n)}</span></li>`).join('') : '') +
       `<li class="kv-h"><span><b>How they voted</b></span><span></span></li>` +
       kinds.map(k => `<li><span>${k === 'mail' ? 'Mail ballots' : 'Early in person'}</span><span>${fmtN(W.rosters[k].voters)}</span></li>`).join('');
     // primary history: secondary, with its caveat
