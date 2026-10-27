@@ -41,7 +41,7 @@
       const line = (c, k) => `<span class="nm"><i class="dot ${k}"></i>${esc(c[0])}</span><span class="trk"><i style="width:${Math.max(1, c[1] / max * 100)}%;background:var(--${k === 'r' ? 'rep' : 'dem'})"></i></span><span class="amt">${fmtK(c[1])}</span>`;
       return `<a class="card" href="${raceHref(r.slug, depth)}" data-q="${esc((r.office + ' ' + r.r[0] + ' ' + r.d[0] + ' ' + (r.district || '')).toLowerCase())}"><div class="office">${esc(r.office)}<span>Cash on hand ›</span></div>
         <div class="cm">${line(r.r, 'r')}${line(r.d, 'd')}</div>
-        <div class="foot num">Donors this period: ${fmtN(r.r[3])} (R) · ${fmtN(r.d[3])} (D)${r.thru ? ` · <b>${esc(r.rep)} reports through ${dlabel(r.thru)}</b>` : ''}</div></a>`;
+        <div class="foot num">Donors this period: ${fmtN(r.r[3])} (R) · ${fmtN(r.d[3])} (D)</div></a>`;
     };
     const asof = `<div class="asof">${esc(M.period_label)} through ${dlabel(M.period_end)}</div>`;
     const foot = `<footer>Figures come from <a href="https://www.ethics.state.tx.us/search/cf/" target="_blank" rel="noopener">Texas Ethics Commission</a> filings, downloaded ${esc(M.data_downloaded)}, and from local filings for Tarrant County races. Records replaced by amended reports are left out. <a href="https://seeitnameitfightit.com" target="_blank" rel="noopener">${esc(M.org)}</a></footer>`;
@@ -178,6 +178,37 @@
   document.addEventListener('click', e => { const b = e.target.closest('button[data-m]'); const g = b && b.parentElement; if (!g || !g.id || !g.id.startsWith('dl')) return;
     g.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
     document.querySelectorAll(`[data-dl="${g.id}"]`).forEach(c => { c.hidden = c.dataset.m !== b.dataset.m; }); });
+  // who voted, by age, sex and estimated race: all voters so far, or one early-voting day (in person) or mail ballots alone
+  const demoDayHtml = (SF, G, bands, o) => {
+    if (!SF || !SF.age || !SF.sex || !G || !G.age || !G.sex || !bands) return '';
+    const z = v => v == null ? 0 : v, T = a => (a || []).reduce((s, v) => s + z(v), 0) || 1;
+    const fN = v => Math.round(v).toLocaleString('en-US'), p0 = (a, b) => b && a != null ? Math.round(a / b * 100) + '%' : '—';
+    const r10 = v => v == null || v < 10 ? '<10' : (Math.round(v / 10) * 10).toLocaleString('en-US');
+    const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dlb = i => { const d = new Date((SF.day1 || '2026-10-19') + 'T12:00:00'); d.setDate(d.getDate() + i); return `${WD[d.getDay()]} ${MON[d.getMonth()]} ${d.getDate()}`; };
+    const rc = !!(SF.race && G.race), RL = ['Hispanic', 'White', 'Black', 'Asian or Pacific Islander', 'Other or multiracial'];
+    const groups = [['Age on Election Day', 'age', bands], ['Sex, as recorded', 'sex', ['Women', 'Men', 'Not recorded']]].concat(rc ? [['Race and ethnicity, estimated', 'race', RL]] : []);
+    const view = (V, all) => {          // V: {age, sex, race} for the voters shown
+      const grp = l => `<tr><th colspan="${all ? 5 : 5}" style="text-align:left;padding-top:12px">${l}</th></tr>`;
+      const body = groups.map(([h, k, labs]) => !V[k] ? '' : grp(h) + labs.map((l, i) => { const v = V[k][i], g = G[k][i], est = k === 'race';
+        return `<tr><td style="overflow-wrap:normal">${l}</td><td class="r num">${est ? r10(v) : v == null ? '<10' : fN(v)}</td><td class="r num">${p0(v, T(V[k]))}</td>`
+          + (all ? `<td class="r num">${p0(g, T(G[k]))}</td><td class="r num">${g && v != null ? p0(v, g) : '—'}</td>` : `<td class="r num">${p0(SF[k][i], T(SF[k]))}</td><td class="r num">${p0(g, T(G[k]))}</td>`) + '</tr>'; }).join('')).join('');
+      const head = all ? '<th class="r">Voted so far</th><th class="r">Share of voters</th><th class="r">Share of active voters</th><th class="r">Turnout so far</th>'
+                       : '<th class="r">Voters</th><th class="r">Share of these voters</th><th class="r">Share of all voters so far</th><th class="r">Share of active voters</th>';
+      return `<div style="overflow-x:auto"><table class="ntab race-tab" style="white-space:nowrap"><thead><tr><th>Group</th>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+    };
+    const DD = SF.dd, n = DD && DD.age ? DD.age.length - 1 : 0, pick = i => ({ age: DD.age[i], sex: DD.sex[i], race: DD.race && DD.race[i] });
+    const opts = [['all', 'All voters so far', view(SF, true)]];
+    for (let i = n; i >= 1; i--) if (T(DD.age[i]) > 1) opts.push([String(i), `Day ${i}, ${dlb(i - 1)}: in person`, view(pick(i), false)]);
+    if (n && T(DD.age[0]) > 1) opts.push(['0', 'Mail ballots', view(pick(0), false)]);
+    const id = 'dm' + Math.random().toString(36).slice(2, 7);
+    return `<h3 style="margin:22px 0 4px">${o.title}</h3>
+      ${opts.length > 1 ? `<label class="note" style="display:block;margin:4px 0 8px">Show <select id="${id}" data-dm="${id}" style="font:inherit;margin-left:4px">${opts.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></label>` : ''}
+      ${opts.map(([k, , h], i) => `<div data-dmv="${id}" data-k="${k}"${i ? ' hidden' : ''}>${h}</div>`).join('')}
+      <p class="note">“All voters so far” compares each group’s share of the voters with its share of active voters: a group whose share of voters is bigger is turning out ahead of the rest. Pick a day to see only the people who voted in person that day, next to the share among all voters so far.${rc ? ' Race and ethnicity are estimates, rounded to the nearest 10.' : ''} Counts under 10 are withheld.${o.note || ''}</p>`;
+  };
+  document.addEventListener('change', e => { const s = e.target; if (!s.dataset || !s.dataset.dm) return;
+    document.querySelectorAll(`[data-dmv="${s.dataset.dm}"]`).forEach(d => { d.hidden = d.dataset.k !== s.value; }); });
   // who has voted so far by age, sex and estimated race, against the active voters here
   const whoDemo = () => {
     const SF = W.so_far; if (!SF || !SF.age || !SF.sex || !W.age || !W.sex || !W.age_bands) return '';
@@ -211,7 +242,7 @@
   const who = !W ? '' : `<section aria-labelledby="who-h"><h2 id="who-h">Who votes here</h2>
     <p class="sub">${W.slug === 'tarrant' ? 'Tarrant County' : esc(W.name)}${W.partial ? ', Tarrant County voters only' : ''}, from the county voter file of ${dlabel(W.file_date)}.</p>
     <div class="stats"><div><b class="num">${wn(W.reg)}</b><span>active registered voters</span></div><div><b class="num">${wp(W.g22[1], W.g22[0])}</b><span>voted in the 2022 midterm</span></div><div><b class="num">${wn(W.sat)}</b><span>sat out both 2022 and 2024</span></div></div>
-    <p class="note">March 2026 primaries: <b class="num">${wn(W.p26[0])}</b> Democratic ballots, <b class="num">${wn(W.p26[1])}</b> Republican.${!W.partial && W.reg ? ` Cash on hand works out to ${perV(R.period.coh / W.reg)} per registered voter for ${esc(R.short)} and ${perV(Dm.period.coh / W.reg)} for ${esc(Dm.short)}.` : ''} ${W.r24 ? (() => { const t = W.r24.total || 1, r = W.r24.cands.find(x => x[1] === 'REP'), d = W.r24.cands.find(x => x[1] === 'DEM'); if (!r || !d) return ''; const ln = n => n.split(' ').pop(), w = r[2] >= d[2] ? r : d, l = w === r ? d : r; return ` In the 2024 presidential race, ${esc(ln(w[0]))} carried ${W.slug === 'tarrant' ? 'the county' : 'this district'} ${Math.round(w[2] / t * 100)}% to ${Math.round(l[2] / t * 100)}%.`; })() : ''} <a href="${W.href}">Full electorate profile ›</a></p>${whoBars()}${dayLeanHtml(W.so_far, W.slug === 'tarrant' ? 'in the county' : 'in this district', [['2022 early and mail voters', '2022', W.so_far && W.so_far.lean22 && W.so_far.lean22.every(v => v != null) ? W.so_far.lean22 : null]])}${whoDemo()}${whoRace()}</section>`;
+    <p class="note">March 2026 primaries: <b class="num">${wn(W.p26[0])}</b> Democratic ballots, <b class="num">${wn(W.p26[1])}</b> Republican.${!W.partial && W.reg ? ` Cash on hand works out to ${perV(R.period.coh / W.reg)} per registered voter for ${esc(R.short)} and ${perV(Dm.period.coh / W.reg)} for ${esc(Dm.short)}.` : ''} ${W.r24 ? (() => { const t = W.r24.total || 1, r = W.r24.cands.find(x => x[1] === 'REP'), d = W.r24.cands.find(x => x[1] === 'DEM'); if (!r || !d) return ''; const ln = n => n.split(' ').pop(), w = r[2] >= d[2] ? r : d, l = w === r ? d : r; return ` In the 2024 presidential race, ${esc(ln(w[0]))} carried ${W.slug === 'tarrant' ? 'the county' : 'this district'} ${Math.round(w[2] / t * 100)}% to ${Math.round(l[2] / t * 100)}%.`; })() : ''} <a href="${W.href}">Full electorate profile ›</a></p>${whoBars()}${dayLeanHtml(W.so_far, W.slug === 'tarrant' ? 'in the county' : 'in this district', [['2022 early and mail voters', '2022', W.so_far && W.so_far.lean22 && W.so_far.lean22.every(v => v != null) ? W.so_far.lean22 : null]])}${demoDayHtml(W.so_far, W, W.age_bands, { title: `Who has voted so far, by age, sex${W.so_far && W.so_far.race ? ' and race' : ''}`, note: W.partial ? ' Tarrant County voters only.' : '' })}${whoRace()}</section>`;
 
   $('#app').insertAdjacentHTML('beforeend', `
   <header>
@@ -247,10 +278,6 @@
   <section><h2>Big checks vs. small contributions</h2><p class="sub" id="size-sub"></p>
     <div class="seg" role="group" aria-label="Measure"><button type="button" id="sz-dollars" aria-pressed="true">Share of dollars</button><button type="button" id="sz-count" aria-pressed="false">Share of contributions</button></div>
     <div class="sizebar" id="sizebar"></div></section>
-  ${R.kinds && Dm.kinds ? `<section><h2 id="kind-h">People vs. organizations</h2><p class="sub" id="kind-sub"></p>
-    <div class="seg" role="group" aria-label="Measure"><button type="button" id="kd-dollars" aria-pressed="true">Share of dollars</button><button type="button" id="kd-count" aria-pressed="false">Share of contributions</button></div>
-    <div class="sizebar" id="kindbar"></div>
-    <p class="note">${LOCAL ? 'County filings do not mark contributor type, so contributors listed by personal name (Last, First) are counted as individuals and all others as organizations.' : 'Contributor type is as reported to the Texas Ethics Commission: individuals, or entities such as PACs, businesses, unions and party committees.'} Itemized monetary contributions ${SINCE}.</p></section>` : ''}
 
   <section><h2>Where the money comes from</h2><p class="sub">Top ${LOCAL ? '' : 'Texas '}cities by itemized dollars ${CYC}, with the number of contributions behind each.</p>
     <div class="two"><div class="panel"><h3><i class="dot r"></i>${esc(R.short)}</h3><ul class="kv" id="geo-r"></ul></div>
@@ -261,7 +288,7 @@
   <footer><b>How these numbers work</b><ul>
     <li>${LOCAL ? esc(D.source_note || 'Source: Tarrant County campaign finance filings.') : `Source: <a href="https://www.ethics.state.tx.us/search/cf/" target="_blank" rel="noopener">Texas Ethics Commission</a> bulk campaign finance data, downloaded ${esc(M.data_downloaded)}.`}</li>
     ${LOCAL ? '' : '<li>Records replaced by an amended report are left out.</li>'}
-    <li>${LOCAL ? `"Donors" are unique contributors, matched on name. The scorecard covers the ${esc(M.period_label.replace(/s$/, ""))}; donors, pie charts, cities and spending use every report each campaign filed with Tarrant County since ${dlabel(D.since || M.period_end)}.` : `"Donors" are unique contributors, matched on name and ZIP code. "This cycle" means ${dlabel(M.cycle_start)} through ${dlabel(M.period_end)}.`}</li>
+    <li>${LOCAL ? `"Donors" are unique contributors, matched on name. The scorecard covers the 30-day pre-election report; donors, pie charts, cities and spending use every report each campaign filed with Tarrant County since ${dlabel(D.since || M.period_end)}.` : `"Donors" are unique contributors, matched on name and ZIP code. "This cycle" means ${dlabel(M.cycle_start)} through ${dlabel(M.period_end)}.`}</li>
     <li>Contribution sizes, donors, cities and monthly figures use itemized monetary contributions. In-kind contributions are not included.</li>
   </ul><a href="https://seeitnameitfightit.com" target="_blank" rel="noopener">${esc(M.org)}</a> · <a href="../../index.html">All races</a></footer>`);
 
@@ -374,28 +401,6 @@
   const setSz = mode => { szMode = mode; $('#sz-dollars').setAttribute('aria-pressed', mode === 'dollars'); $('#sz-count').setAttribute('aria-pressed', mode === 'count'); drawSizes(); };
   $('#sz-dollars').onclick = () => setSz('dollars'); $('#sz-count').onclick = () => setSz('count');
 
-  // ---- individuals vs. entities
-  const KINDS = ['Individuals', 'Organizations'], KCOLS = ['--seq-2', '--seq-4'];
-  let kdMode = 'dollars';
-  function drawKinds() {
-    if (!R.kinds || !Dm.kinds) return;
-    const sh = (c, mode) => { const v = c.kinds[mode], t = v[0] + v[1]; return t ? v[0] / t : 0; };
-    const lead = [R, Dm].map(c => sh(c, 'dollars'));
-    $('#kind-h').textContent = Math.abs(lead[0] - lead[1]) < 0.05 ? 'People vs. organizations'
-      : `${(lead[0] > lead[1] ? R : Dm).short} ${V(lead[0] > lead[1] ? R : Dm, 'leans', 'lean')} more on individual donors`;
-    $('#kind-sub').textContent = kdMode === 'dollars'
-      ? `${pct(sh(R, 'dollars'), 1)}% of ${poss(R.short)} itemized dollars came from individuals (${fmtN(R.kinds.donors[0])} people) and ${pct(1 - sh(R, 'dollars'), 1)}% from ${fmtN(R.kinds.donors[1])} organizations. For ${Dm.short}: ${pct(sh(Dm, 'dollars'), 1)}% from ${fmtN(Dm.kinds.donors[0])} people, ${pct(1 - sh(Dm, 'dollars'), 1)}% from ${fmtN(Dm.kinds.donors[1])} organizations.`
-      : `By count, ${pct(sh(R, 'count'), 1)}% of ${poss(R.short)} ${fmtN(R.kinds.count[0] + R.kinds.count[1])} contributions came from individuals. For ${Dm.short}, it was ${pct(sh(Dm, 'count'), 1)}% of ${fmtN(Dm.kinds.count[0] + Dm.kinds.count[1])}.`;
-    const row = k => { const c = C[k], vals = c.kinds[kdMode], tot = vals[0] + vals[1];
-      return `<div class="sb-row"><div class="sb-label"><b><i class="dot ${k}"></i> ${esc(c.name)}</b><span class="num">${kdMode === 'dollars' ? fmt$(tot) + ' itemized' : fmtN(tot) + ' contributions'}</span></div>
-        <div class="sb-track">${tot ? vals.map((v, i) => { if (!v) return ''; const p = v / tot; return `<div class="sb-seg" style="flex:${p} 1 0;background:var(${KCOLS[i]});color:${i ? 'var(--bg)' : 'var(--ink)'}" title="${KINDS[i]}: ${kdMode === 'dollars' ? fmt$(v) : fmtN(v) + ' contributions'} (${(p * 100).toFixed(1)}%)">${p >= .08 ? Math.round(p * 100) + '%' : ''}</div>`; }).join('') : ''}</div></div>`; };
-    $('#kindbar').innerHTML = row('r') + row('d') + `<div class="sb-key">${KINDS.map((b, i) => `<span><i class="sw" style="background:var(${KCOLS[i]})"></i>${b}</span>`).join('')}</div>`;
-  }
-  if (R.kinds && Dm.kinds) {
-    const setKd = mode => { kdMode = mode; $('#kd-dollars').setAttribute('aria-pressed', mode === 'dollars'); $('#kd-count').setAttribute('aria-pressed', mode === 'count'); drawKinds(); };
-    $('#kd-dollars').onclick = () => setKd('dollars'); $('#kd-count').onclick = () => setKd('count');
-  }
-
   // ---- donor pies (top 10 donors + All others)
   function pieData(c) {
     const top = c.donors.slice(0, 10), topSum = top.reduce((p, r) => p + r[2], 0);
@@ -445,6 +450,6 @@
   const hasHist = cohSeries.r.length > 1 || cohSeries.d.length > 1;
   if (!hasHist) $('#coh-sec').hidden = true;
   const drawAll = () => { if (hasHist) drawCOH(); drawMonthly(); };
-  drawAll(); drawSizes(); drawKinds(); drawPie('r'); drawPie('d');
+  drawAll(); drawSizes(); drawPie('r'); drawPie('d');
   let rt; if (window.ResizeObserver) new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(drawAll, 80); }).observe($('#app'));
 })();

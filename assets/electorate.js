@@ -152,6 +152,37 @@
   document.addEventListener('click', e => { const b = e.target.closest('button[data-m]'); const g = b && b.parentElement; if (!g || !g.id || !g.id.startsWith('dl')) return;
     g.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
     document.querySelectorAll(`[data-dl="${g.id}"]`).forEach(c => { c.hidden = c.dataset.m !== b.dataset.m; }); });
+  // who voted, by age, sex and estimated race: all voters so far, or one early-voting day (in person) or mail ballots alone
+  const demoDayHtml = (SF, G, bands, o) => {
+    if (!SF || !SF.age || !SF.sex || !G || !G.age || !G.sex || !bands) return '';
+    const z = v => v == null ? 0 : v, T = a => (a || []).reduce((s, v) => s + z(v), 0) || 1;
+    const fN = v => Math.round(v).toLocaleString('en-US'), p0 = (a, b) => b && a != null ? Math.round(a / b * 100) + '%' : '—';
+    const r10 = v => v == null || v < 10 ? '<10' : (Math.round(v / 10) * 10).toLocaleString('en-US');
+    const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dlb = i => { const d = new Date((SF.day1 || '2026-10-19') + 'T12:00:00'); d.setDate(d.getDate() + i); return `${WD[d.getDay()]} ${MON[d.getMonth()]} ${d.getDate()}`; };
+    const rc = !!(SF.race && G.race), RL = ['Hispanic', 'White', 'Black', 'Asian or Pacific Islander', 'Other or multiracial'];
+    const groups = [['Age on Election Day', 'age', bands], ['Sex, as recorded', 'sex', ['Women', 'Men', 'Not recorded']]].concat(rc ? [['Race and ethnicity, estimated', 'race', RL]] : []);
+    const view = (V, all) => {          // V: {age, sex, race} for the voters shown
+      const grp = l => `<tr><th colspan="${all ? 5 : 5}" style="text-align:left;padding-top:12px">${l}</th></tr>`;
+      const body = groups.map(([h, k, labs]) => !V[k] ? '' : grp(h) + labs.map((l, i) => { const v = V[k][i], g = G[k][i], est = k === 'race';
+        return `<tr><td style="overflow-wrap:normal">${l}</td><td class="r num">${est ? r10(v) : v == null ? '<10' : fN(v)}</td><td class="r num">${p0(v, T(V[k]))}</td>`
+          + (all ? `<td class="r num">${p0(g, T(G[k]))}</td><td class="r num">${g && v != null ? p0(v, g) : '—'}</td>` : `<td class="r num">${p0(SF[k][i], T(SF[k]))}</td><td class="r num">${p0(g, T(G[k]))}</td>`) + '</tr>'; }).join('')).join('');
+      const head = all ? '<th class="r">Voted so far</th><th class="r">Share of voters</th><th class="r">Share of active voters</th><th class="r">Turnout so far</th>'
+                       : '<th class="r">Voters</th><th class="r">Share of these voters</th><th class="r">Share of all voters so far</th><th class="r">Share of active voters</th>';
+      return `<div style="overflow-x:auto"><table class="ntab race-tab" style="white-space:nowrap"><thead><tr><th>Group</th>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+    };
+    const DD = SF.dd, n = DD && DD.age ? DD.age.length - 1 : 0, pick = i => ({ age: DD.age[i], sex: DD.sex[i], race: DD.race && DD.race[i] });
+    const opts = [['all', 'All voters so far', view(SF, true)]];
+    for (let i = n; i >= 1; i--) if (T(DD.age[i]) > 1) opts.push([String(i), `Day ${i}, ${dlb(i - 1)}: in person`, view(pick(i), false)]);
+    if (n && T(DD.age[0]) > 1) opts.push(['0', 'Mail ballots', view(pick(0), false)]);
+    const id = 'dm' + Math.random().toString(36).slice(2, 7);
+    return `<h3 style="margin:22px 0 4px">${o.title}</h3>
+      ${opts.length > 1 ? `<label class="note" style="display:block;margin:4px 0 8px">Show <select id="${id}" data-dm="${id}" style="font:inherit;margin-left:4px">${opts.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></label>` : ''}
+      ${opts.map(([k, , h], i) => `<div data-dmv="${id}" data-k="${k}"${i ? ' hidden' : ''}>${h}</div>`).join('')}
+      <p class="note">“All voters so far” compares each group’s share of the voters with its share of active voters: a group whose share of voters is bigger is turning out ahead of the rest. Pick a day to see only the people who voted in person that day, next to the share among all voters so far.${rc ? ' Race and ethnicity are estimates, rounded to the nearest 10.' : ''} Counts under 10 are withheld.${o.note || ''}</p>`;
+  };
+  document.addEventListener('change', e => { const s = e.target; if (!s.dataset || !s.dataset.dm) return;
+    document.querySelectorAll(`[data-dmv="${s.dataset.dm}"]`).forEach(d => { d.hidden = d.dataset.k !== s.value; }); });
   // 2026 turnout so far (county daily lists of returned mail ballots and early voters)
   const SF = G.so_far, CSF = CTY && CTY.so_far;
   const sofarHtml = !SF || !SF.voted ? '' : (() => {
@@ -162,7 +193,7 @@
     return `<section aria-labelledby="sf-h"><h2 id="sf-h">${fmtN(SF.voted)} ${isCounty ? 'Tarrant County' : ''} voters ${isCounty ? '' : 'here '}have voted so far in the 2026 general election</h2>
       <p class="sub">Mail ballots returned and early votes cast${SF.through ? ` through ${dlabel(SF.through)}` : ''}, from the county’s daily lists. That’s ${pc(SF.voted, SF.reg)} of registered voters ${isCounty ? 'in the county' : 'here'}, and ${pc1(of22)} of the number who voted ${isCounty ? '' : 'here '}in the entire 2022 midterm.${pace}</p>
       <div class="hb"><div class="hb-row"><span class="hb-l">Of 2022 total</span><span class="hb-t"><i style="width:${Math.min(100, of22 / mx * 100)}%;background:var(--ink)"></i>${c22 && !isCounty ? `<em style="left:${Math.min(100, c22 / mx * 100)}%"></em>` : ''}</span><span class="hb-v num">${pc1(of22)}</span></div></div>
-      ${!isCounty ? '<p class="note"><i class="cmk"></i> marks the countywide figure.</p>' : ''}${leanHtml()}${dayLeanHtml(SF, isCounty ? 'in the county' : 'here', [['2022 early and mail voters here', '2022', SF.lean22 && SF.lean22.every(v => v != null) ? SF.lean22 : null]].concat(!isCounty && CSF && CSF.cum ? [['All 2026 voters so far, countywide', 'Cty', CSF.cum.at(-1)]] : []))}${demoHtml()}<p class="note"><a href="${up}turnout/index.html">2026 Turnout Tracker ›</a></p>${MARK}</section>`;
+      ${!isCounty ? '<p class="note"><i class="cmk"></i> marks the countywide figure.</p>' : ''}${leanHtml()}${dayLeanHtml(SF, isCounty ? 'in the county' : 'here', [['2022 early and mail voters here', '2022', SF.lean22 && SF.lean22.every(v => v != null) ? SF.lean22 : null]].concat(!isCounty && CSF && CSF.cum ? [['All 2026 voters so far, countywide', 'Cty', CSF.cum.at(-1)]] : []))}${demoDayHtml(SF, G, M.age_bands, { title: `Who has voted ${isCounty ? '' : 'here '}so far, by age, sex${SF.race ? ' and race' : ''}` })}<p class="note"><a href="${up}turnout/index.html">2026 Turnout Tracker ›</a></p>${MARK}</section>`;
     // who has voted so far by age, sex and estimated race, against the active voters here
     function demoHtml() {
       if (!SF.age || !SF.sex) return '';
