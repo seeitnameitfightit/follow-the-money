@@ -43,7 +43,7 @@
         <div class="cm">${line(r.r, 'r')}${line(r.d, 'd')}</div>
         <div class="foot num">Donors this period: ${fmtN(r.r[3])} (R) · ${fmtN(r.d[3])} (D)</div></a>`;
     };
-    const asof = `<div class="asof">Pre-election reports: 8-day (through Oct 24, 2026) where both candidates have filed one, otherwise 30-day (through ${dlabel(M.period_end)})</div>`;
+    const asof = `<div class="asof">${esc(M.period_label)} through ${dlabel(M.period_end)}</div>`;
     const foot = `<footer>Figures come from <a href="https://www.ethics.state.tx.us/search/cf/" target="_blank" rel="noopener">Texas Ethics Commission</a> filings, downloaded ${esc(M.data_downloaded)}, and from local filings for Tarrant County races. Records replaced by amended reports are left out. <a href="https://seeitnameitfightit.com" target="_blank" rel="noopener">${esc(M.org)}</a></footer>`;
     if (I.page === 'home') {
       const secs = I.sections.map(s => s.count
@@ -65,7 +65,7 @@
     if (I.page === 'section') {
       const S = I.section, list = I.races;
       $('#app').insertAdjacentHTML('beforeend', `<header><div class="eyebrow"><span>${esc(M.org)}</span><span>${esc(M.election)}</span></div>
-        <h1>${esc(S.label)}</h1><p class="dek">${esc(S.desc)}</p>${S.key === 'parties' ? '<div class="asof">Each committee’s latest 2026 report</div>' : asof}</header>
+        <h1>${esc(S.label)}</h1><p class="dek">${esc(S.desc)}</p>${asof}</header>
         ${list.length > 8 ? `<section aria-label="Filter"><label class="srch"><span>Filter</span><input id="f" type="search" placeholder="District number or candidate name" autocomplete="off"></label></section>` : ''}
         <section class="idx-list" id="list" aria-label="Races">${list.length ? list.map(r => card(r, 1)).join('') : '<p class="note">Races for this section are coming soon.</p>'}</section>${foot}`);
       const f = $('#f'); if (f) f.addEventListener('input', () => { const v = f.value.trim().toLowerCase();
@@ -178,6 +178,34 @@
   document.addEventListener('click', e => { const b = e.target.closest('button[data-m]'); const g = b && b.parentElement; if (!g || !g.id || !g.id.startsWith('dl')) return;
     g.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
     document.querySelectorAll(`[data-dl="${g.id}"]`).forEach(c => { c.hidden = c.dataset.m !== b.dataset.m; }); });
+  // "what if" sliders: how the votes cast so far would add up under the reader's own assumptions about crossover and the Neither break
+  const scenarioHtml = (lean, o) => {
+    if (!lean || lean.length !== 3 || lean.some(v => v == null) || lean[0] + lean[1] + lean[2] < 100) return '';
+    const id = 'sc' + Math.random().toString(36).slice(2, 7);
+    const sl = (k, lab, v, min) => `<label style="display:block;margin:10px 0 2px"><span style="display:flex;justify-content:space-between;gap:8px"><span>${lab}</span><b class="num" data-scv="${k}">${v}%</b></span>
+      <input type="range" min="${min}" max="100" step="1" value="${v}" data-sck="${k}" style="width:100%;accent-color:var(--ink)" aria-label="${lab}"></label>`;
+    return `<div class="panel" id="${id}" data-sc="${lean.join(',')}" style="margin-top:18px">
+      <h3 style="margin-top:0">What if? Add up the votes cast so far your way</h3>
+      <p class="note" style="margin-top:0">Move the sliders to set how each group votes${o && o.where ? ' ' + o.where : ''}. Every voter is grouped by the most recent party primary they chose since 2022. This counts only ballots already cast${o && o.through ? `, through ${o.through}` : ''}. It is not a forecast, and it is not how anyone actually voted: ballots are secret.</p>
+      ${sl('d', 'Democratic primary voters who vote Democratic', 95, 50)}
+      ${sl('r', 'Republican primary voters who vote Republican', 95, 50)}
+      ${sl('n', 'Voters with neither primary who vote Democratic', 50, 0)}
+      <div data-sco style="margin-top:14px"></div>
+      <p class="note"><button type="button" data-screset style="font:inherit;cursor:pointer;background:none;border:0;padding:0;text-decoration:underline;color:inherit">Reset</button> · Third-party and write-in votes are left out.</p></div>`;
+  };
+  const scenarioDraw = box => {
+    const [D, R, N] = box.dataset.sc.split(',').map(Number), v = k => +box.querySelector(`[data-sck="${k}"]`).value / 100;
+    const a = v('d'), b = v('r'), c = v('n'), dv = D * a + R * (1 - b) + N * c, rv = D * (1 - a) + R * b + N * (1 - c), t = dv + rv || 1;
+    box.querySelectorAll('[data-sck]').forEach(i => { box.querySelector(`[data-scv="${i.dataset.sck}"]`).textContent = i.value + '%'; });
+    const f = x => Math.round(x).toLocaleString('en-US'), m = (dv - rv) / t * 100, lead = dv >= rv ? 'D' : 'R';
+    box.querySelector('[data-sco]').innerHTML = `<div class="sb-track" style="height:26px"><div class="sb-seg" style="flex:${dv / t} 1 0;background:var(--dem);color:#fff">D ${(dv / t * 100).toFixed(1)}%</div><div class="sb-seg" style="flex:${rv / t} 1 0;background:var(--rep);color:#fff">R ${(rv / t * 100).toFixed(1)}%</div></div>
+      <p style="margin:8px 0 0"><b>${Math.abs(m) < 0.05 ? 'Dead even' : `${lead}+${Math.abs(m).toFixed(1)}`}</b>${Math.abs(m) < 0.05 ? '' : `, a lead of <b class="num">${f(Math.abs(dv - rv))}</b> votes`}: about <span class="num">${f(dv)}</span> Democratic to <span class="num">${f(rv)}</span> Republican, out of <span class="num">${f(D + R + N)}</span> voters so far.</p>`;
+  };
+  document.addEventListener('input', e => { const i = e.target; if (!i.dataset || !i.dataset.sck) return; scenarioDraw(i.closest('[data-sc]')); });
+  document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-screset]'); if (!b) return; const box = b.closest('[data-sc]');
+    box.querySelectorAll('[data-sck]').forEach(i => { i.value = i.dataset.sck === 'n' ? 50 : 95; }); scenarioDraw(box); });
+  const scenarioInit = () => document.querySelectorAll('[data-sc]').forEach(scenarioDraw);
+  setTimeout(scenarioInit, 0);
   // who voted, by age, sex and estimated race: all voters so far, or one early-voting day (in person) or mail ballots alone
   const demoDayHtml = (SF, G, bands, o) => {
     if (!SF || !SF.age || !SF.sex || !G || !G.age || !G.sex || !bands) return '';
@@ -242,7 +270,7 @@
   const who = !W ? '' : `<section aria-labelledby="who-h"><h2 id="who-h">Who votes here</h2>
     <p class="sub">${W.slug === 'tarrant' ? 'Tarrant County' : esc(W.name)}${W.partial ? ', Tarrant County voters only' : ''}, from the county voter file of ${dlabel(W.file_date)}.</p>
     <div class="stats"><div><b class="num">${wn(W.reg)}</b><span>active registered voters</span></div><div><b class="num">${wp(W.g22[1], W.g22[0])}</b><span>voted in the 2022 midterm</span></div><div><b class="num">${wn(W.sat)}</b><span>sat out both 2022 and 2024</span></div></div>
-    <p class="note">March 2026 primaries: <b class="num">${wn(W.p26[0])}</b> Democratic ballots, <b class="num">${wn(W.p26[1])}</b> Republican.${!W.partial && W.reg ? ` Cash on hand works out to ${perV(R.period.coh / W.reg)} per registered voter for ${esc(R.short)} and ${perV(Dm.period.coh / W.reg)} for ${esc(Dm.short)}.` : ''} ${W.r24 ? (() => { const t = W.r24.total || 1, r = W.r24.cands.find(x => x[1] === 'REP'), d = W.r24.cands.find(x => x[1] === 'DEM'); if (!r || !d) return ''; const ln = n => n.split(' ').pop(), w = r[2] >= d[2] ? r : d, l = w === r ? d : r; return ` In the 2024 presidential race, ${esc(ln(w[0]))} carried ${W.slug === 'tarrant' ? 'the county' : 'this district'} ${Math.round(w[2] / t * 100)}% to ${Math.round(l[2] / t * 100)}%.`; })() : ''} <a href="${W.href}">Full electorate profile ›</a></p>${whoBars()}${dayLeanHtml(W.so_far, W.slug === 'tarrant' ? 'in the county' : 'in this district', [['2022 early and mail voters', '2022', W.so_far && W.so_far.lean22 && W.so_far.lean22.every(v => v != null) ? W.so_far.lean22 : null]])}${demoDayHtml(W.so_far, W, W.age_bands, { title: `Who has voted so far, by age, sex${W.so_far && W.so_far.race ? ' and race' : ''}`, note: W.partial ? ' Tarrant County voters only.' : '' })}${whoRace()}</section>`;
+    <p class="note">March 2026 primaries: <b class="num">${wn(W.p26[0])}</b> Democratic ballots, <b class="num">${wn(W.p26[1])}</b> Republican.${!W.partial && W.reg ? ` Cash on hand works out to ${perV(R.period.coh / W.reg)} per registered voter for ${esc(R.short)} and ${perV(Dm.period.coh / W.reg)} for ${esc(Dm.short)}.` : ''} ${W.r24 ? (() => { const t = W.r24.total || 1, r = W.r24.cands.find(x => x[1] === 'REP'), d = W.r24.cands.find(x => x[1] === 'DEM'); if (!r || !d) return ''; const ln = n => n.split(' ').pop(), w = r[2] >= d[2] ? r : d, l = w === r ? d : r; return ` In the 2024 presidential race, ${esc(ln(w[0]))} carried ${W.slug === 'tarrant' ? 'the county' : 'this district'} ${Math.round(w[2] / t * 100)}% to ${Math.round(l[2] / t * 100)}%.`; })() : ''} <a href="${W.href}">Full electorate profile ›</a></p>${whoBars()}${scenarioHtml(W.so_far && W.so_far.lean, { where: W.slug === 'tarrant' ? 'in the county' : 'in this district', through: W.so_far && W.so_far.through ? dlabel(W.so_far.through) : '' })}${dayLeanHtml(W.so_far, W.slug === 'tarrant' ? 'in the county' : 'in this district', [['2022 early and mail voters', '2022', W.so_far && W.so_far.lean22 && W.so_far.lean22.every(v => v != null) ? W.so_far.lean22 : null]])}${demoDayHtml(W.so_far, W, W.age_bands, { title: `Who has voted so far, by age, sex${W.so_far && W.so_far.race ? ' and race' : ''}`, note: W.partial ? ' Tarrant County voters only.' : '' })}${whoRace()}</section>`;
 
   $('#app').insertAdjacentHTML('beforeend', `
   <header>

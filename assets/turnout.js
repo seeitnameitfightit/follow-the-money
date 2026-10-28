@@ -104,6 +104,7 @@
     <div style="overflow-x:auto"><table class="ntab" id="bloc"></table></div></div>
     <div id="demo-day"></div>
     <div class="sizebar" id="who" style="margin-top:20px"></div>
+    <div id="scen"></div>
     <div id="dl-wrap" hidden><h3 style="margin:22px 0 4px" id="dl-h"></h3>
       <p class="note" style="margin-top:0" id="dl-sub"></p>
       <div class="seg" role="group" aria-label="Voters shown"><button type="button" id="dl-day" aria-pressed="true">Each day on its own</button><button type="button" id="dl-cum" aria-pressed="false">All voters so far</button></div>
@@ -457,6 +458,34 @@
   const setDl = k => { dlMode = k; $('#dl-day').setAttribute('aria-pressed', k === 'day'); $('#dl-cum').setAttribute('aria-pressed', k === 'cum'); drawLean(); };
   $('#dl-day').onclick = () => setDl('day'); $('#dl-cum').onclick = () => setDl('cum');
 
+  // "what if" sliders: how the votes cast so far would add up under the reader's own assumptions about crossover and the Neither break
+  const scenarioHtml = (lean, o) => {
+    if (!lean || lean.length !== 3 || lean.some(v => v == null) || lean[0] + lean[1] + lean[2] < 100) return '';
+    const id = 'sc' + Math.random().toString(36).slice(2, 7);
+    const sl = (k, lab, v, min) => `<label style="display:block;margin:10px 0 2px"><span style="display:flex;justify-content:space-between;gap:8px"><span>${lab}</span><b class="num" data-scv="${k}">${v}%</b></span>
+      <input type="range" min="${min}" max="100" step="1" value="${v}" data-sck="${k}" style="width:100%;accent-color:var(--ink)" aria-label="${lab}"></label>`;
+    return `<div class="panel" id="${id}" data-sc="${lean.join(',')}" style="margin-top:18px">
+      <h3 style="margin-top:0">What if? Add up the votes cast so far your way</h3>
+      <p class="note" style="margin-top:0">Move the sliders to set how each group votes${o && o.where ? ' ' + o.where : ''}. Every voter is grouped by the most recent party primary they chose since 2022. This counts only ballots already cast${o && o.through ? `, through ${o.through}` : ''}. It is not a forecast, and it is not how anyone actually voted: ballots are secret.</p>
+      ${sl('d', 'Democratic primary voters who vote Democratic', 95, 50)}
+      ${sl('r', 'Republican primary voters who vote Republican', 95, 50)}
+      ${sl('n', 'Voters with neither primary who vote Democratic', 50, 0)}
+      <div data-sco style="margin-top:14px"></div>
+      <p class="note"><button type="button" data-screset style="font:inherit;cursor:pointer;background:none;border:0;padding:0;text-decoration:underline;color:inherit">Reset</button> · Third-party and write-in votes are left out.</p></div>`;
+  };
+  const scenarioDraw = box => {
+    const [D, R, N] = box.dataset.sc.split(',').map(Number), v = k => +box.querySelector(`[data-sck="${k}"]`).value / 100;
+    const a = v('d'), b = v('r'), c = v('n'), dv = D * a + R * (1 - b) + N * c, rv = D * (1 - a) + R * b + N * (1 - c), t = dv + rv || 1;
+    box.querySelectorAll('[data-sck]').forEach(i => { box.querySelector(`[data-scv="${i.dataset.sck}"]`).textContent = i.value + '%'; });
+    const f = x => Math.round(x).toLocaleString('en-US'), m = (dv - rv) / t * 100, lead = dv >= rv ? 'D' : 'R';
+    box.querySelector('[data-sco]').innerHTML = `<div class="sb-track" style="height:26px"><div class="sb-seg" style="flex:${dv / t} 1 0;background:var(--dem);color:#fff">D ${(dv / t * 100).toFixed(1)}%</div><div class="sb-seg" style="flex:${rv / t} 1 0;background:var(--rep);color:#fff">R ${(rv / t * 100).toFixed(1)}%</div></div>
+      <p style="margin:8px 0 0"><b>${Math.abs(m) < 0.05 ? 'Dead even' : `${lead}+${Math.abs(m).toFixed(1)}`}</b>${Math.abs(m) < 0.05 ? '' : `, a lead of <b class="num">${f(Math.abs(dv - rv))}</b> votes`}: about <span class="num">${f(dv)}</span> Democratic to <span class="num">${f(rv)}</span> Republican, out of <span class="num">${f(D + R + N)}</span> voters so far.</p>`;
+  };
+  document.addEventListener('input', e => { const i = e.target; if (!i.dataset || !i.dataset.sck) return; scenarioDraw(i.closest('[data-sc]')); });
+  document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-screset]'); if (!b) return; const box = b.closest('[data-sc]');
+    box.querySelectorAll('[data-sck]').forEach(i => { i.value = i.dataset.sck === 'n' ? 50 : 95; }); scenarioDraw(box); });
+  const scenarioInit = () => document.querySelectorAll('[data-sc]').forEach(scenarioDraw);
+  setTimeout(scenarioInit, 0);
   // who voted, by age, sex and estimated race: all voters so far, or one early-voting day (in person) or mail ballots alone
   const demoDayHtml = (SF, G, bands, o) => {
     if (!SF || !SF.age || !SF.sex || !G || !G.age || !G.sex || !bands) return '';
@@ -578,6 +607,7 @@
     }
     if (W.neither && W.neither.series.length) drawNei();
     if (W.neither && (W.neither.daily || []).length) drawLean();
+    $('#scen').innerHTML = scenarioHtml(WA.lean, { where: 'across Tarrant County', through: WA.through ? dlab(WA.through) : '' }); scenarioInit();
     if (W.demo) $('#demo-day').innerHTML = demoDayHtml(W.demo, W.demo.base, W.demo.age_bands, { title: 'Who has voted, day by day: age, sex and race', note: ' Measured against active registered voters plus anyone who has voted.' });
     $('#who-comm').innerHTML = `<thead><tr><th>Pct</th><th class="r">Voted</th><th class="r">Lean</th><th class="r">2022 early + mail</th></tr></thead><tbody>${['01', '02', '03', '04'].map(c => {
       const a = WA.comm[c], t = a[0] + a[1] + a[2], b = ref && ref.comm[c], tb = b ? b[0] + b[1] + b[2] : 0;
