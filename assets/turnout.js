@@ -81,6 +81,9 @@
     </div>
     <div style="overflow-x:auto"><table class="ntab" id="tx-tab"></table></div>
     <p class="note" id="tx-foot"></p>${MARK}</section>
+  <section aria-labelledby="ry-h" id="ry-sec" hidden><h2 id="ry-h">Texas: add up the early vote your way</h2><p class="sub" id="ry-sub"></p>
+    <label class="note" style="display:block;margin:4px 0 8px">Show <select id="ry-sel" style="font:inherit;margin-left:4px"></select></label><div id="ry-box"></div>
+    <p class="note" id="ry-note"></p>${MARK}</section>
   <section aria-labelledby="site-h" id="site-sec" hidden><h2 id="site-h"></h2>
     <p class="sub" id="site-sub"></p>
     <div class="ctl-row" style="display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;margin:4px 0 6px">
@@ -130,8 +133,8 @@
   </ul><a href="https://seeitnameitfightit.com" target="_blank" rel="noopener">${esc(M.org)}</a> · <a href="../index.html">Follow the Money</a> · <a href="../electorate/index.html">The Electorate</a></footer>`);
 
   // ---------- section order (reads as a story): scorecard, build-up, each day, who has voted, Texas, day-by-day table,
-  // sites, mail, past finishes. Sections are moved after they are written, so each keeps its own markup above.
-  ['pace-h', 'day-h', 'who-h', 'tx-h', 'tab-h', 'site-h', 'mail-h', 'fin-h'].forEach(id => {
+  // Texas what-if (Ryan Data), sites, mail, past finishes. Sections are moved after they are written, so each keeps its own markup above.
+  ['pace-h', 'day-h', 'who-h', 'tx-h', 'ry-h', 'tab-h', 'site-h', 'mail-h', 'fin-h'].forEach(id => {
     const sec = app.querySelector(`section[aria-labelledby="${id}"]`), foot = app.querySelector('footer');
     if (sec && foot) app.insertBefore(sec, foot);
   });
@@ -466,7 +469,7 @@
       <input type="range" min="${min}" max="100" step="1" value="${v}" data-sck="${k}" style="width:100%;accent-color:var(--ink)" aria-label="${lab}"></label>`;
     return `<div class="panel" id="${id}" data-sc="${lean.join(',')}" style="margin-top:18px">
       <h3 style="margin-top:0">What if? Add up the votes cast so far your way</h3>
-      <p class="note" style="margin-top:0">Move the sliders to set how each group votes${o && o.where ? ' ' + o.where : ''}. Every voter is grouped by the most recent party primary they chose since 2022. This counts only ballots already cast${o && o.through ? `, through ${o.through}` : ''}. It is not a forecast, and it is not how anyone actually voted: ballots are secret.</p>
+      <p class="note" style="margin-top:0">Move the sliders to set how each group votes${o && o.where ? ' ' + o.where : ''}. ${o && o.def ? o.def : 'Every voter is grouped by the most recent party primary they chose since 2022.'} This counts only ballots already cast${o && o.through ? `, through ${o.through}` : ''}. It is not a forecast, and it is not how anyone actually voted: ballots are secret.</p>
       ${sl('d', 'Democratic primary voters who vote Democratic', 95, 50)}
       ${sl('r', 'Republican primary voters who vote Republican', 95, 50)}
       ${sl('n', 'Voters with neither primary who vote Democratic', 50, 0)}
@@ -486,6 +489,21 @@
     box.querySelectorAll('[data-sck]').forEach(i => { i.value = i.dataset.sck === 'n' ? 50 : 95; }); scenarioDraw(box); });
   const scenarioInit = () => document.querySelectorAll('[data-sc]').forEach(scenarioDraw);
   setTimeout(scenarioInit, 0);
+  // statewide and county "what if" sliders from Ryan Data & Research's public early-voting reports (Derek Ryan)
+  (function () {
+    const RY = D.ryan; if (!RY || !(RY.state || Object.keys(RY.counties || {}).length)) return;
+    $('#ry-sec').hidden = false;
+    const thr = RY.through ? dlab(RY.through) : '', def = 'Voters are grouped by their primary history over the last four election cycles: Democratic (voted only in Democratic primaries, or in both with the most recent Democratic), Republican (the same for Republican primaries), or neither (general elections only, or no vote history).';
+    $('#ry-sub').innerHTML = `Early voters across Texas through Day ${RY.day}${thr ? ` (${thr})` : ''}, by primary history. Pick the state or any county, then set how each group votes. Data: <b>Ryan Data &amp; Research (Derek Ryan)</b>, Early Voting Report, Day ${RY.day}.`;
+    const names = Object.keys(RY.counties).sort();
+    $('#ry-sel').innerHTML = (RY.state ? '<option value="">Statewide</option>' : '') + names.map(n => `<option value="${esc(n)}">${esc(n)} County</option>`).join('');
+    const draw = () => { const k = $('#ry-sel').value, g = k ? RY.counties[k] : RY.state; if (!g) return;
+      $('#ry-box').innerHTML = `<p class="note" style="margin:0 0 4px"><b class="num">${fmtN(g.votes)}</b> early votes cast of <b class="num">${fmtN(g.reg)}</b> registered voters (${pc1(g.votes / g.reg)})${k ? ' in ' + esc(k) + ' County' : ' statewide'}, through Day ${RY.day}.</p>`
+        + scenarioHtml(g.lean, { where: k ? `in ${esc(k)} County` : 'across Texas', through: thr, def });
+      scenarioInit(); };
+    $('#ry-sel').onchange = draw; draw();
+    $('#ry-note').innerHTML = `Source: Ryan Data &amp; Research (Derek Ryan), public Early Voting Report and Statewide Early Voters by County, Day ${RY.day}${thr ? `, through ${thr}` : ''}. Ryan Data’s reports run one day behind this page’s Tarrant County figures, and they define primary history over four cycles, so their Tarrant numbers differ from the Tarrant sections above. County figures are built from whole-percent shares, so each group can be off by up to half a point.`;
+  })();
   // who voted, by age, sex and estimated race: all voters so far, or one early-voting day (in person) or mail ballots alone
   const demoDayHtml = (SF, G, bands, o) => {
     if (!SF || !SF.age || !SF.sex || !G || !G.age || !G.sex || !bands) return '';
