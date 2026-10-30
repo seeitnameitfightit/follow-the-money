@@ -489,20 +489,38 @@
     box.querySelectorAll('[data-sck]').forEach(i => { i.value = i.dataset.sck === 'n' ? 50 : 95; }); scenarioDraw(box); });
   const scenarioInit = () => document.querySelectorAll('[data-sc]').forEach(scenarioDraw);
   setTimeout(scenarioInit, 0);
-  // statewide and county "what if" sliders from Ryan Data & Research's public early-voting reports (Derek Ryan)
+  // statewide and county "what if" sliders from Ryan Data & Research's public early-voting reports (Derek Ryan),
+  // plus legislative and congressional districts from VoteBuilder (VAN) when published (D.van)
   (function () {
-    const RY = D.ryan; if (!RY || !(RY.state || Object.keys(RY.counties || {}).length)) return;
+    const RY = D.ryan || {}, VN = D.van || {}, KN = { HD: 'Texas House District', SD: 'Texas Senate District', CD: 'Congressional District' };
+    const hasRy = RY.state || Object.keys(RY.counties || {}).length, vk = ['HD', 'SD', 'CD'].filter(k => VN[k]);
+    if (!hasRy && !vk.length) return;
     $('#ry-sec').hidden = false;
-    const thr = RY.through ? dlab(RY.through) : '', def = 'Voters are grouped by their primary history over the last four election cycles: Democratic (voted only in Democratic primaries, or in both with the most recent Democratic), Republican (the same for Republican primaries), or neither (general elections only, or no vote history).';
-    $('#ry-sub').innerHTML = `Early voters across Texas through Day ${RY.day}${thr ? ` (${thr})` : ''}, by primary history. Pick the state or any county, then set how each group votes. Data: <b>Ryan Data &amp; Research (Derek Ryan)</b>, Early Voting Report, Day ${RY.day}.`;
-    const names = Object.keys(RY.counties).sort();
-    $('#ry-sel').innerHTML = (RY.state ? '<option value="">Statewide</option>' : '') + names.map(n => `<option value="${esc(n)}">${esc(n)} County</option>`).join('');
-    const draw = () => { const k = $('#ry-sel').value, g = k ? RY.counties[k] : RY.state; if (!g) return;
-      $('#ry-box').innerHTML = `<p class="note" style="margin:0 0 4px"><b class="num">${fmtN(g.votes)}</b> early votes cast of <b class="num">${fmtN(g.reg)}</b> registered voters (${pc1(g.votes / g.reg)})${k ? ' in ' + esc(k) + ' County' : ' statewide'}, through Day ${RY.day}.</p>`
-        + scenarioHtml(g.lean, { where: k ? `in ${esc(k)} County` : 'across Texas', through: thr, def });
-      scenarioInit(); };
+    const thr = RY.through ? dlab(RY.through) : '';
+    const defR = 'Voters are grouped by their primary history over the last four election cycles: Democratic (voted only in Democratic primaries, or in both with the most recent Democratic), Republican (the same for Republican primaries), or neither (general elections only, or no vote history).';
+    const defV = 'Voters are grouped by primary history since 2022: Democratic (voted only in Democratic primaries), Republican (only Republican primaries), or neither (no primary since 2022).';
+    $('#ry-sub').innerHTML = `Early voters across Texas, by primary history. Pick the state, a county${vk.length ? ' or a district' : ''}, then set how each group votes.${hasRy ? ` Statewide and county data: <b>Ryan Data &amp; Research (Derek Ryan)</b>, through Day ${RY.day}${thr ? ` (${thr})` : ''}.` : ''}`;
+    const names = Object.keys(RY.counties || {}).sort();
+    $('#ry-sel').innerHTML = (RY.state ? '<option value="s:">Statewide</option>' : '')
+      + (names.length ? `<optgroup label="Counties">${names.map(n => `<option value="c:${esc(n)}">${esc(n)} County</option>`).join('')}</optgroup>` : '')
+      + vk.map(k => `<optgroup label="${KN[k]}s">${Object.keys(VN[k].districts).sort((a, b) => a - b).map(d => `<option value="${k}:${d}">${KN[k]} ${d}</option>`).join('')}</optgroup>`).join('');
+    const draw = () => {
+      const [t, k] = $('#ry-sel').value.split(/:(.*)/s); let g, where, line, note;
+      if (t === 's' || t === 'c') {
+        g = t === 's' ? RY.state : RY.counties[k]; if (!g) return;
+        where = t === 's' ? 'across Texas' : `in ${esc(k)} County`;
+        line = `<b class="num">${fmtN(g.votes)}</b> early votes cast of <b class="num">${fmtN(g.reg)}</b> registered voters (${pc1(g.votes / g.reg)}) ${t === 's' ? 'statewide' : 'in ' + esc(k) + ' County'}, through Day ${RY.day}.`;
+        note = `Source: Ryan Data &amp; Research (Derek Ryan), public Early Voting Report and Statewide Early Voters by County, Day ${RY.day}${thr ? `, through ${thr}` : ''}. Ryan Data’s reports run about a day behind this page’s Tarrant County figures, and they define primary history over four cycles, so their Tarrant numbers differ from the Tarrant sections above.${t === 'c' && g.exact === false ? ' This county’s figures are built from whole-percent shares, so each group can be off by up to half a point.' : ''}`;
+        g = Object.assign({}, g, { def: defR, thr });
+      } else {
+        const V = VN[t], L = V.districts[k], vt = L[0] + L[1] + L[2], vthr = dlab(V.through);
+        g = { lean: L, def: defV, thr: vthr }; where = `in ${KN[t]} ${k}`;
+        line = `<b class="num">${fmtN(vt)}</b> early voters with records in VoteBuilder for ${KN[t]} ${k}, through ${vthr}.`;
+        note = `Source: ${esc(VN.credit || 'VoteBuilder (VAN)')}, through ${vthr}. VoteBuilder’s early-vote records can lag the counties’ own counts, and voters who have voted in both parties’ primaries may not be counted in either party group.`;
+      }
+      $('#ry-box').innerHTML = `<p class="note" style="margin:0 0 4px">${line}</p>` + scenarioHtml(g.lean, { where, through: g.thr, def: g.def });
+      $('#ry-note').innerHTML = note; scenarioInit(); };
     $('#ry-sel').onchange = draw; draw();
-    $('#ry-note').innerHTML = `Source: Ryan Data &amp; Research (Derek Ryan), public Early Voting Report and Statewide Early Voters by County, Day ${RY.day}${thr ? `, through ${thr}` : ''}. Ryan Data’s reports run one day behind this page’s Tarrant County figures, and they define primary history over four cycles, so their Tarrant numbers differ from the Tarrant sections above. County figures are built from whole-percent shares, so each group can be off by up to half a point.`;
   })();
   // who voted, by age, sex and estimated race: all voters so far, or one early-voting day (in person) or mail ballots alone
   const demoDayHtml = (SF, G, bands, o) => {
