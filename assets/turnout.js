@@ -80,7 +80,8 @@
       <input type="search" id="tt-q" placeholder="Find a county" aria-label="Find a county" hidden style="font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink)">
     </div>
     <div style="overflow-x:auto"><table class="ntab" id="tx-tab"></table></div>
-    <p class="note" id="tx-foot"></p>${MARK}</section>
+    <p class="note" id="tx-foot"></p>
+    <div id="tx-pie" hidden></div>${MARK}</section>
   <section aria-labelledby="ry-h" id="ry-sec" hidden><h2 id="ry-h">Texas: add up the early vote your way</h2><p class="sub" id="ry-sub"></p>
     <label class="note" style="display:block;margin:4px 0 8px">Show <select id="ry-sel" style="font:inherit;margin-left:4px"></select></label><div id="ry-box"></div>
     <p class="note" id="ry-note"></p>${MARK}</section>
@@ -489,6 +490,29 @@
     box.querySelectorAll('[data-sck]').forEach(i => { i.value = i.dataset.sck === 'n' ? 50 : 95; }); scenarioDraw(box); });
   const scenarioInit = () => document.querySelectorAll('[data-sc]').forEach(scenarioDraw);
   setTimeout(scenarioInit, 0);
+  // donut: 2026 in-person early votes by each county's 2024 presidential result, labeled with the change from 2022
+  (function () {
+    const CG = D.county_groups; if (!CG || !CG.groups) return;
+    const G = CG.groups.filter(x => x.ev26 > 0), tot = G.reduce((a, x) => a + x.ev26, 0) || 1;
+    const COLS = ['var(--dem)', 'color-mix(in oklab, var(--rep) 45%, var(--surface))', 'color-mix(in oklab, var(--rep) 65%, var(--surface))', 'color-mix(in oklab, var(--rep) 82%, var(--surface))', 'var(--rep)'];
+    const S = 360, cx = S / 2, cy = S / 2, R = 150, r0 = 88; let a0 = -Math.PI / 2, arcs = '';
+    G.forEach((x, i) => { const a1 = a0 + x.ev26 / tot * 2 * Math.PI, big = a1 - a0 > Math.PI ? 1 : 0, p = (r, a) => `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
+      const am = (a0 + a1) / 2, lr = (R + r0) / 2, sh = x.ev26 / tot;
+      arcs += `<path d="M${p(R, a0)}A${R},${R} 0 ${big} 1 ${p(R, a1)}L${p(r0, a1)}A${r0},${r0} 0 ${big} 0 ${p(r0, a0)}Z" fill="${COLS[CG.groups.indexOf(x)]}" stroke="var(--surface)" stroke-width="2"><title>${esc(x.label)}: ${fmtN(x.ev26)} early votes (${pc1(sh)} of Texas), ${x.vs22 >= 0 ? '+' : ''}${(x.vs22 * 100).toFixed(0)}% vs. 2022, ${x.counties} counties</title></path>`
+        + (sh >= 0.06 ? `<text x="${cx + lr * Math.cos(am)}" y="${cy + lr * Math.sin(am) + 5}" text-anchor="middle" font-size="15" font-weight="700" fill="${i === 0 || i === G.length - 1 ? '#fff' : 'var(--ink)'}" class="num">${x.vs22 >= 0 ? '+' : ''}${(x.vs22 * 100).toFixed(0)}%</text>` : '');
+      a0 = a1; });
+    const all = G.reduce((a, x) => [a[0] + x.ev26, a[1] + x.ev22], [0, 0]);
+    $('#tx-pie').hidden = false;
+    $('#tx-pie').innerHTML = `<h3 style="margin-top:26px">Early voting is up most in the counties Harris won and the closest Trump counties</h3>
+      <p class="note" style="margin-top:0">Texas in-person early votes through Day ${CG.day} (${dlab(CG.through)}), grouped by how each county voted for president in 2024. Each slice is that group’s share of the early vote; the label is the change from the same point in 2022.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:18px 30px;align-items:center">
+        <svg viewBox="0 0 ${S} ${S}" width="300" style="max-width:100%" role="img" aria-label="Donut chart of 2026 early votes by 2024 county result">${arcs}
+          <text x="${cx}" y="${cy - 6}" text-anchor="middle" font-size="13" fill="var(--ink-2)">All of Texas</text><text x="${cx}" y="${cy + 18}" text-anchor="middle" font-size="22" font-weight="700" fill="var(--ink)" class="num">${all[1] ? (all[0] / all[1] - 1 >= 0 ? '+' : '') + ((all[0] / all[1] - 1) * 100).toFixed(0) + '%' : ''}</text>
+          <text x="${cx}" y="${cy + 36}" text-anchor="middle" font-size="11" fill="var(--ink-3)">vs. 2022</text></svg>
+        <ul class="kv" style="flex:1 1 260px;margin:0">${G.map(x => `<li><span><i class="sw" style="background:${COLS[CG.groups.indexOf(x)]}"></i> ${esc(x.label)} <small>${x.counties} counties · ${fmtN(x.ev26)} votes (${pc1(x.ev26 / tot)})</small></span><span class="num"><b>${x.vs22 >= 0 ? '+' : ''}${(x.vs22 * 100).toFixed(0)}%</b></span></li>`).join('')}</ul>
+      </div>
+      <p class="note">2024 results: Texas Secretary of State county-by-county canvass (Trump’s share of the Trump + Harris vote). Early votes: in person only, from the state’s daily county reports, with county files used for Harris, Dallas, Bexar, Collin, Fort Bend and Tarrant. Higher turnout shows where voters are showing up, not how they voted.</p>`;
+  })();
   // statewide and county "what if" sliders from Ryan Data & Research's public early-voting reports (Derek Ryan),
   // plus legislative and congressional districts from VoteBuilder (VAN) when published (D.van)
   (function () {
