@@ -70,6 +70,7 @@
   <section aria-label="Key numbers"><div class="stats">${tiles.join('')}</div></section>
   <section aria-labelledby="proj-h" id="proj-sec" hidden><h2 id="proj-h">What the early vote points to for the final turnout</h2><p class="sub" id="proj-sub"></p><div style="overflow-x:auto"><table class="ntab" id="proj-tab"></table></div><p class="note" id="proj-note"></p></section>
   <section aria-labelledby="left-h" id="left-sec" hidden><h2 id="left-h"></h2><p class="sub" id="left-sub"></p><div class="sizebar" id="left-bars"></div><p class="note" style="margin-top:2px">Hover over or tap a bar for the numbers.</p><h3 style="margin-top:18px">By commissioner precinct</h3><div style="overflow-x:auto;max-width:560px"><table class="ntab" id="left-comm"></table></div><p class="note" id="left-note"></p></section>
+  <section aria-labelledby="rof-h" id="rof-sec" hidden><h2 id="rof-h"></h2><p class="sub" id="rof-sub"></p><div class="sizebar" id="rof-bars"></div><div class="panel" style="margin-top:16px" id="rof-2026"></div><details style="margin-top:14px"><summary style="cursor:pointer;font-weight:600">Every countywide race, 2022 and 2024</summary><div style="overflow-x:auto"><table class="ntab" id="rof-tab" style="white-space:nowrap"></table></div></details><p class="note" id="rof-note"></p></section>
   <section aria-labelledby="eds-h" id="eds-sec" hidden><h2 id="eds-h"></h2><p class="sub" id="eds-sub"></p><h3 style="margin-top:14px">The 15 sites likely to be busiest on Election Day</h3><div style="overflow-x:auto"><table class="ntab" id="eds-top" style="white-space:nowrap"></table></div><h3 style="margin-top:22px">The busiest 2024 Election Day sites that are closed this year</h3><div style="overflow-x:auto"><table class="ntab" id="eds-closed" style="white-space:nowrap"></table></div><p class="note" id="eds-note"></p></section>
   <section aria-labelledby="dd-h" id="dd-sec" hidden><h2 id="dd-h">Early voting, day by day</h2><p class="sub">The daily charts and tables from the 12 days of early voting, Oct 19–30, including votes by early-voting location.</p><button type="button" id="dd-btn" class="btn" style="font:inherit;cursor:pointer;padding:6px 12px;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink)">Show the daily detail</button></section>
   <section aria-labelledby="pace-h"><h2 id="pace-h">${n ? 'Ballots in, day by day, against past elections' : 'How past elections built up, day by day'}</h2>
@@ -151,7 +152,7 @@
 
   // ---------- section order (reads as a story): scorecard, build-up, each day, who has voted, Texas, day-by-day table,
   // Texas what-if (Ryan Data), sites, mail, past finishes. Sections are moved after they are written, so each keeps its own markup above.
-  (EVDONE ? ['proj-h', 'left-h', 'eds-h', 'pace-h', 'who-h', 'tx-h', 'ry-h', 'dd-h', 'day-h', 'tab-h', 'site-h', 'mail-h', 'fin-h'] : ['pace-h', 'day-h', 'who-h', 'tx-h', 'ry-h', 'tab-h', 'site-h', 'mail-h', 'fin-h']).forEach(id => {
+  (EVDONE ? ['proj-h', 'left-h', 'rof-h', 'eds-h', 'pace-h', 'who-h', 'tx-h', 'ry-h', 'dd-h', 'day-h', 'tab-h', 'site-h', 'mail-h', 'fin-h'] : ['pace-h', 'day-h', 'who-h', 'rof-h', 'tx-h', 'ry-h', 'tab-h', 'site-h', 'mail-h', 'fin-h']).forEach(id => {
     const sec = app.querySelector(`section[aria-labelledby="${id}"]`), foot = app.querySelector('footer');
     if (sec && foot) app.insertBefore(sec, foot);
   });
@@ -714,6 +715,41 @@
 
   const drawAll = () => { draw(); drawDays(); if (SY.length) drawTx(); if (STY.length >= 2) siteTable(); if (C.who && C.who.neither && C.who.neither.series.length && !EVDONE) drawNei(); if (C.who && C.who.neither && (C.who.neither.daily || []).length) drawLean(); };
 
+
+  // ---------- ballot roll-off: how many voters skip down-ballot races, by party, turned into votes
+  (function () {
+    const RO = D.rolloff; if (!RO || !RO.g24) return;
+    const avg = (k, kind, f) => { const c = (RO[k] ? RO[k].contests : []).filter(x => x.kind === kind); return c.length ? c.reduce((a, x) => a + x[f], 0) / c.length : null; };
+    const g = { c24: [avg('g24', 'county', 'd_skip'), avg('g24', 'county', 'r_skip')], s24: [avg('g24', 'state', 'd_skip'), avg('g24', 'state', 'r_skip')],
+                c22: [avg('g22', 'county', 'd_skip'), avg('g22', 'county', 'r_skip')], s22: [avg('g22', 'state', 'd_skip'), avg('g22', 'state', 'r_skip')] };
+    const net24 = avg('g24', 'county', 'net'), net22 = avg('g22', 'county', 'net');
+    const p = v => (v * 100).toFixed(1) + '%', per = v => fmtN(Math.round(v * 100000 / 100) * 100);
+    $('#rof-sec').hidden = false;
+    $('#rof-h').textContent = `Finish the ballot: in 2024, Democratic voters skipped county races about twice as often as Republican voters`;
+    $('#rof-sub').innerHTML = `Texas ended straight-ticket voting in 2020, so every race has to be marked on its own. Some voters stop after the top races. In 2024, for every 100,000 people who voted for Kamala Harris, about <b class="num">${per(g.c24[0])}</b> skipped a typical contested county race; for every 100,000 Donald Trump voters, about <b class="num">${per(g.c24[1])}</b> did. That gap cost Democratic county candidates about <b class="num">${fmtN(Math.round(net24 / 100) * 100)}</b> net votes in each race.`;
+    const bar = (lab, a) => { const mx = 0.08; return `<div class="sb-row"><div class="sb-label"><b>${lab}</b><span class="num">D ${p(a[0])} · R ${p(a[1])}</span></div>
+      <div style="display:grid;gap:3px"><div class="sb-track" style="height:14px;background:none"><div class="sb-seg" style="flex:0 0 ${Math.min(100, a[0] / mx * 100)}%;background:var(--dem)" title="Democratic top-of-ticket voters who skipped: ${p(a[0])}"></div></div>
+      <div class="sb-track" style="height:14px;background:none"><div class="sb-seg" style="flex:0 0 ${Math.min(100, a[1] / mx * 100)}%;background:var(--rep)" title="Republican top-of-ticket voters who skipped: ${p(a[1])}"></div></div></div></div>`; };
+    $('#rof-bars').innerHTML = `<p class="note" style="margin:0 0 6px">Share of each side’s top-of-ticket voters who skipped the race (blue: Democratic; red: Republican)</p>`
+      + [['2024 · contested county races (Sheriff, Tax Assessor, judges)', g.c24], ['2024 · statewide courts and Railroad Commissioner', g.s24], ['2022 · county races', g.c22], ['2022 · statewide offices and courts', g.s22]].filter(([, a]) => a[0] != null).map(([l, a]) => bar(l, a)).join('');
+    // 2026: turn the rates into votes at this year's projected turnout
+    const Yr = Y.filter(y => y.rows && y.rows[11] && y.final_total), lt = C.rows.length >= 12 ? C.rows[11].total : null;
+    let lo = null, hi = null;
+    if (lt && Yr.length) { const est = Yr.map(y => lt / (y.rows[11].total / y.final_total)); lo = Math.min(...est); hi = Math.max(...est); }
+    const gap24 = g.c24[0] - g.c24[1], gap22 = g.c22[0] != null ? g.c22[0] - g.c22[1] : null;
+    $('#rof-2026').innerHTML = lo ? `<h3 style="margin-top:0">What it could mean this year</h3>
+      <p style="margin:6px 0">With about <b class="num">${fmtN(Math.round(lo / 1000) * 1000)}–${fmtN(Math.round(hi / 1000) * 1000)}</b> Tarrant County voters expected in 2026, the gap works out to:</p>
+      <ul class="kv" style="margin:0">
+        <li><span>If voters skip county races the way they did in <b>2024</b></span><span class="num"><b>${fmtN(Math.round(gap24 * lo / 2 / 100) * 100)}–${fmtN(Math.round(gap24 * hi / 2 / 100) * 100)}</b> net votes</span></li>
+        ${gap22 != null ? `<li><span>If they skip the way they did in <b>2022</b></span><span class="num"><b>${fmtN(Math.round(gap22 * lo / 2 / 100) * 100)}–${fmtN(Math.round(gap22 * hi / 2 / 100) * 100)}</b> net votes</span></li>` : ''}
+      </ul>
+      <p class="note" style="margin-bottom:0">Per race, lost by Democratic candidates, assuming the top of the ticket splits about evenly. In a close commissioner, House or judicial race, that can be the whole margin.</p>`
+      : `<p style="margin:0">At 2024’s rates, every 100,000 Democratic voters lose about ${fmtN(Math.round(gap24 * 100000 / 100) * 100)} net votes per county race to skipping.</p>`;
+    const rows = [];
+    ['g24', 'g22'].forEach(k => (RO[k] ? RO[k].contests : []).forEach(x => rows.push([k === 'g24' ? 2024 : 2022, x])));
+    $('#rof-tab').innerHTML = `<thead><tr><th>Year</th><th>Race</th><th class="r">Ballots that skipped it</th><th class="r">D voters who skipped</th><th class="r">R voters who skipped</th><th class="r">Net cost to D</th></tr></thead><tbody>${rows.map(([y, x]) => `<tr><td>${y}</td><td>${esc(x.contest)}</td><td class="r num">${p(x.rolloff)}</td><td class="r num">${p(x.d_skip)}</td><td class="r num">${p(x.r_skip)}</td><td class="r num">${x.net >= 0 ? '' : '−'}${fmtN(Math.abs(x.net))}</td></tr>`).join('')}</tbody>`;
+    $('#rof-note').textContent = `How this is measured: the county’s precinct canvass for Nov 2022 and Nov 2024. “Ballots that skipped it” is ballots cast minus votes in the race. Who skipped is estimated by comparing precincts: where a precinct’s top-of-ticket vote (Governor in 2022, President in 2024) was more Democratic, more ballots left the race blank. These are estimates for groups of voters, not counts of individuals. Only countywide races with both a Democrat and a Republican are included; in races with only a Republican on the ballot, most Democratic voters leave it blank.`;
+  })();
   // ---------- after early voting: projection, who's left, Election Day sites, collapsed daily detail
   if (EVDONE) (function () {
     const sec = id => app.querySelector(`section[aria-labelledby="${id}"]`);
