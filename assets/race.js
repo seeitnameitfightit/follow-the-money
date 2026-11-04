@@ -122,16 +122,20 @@
     const lean = (lab, a) => { const t = sum(a); return bar(lab, `${fmtN(t)} · ${gt(a[0] / t, a[1] / t)}`, a[0] / t, a[2] / t, a[1] / t, 'Neither'); };
     let out = lean('2026 voters so far', SF.lean);
     if (ok(SF.lean22) && sum(SF.lean22) >= 50) out += lean('2022 early and mail voters', SF.lean22);
-    const L = (W.last || []).find(r => r.contested) || null, P = !L && W.r24 ? W.r24 : null, C = L || P;
-    if (C) {
+    // this office's own 2026 race (election-night results), then its last contested race before 2026 (or the 2024 presidential)
+    const resBar = (lab, C) => {
       const t = C.total || 1, d = C.cands.find(x => x[1] === 'DEM'), r = C.cands.find(x => x[1] === 'REP'), oth = C.cands.filter(x => x !== d && x !== r);
       const ov = oth.reduce((a, x) => a + x[2], 0), ol = oth.length === 1 && oth[0][0] !== 'Others' ? oth[0][0].split(' ').pop() : 'Other';
       const top = [...C.cands].filter(x => x[0] !== 'Others').sort((a, b) => b[2] - a[2]);
-      const mg = d && r ? gt(d[2] / t, r[2] / t) : top.length > 1 ? `${top[0][0].split(' ').pop()} +${((top[0][2] - top[1][2]) / t * 100).toFixed(1)}` : '';
-      out += bar(`Result: ${L ? `${L.contest}, ${L.short}` : 'President, 2024'}`, `${fmtN(C.total)} votes · ${mg}`, d ? d[2] / t : 0, ov / t, r ? r[2] / t : 0, ol);
-    }
-    return `<h3 style="margin:20px 0 4px">Who has voted so far, by primary history${SF.through ? ` <small style="font-weight:400;color:var(--ink-3)">through ${dlabel(SF.through)}</small>` : ''}</h3><div class="sizebar">${out}</div>
-      <p class="note">The most recent party primary each voter chose since 2022: Democratic, Republican, or neither. A primary ballot is not a November vote and this is not a forecast; the large 2026 Democratic primary also makes 2026 voters look more Democratic on this measure.${C ? ` The last bar is the actual November result ${L ? `the last time this office was contested${L.same_lines === false ? ' (under the district lines of that election)' : ''}` : 'in the 2024 presidential race'}, for comparison.` : ''}</p>`;
+      const mg = d && r ? gt(d[2] / t, r[2] / t) : top.length > 1 ? `${top[0][0].split(' ').pop()} +${((top[0][2] - top[1][2]) / t * 100).toFixed(1)}` : top.length ? `${top[0][0].split(' ').pop()} unopposed` : '';
+      return bar(lab, `${fmtN(C.total)} votes · ${mg}`, d ? d[2] / t : 0, ov / t, r ? r[2] / t : 0, ol);
+    };
+    const N = (W.last || []).find(r => r.key === 'g26') || null;
+    const L = (W.last || []).find(r => r.contested && r.key !== 'g26') || null, P = !L && W.r24 ? W.r24 : null, C = L || P;
+    if (N) out += resBar(`Result: ${N.contest}, 2026${N.official === false ? ' (unofficial)' : ''}`, N);
+    if (C) out += resBar(`Result: ${L ? `${L.contest}, ${L.short}` : 'President, 2024'}`, C);
+    return `<h3 style="margin:20px 0 4px">Who has voted, by primary history${SF.through ? ` <small style="font-weight:400;color:var(--ink-3)">early and mail voting through ${dlabel(SF.through)}</small>` : ''}</h3><div class="sizebar">${out}</div>
+      <p class="note">The most recent party primary each voter chose since 2022: Democratic, Republican, or neither. A primary ballot is not a November vote and this is not a forecast; the large 2026 Democratic primary also makes 2026 voters look more Democratic on this measure.${N ? ` The 2026 result bar is the county’s ${N.official === false ? 'unofficial election-night count; official totals come with the canvass' : 'official canvass'}.` : ''}${C ? ` The ${N ? 'final' : 'last'} bar is the actual November result ${L ? `the last time this office was contested${L.same_lines === false ? ' (under the district lines of that election)' : ''}` : 'in the 2024 presidential race'}, for comparison.` : ''}</p>`;
   };
   // primary history (D / neither / R) of each early-voting day's voters here, as 100% bars building to Election Day
   const dayLeanHtml = (SF, where, refs) => {

@@ -85,14 +85,17 @@
   // the seat's own last race (and the last contested one, if that was unopposed)
   const seatHtml = !G.seat ? '' : (() => {
     const S = G.seat, r0 = S.races[0], top = r0.cands.filter(x => x[0] !== 'Others').sort((a, b) => b[2] - a[2]);
-    const h = r0.contested ? `${lastName(top[0][0])} won this ${S.office} by ${((top[0][2] - top[1][2]) / (r0.total || 1) * 100).toFixed(1)} points in ${r0.short}`
+    const now = r0.key === 'g26', uo = now && r0.official === false;
+    const h = r0.contested ? `${lastName(top[0][0])} won this ${S.office} by ${((top[0][2] - top[1][2]) / (r0.total || 1) * 100).toFixed(1)} points in ${r0.short}${uo ? ', unofficial results' : ''}`
                            : `${lastName(top[0][0])} won this ${S.office} unopposed in ${r0.short}`;
-    const lines = r0.same_lines
+    const lines = now
+      ? `The ${r0.short} general election for this seat${G.partial ? ', counting only its Tarrant County voters' : ''}, on today’s lines. ${uo ? 'Unofficial election-night results from the county, by precinct; official totals come with the canvass.' : ''}${S.races.length > 1 ? ' The previous race for the seat is shown below it for comparison.' : ''}`
+      : r0.same_lines
       ? `The last general election for this seat${G.partial ? ', counting only its Tarrant County voters' : ''}. The district’s lines are the same today.`
       : `The last general election for this seat, under the district lines in place at the time${G.dim === 'cd' ? ' (Tarrant County voters only)' : ''}. Those lines have since been redrawn, so the voters in that race are not exactly the voters on this page.`;
     return `<section aria-labelledby="seat-h"><h2 id="seat-h">${esc(h)}</h2>
-      <p class="sub">${lines} Official results from the county’s canvass, ${fmtN(r0.precincts)} precincts.</p>
-      <div class="sizebar">${S.races.map((r, i) => resRow(Object.assign({}, r, { contest: `${r.contest}, ${r.label.replace(' general election', '')}${i ? ' (last contested race)' : ''}` }), null)).join('')}</div>${MARK}</section>`;
+      <p class="sub">${lines}${now ? '' : ` Official results from the county’s canvass, ${fmtN(r0.precincts)} precincts.`}</p>
+      <div class="sizebar">${S.races.map((r, i) => resRow(Object.assign({}, r, { contest: `${r.contest}, ${r.label.replace(' general election', '')}${r.key === 'g26' && r.official === false ? ' (unofficial)' : ''}${i && !(i === 1 && S.races[0].key === 'g26') ? ' (last contested race)' : ''}${i && r.same_lines === false ? ' (old lines)' : ''}` }), null)).join('')}</div>${MARK}</section>`;
   })();
   // estimated race and ethnicity (BIFSG estimates summed over voters; only shown once published, see race_bisg.py)
   const raceHtml = !G.race ? '' : (() => {
@@ -251,15 +254,20 @@
       if (ok(SF.lean22) && sum(SF.lean22) >= 50) rows.push(['2022 early and mail voters', SF.lean22]);
       if (!isCounty && CSF && ok(CSF.lean)) rows.push(['2026 so far, all of Tarrant County', CSF.lean]);
       // the last general-election result here, for comparison: the seat's own last contested race, or else the 2024 presidential
-      const seatRace = G.seat && G.seat.races.find(r => r.contested);
+      const now26 = G.seat && G.seat.races.find(r => r.key === 'g26');
+      const seatRace = G.seat && G.seat.races.find(r => r.contested && r.key !== 'g26');
       const pres = (G.results || []).filter(rs => rs.kind !== 'primary').map(rs => rs.contests.find(c => c.contest === 'President')).find(Boolean);
       const L = seatRace || pres, lrs = !seatRace && pres ? (G.results || []).find(rs => rs.contests.includes(pres)) : null;
       const lastRow = !L ? '' : (() => { const x = split(L), lab = seatRace ? `${L.contest}, ${L.short}` : `President, ${lrs ? lrs.short : '2024'}`;
         const mg = x.d && x.r ? `${x.ds >= x.rs ? 'D' : 'R'}+${(Math.abs(x.ds - x.rs) * 100).toFixed(1)}` : marg(L);
         const seg = (v, col, txt, fg) => v > 0 ? `<div class="sb-seg" style="flex:${v} 1 0;background:${col};color:${fg}">${v >= .12 ? txt + ' ' + Math.round(v * 100) + '%' : ''}</div>` : '';
         return `<div class="sb-row"><div class="sb-label"><b>Result: ${esc(lab)}</b><span class="num">${fmtN(L.total)} votes · ${mg}</span></div><div class="sb-track" style="height:22px">${seg(x.ds, 'var(--dem)', 'D', '#fff')}${seg(x.os, 'var(--grid)', x.ol === 'Others' ? 'Other' : x.ol, 'var(--ink)')}${seg(x.rs, 'var(--rep)', 'R', '#fff')}</div></div>`; })();
-      return `<h3 style="margin:18px 0 4px">Who has voted ${isCounty ? '' : 'here '}so far, by primary history</h3><div class="sizebar">${rows.map(([l, a]) => row(l, a)).join('')}${lastRow}</div>
-        <p class="note">The most recent party primary each voter chose since 2022: Democratic, Republican, or neither. A primary ballot is not a November vote and this is not a forecast; the large 2026 Democratic primary also makes 2026 voters look more Democratic on this measure than 2022 voters.${L ? ` The last bar is the actual November result ${seatRace ? `the last time this seat was contested${L.same_lines ? '' : ' (under the district lines of that election)'}` : `here in the ${lrs ? lrs.short : '2024'} presidential race`}, for comparison.` : ''}</p>`;
+      const nowRow = !now26 ? '' : (() => { const x = split(now26), lab = `${now26.contest}, 2026${now26.official === false ? ' (unofficial)' : ''}`;
+        const mg = x.d && x.r ? `${x.ds >= x.rs ? 'D' : 'R'}+${(Math.abs(x.ds - x.rs) * 100).toFixed(1)}` : marg(now26);
+        const seg = (v, col, txt, fg) => v > 0 ? `<div class="sb-seg" style="flex:${v} 1 0;background:${col};color:${fg}">${v >= .12 ? txt + ' ' + Math.round(v * 100) + '%' : ''}</div>` : '';
+        return `<div class="sb-row"><div class="sb-label"><b>Result: ${esc(lab)}</b><span class="num">${fmtN(now26.total)} votes · ${mg}</span></div><div class="sb-track" style="height:22px">${seg(x.ds, 'var(--dem)', 'D', '#fff')}${seg(x.os, 'var(--grid)', x.ol === 'Others' ? 'Other' : x.ol, 'var(--ink)')}${seg(x.rs, 'var(--rep)', 'R', '#fff')}</div></div>`; })();
+      return `<h3 style="margin:18px 0 4px">Who has voted ${isCounty ? '' : 'here '}so far, by primary history</h3><div class="sizebar">${rows.map(([l, a]) => row(l, a)).join('')}${nowRow}${lastRow}</div>
+        <p class="note">The most recent party primary each voter chose since 2022: Democratic, Republican, or neither. A primary ballot is not a November vote and this is not a forecast; the large 2026 Democratic primary also makes 2026 voters look more Democratic on this measure than 2022 voters.${now26 ? ` The 2026 result bar is the county’s ${now26.official === false ? 'unofficial election-night count; official totals come with the canvass' : 'official canvass'}.` : ''}${L ? ` The last bar is the actual November result ${seatRace ? `the last time this seat was contested${L.same_lines ? '' : ' (under the district lines of that election)'}` : `here in the ${lrs ? lrs.short : '2024'} presidential race`}, for comparison.` : ''}</p>`;
     }
   })();
   const resultsHtml = seatHtml + primaryHtml + (G.results || []).filter(rs => rs.kind !== 'primary').map(rs => {
