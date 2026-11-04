@@ -37,7 +37,15 @@
     const r = Y.filter(y => y.rows && y.rows[11] && y.final_total).map(y => { const sh = y.rows[11].total / y.final_total; return { year: y.year, share: sh, final: y.final_total, reg: y.registered, est: last.total / sh }; });
     if (!r.length) return null; const lo = Math.min(...r.map(x => x.est)), hi = Math.max(...r.map(x => x.est));
     return { rows: r, lo, hi }; })();
-  if (EVDONE) {
+  const F = EVDONE && D.final && D.final.ballots ? D.final : null;     // election-night (unofficial) results are in
+  const pastEday = y => y.final_total - y.rows[11].total;                // cast after early voting closed: Election Day plus late mail
+  if (F) {
+    const y22_ = Y.find(x => x.year === 2022), y24_ = Y.find(x => x.year === 2024), es = last.total / F.ballots;
+    const shares = Y.filter(y => y.rows && y.rows[11] && y.final_total).map(y => ({ year: y.year, share: y.rows[11].total / y.final_total }));
+    const topPast = shares.reduce((a, b) => b.share > a.share ? b : a, { share: 0 });
+    h1 = `The votes are in: ${fmtN(F.ballots)} Tarrant County ballots, ${pc1(F.ballots / C.registered)} of registered voters`;
+    dek = `Unofficial election-night results; the official totals come with the county’s canvass. That’s <b class="num">${vs(F.ballots, y22_.final_total).replace('ahead of', 'more than').replace('behind', 'fewer than')}</b> the 2022 midterm (${fmtN(y22_.final_total)}, ${pc1(y22_.final_total / y22_.registered)} turnout) and ${vs(F.ballots, y24_.final_total).replace('ahead of', 'more than').replace('behind', 'fewer than')} the 2024 presidential election. <b class="num">${pc1(es)}</b> of the ballots were cast before Election Day${es > topPast.share ? `, more than in any of the last three elections (${shares.map(x => `${x.year} ${Math.round(x.share * 100)}%`).join(', ')})` : ''}, and only about <b class="num">${fmtN(Math.round((F.ballots - last.total) / 1000) * 1000)}</b> came in after early voting closed, against ${fmtN(pastEday(y22_))} in 2022.`;
+  } else if (EVDONE) {
     const s22 = same(2022, n).total, s24 = same(2024, n).total;
     h1 = `Early voting is over: ${fmtN(last.total)} Tarrant County ballots, ${pc1(last.total / C.registered)} of registered voters`;
     dek = `That’s ${vs(last.total, s22)} the 2022 midterm’s early vote and ${vs(last.total, s24)} the 2024 presidential election’s.${proj ? ` If Election Day follows the pattern of 2018, 2022 or 2024, the final count would land between <b class="num">${fmtN(Math.round(proj.lo / 1000) * 1000)}</b> and <b class="num">${fmtN(Math.round(proj.hi / 1000) * 1000)}</b> votes, <b class="num">${pc1(proj.lo / C.registered)}</b> to <b class="num">${pc1(proj.hi / C.registered)}</b> of registered voters. Turnout was 47% in the 2022 midterm and 64% in 2024.` : ''}`;
@@ -51,7 +59,14 @@
   }
   const y22 = Y.find(x => x.year === 2022), y18 = Y.find(x => x.year === 2018), y24 = Y.find(x => x.year === 2024);
   const tile = (v, l) => `<div><b class="num">${v}</b><span>${l}</span></div>`;
-  const tiles = EVDONE ? [
+  const CR = F && F.county_races;
+  const tiles = F ? [
+    tile(fmtK(F.ballots), 'ballots cast (unofficial)'), tile(pc1(F.ballots / C.registered), `of registered voters (2022: ${pc1(y22.final_total / y22.registered)})`),
+    tile(`${F.ballots >= y22.final_total ? '+' : '−'}${Math.abs(Math.round((F.ballots / y22.final_total - 1) * 100))}%`, 'votes compared with the 2022 midterm'),
+    tile(pc1(last.total / F.ballots), `voted early or by mail (2024: ${Math.round(y24.rows[11].total / y24.final_total * 100)}%)`),
+    tile(fmtK(F.ballots - last.total), `cast on Election Day or by late mail (2022: ${fmtK(pastEday(y22))})`),
+    CR && CR.n ? tile(`${CR.dem} of ${CR.n}`, 'contested countywide races won by Democrats (unofficial)') : tile(fmtK(y22.final_total), 'total 2022 votes, for scale')
+  ] : EVDONE ? [
     tile(fmtK(last.total), 'ballots cast early'), tile(pc1(last.total / C.registered), 'of registered voters'), tile(proj ? `${fmtK(proj.lo)}–${fmtK(proj.hi)}` : '—', 'projected final vote'),
     tile(fmtK(last.ev_cum), 'early votes in person'), tile(fmtK(last.mail_cum), 'mail ballots returned'), tile(fmtK(y22.final_total), 'total 2022 votes, for scale')
   ] : n ? [
@@ -66,8 +81,14 @@
   app.insertAdjacentHTML('beforeend', `<p class="crumb"><a href="../index.html">Home</a> › <a href="../electorate/index.html">The Electorate</a></p>
   <header><div class="eyebrow"><span>2026 Turnout Tracker</span><span>General election Nov 3, 2026</span></div>
     <h1>${esc(h1)}</h1><p class="dek">${dek}</p>
-    <div class="asof">Tarrant County Elections daily reports${n ? ` · through ${dlab(last.date)}` : ''} · updated ${esc(D.updated)}</div></header>
+    <div class="asof">${F ? 'Unofficial election-night results from Tarrant County Elections · early voting from the county’s daily reports' : `Tarrant County Elections daily reports${n ? ` · through ${dlab(last.date)}` : ''}`} · updated ${esc(D.updated)}</div></header>
   <section aria-label="Key numbers"><div class="stats">${tiles.join('')}</div></section>
+  ${F && F.top_race ? (() => { const T = F.top_race, t = T.total || 1, d = T.cands.find(x => x[1] === 'DEM'), r = T.cands.find(x => x[1] === 'REP'), o = t - (d ? d[2] : 0) - (r ? r[2] : 0);
+    const seg = (c, col, fg) => c && c[2] > 0 ? `<div class="sb-seg" style="flex:${c[2] / t} 1 0;background:${col};color:${fg}" title="${esc(c[0])}: ${fmtN(c[2])}">${c[2] / t >= .12 ? `${esc(c[0].split(' ').pop())} ${pc1(c[2] / t)}` : ''}</div>` : '';
+    const mg = d && r ? `${d[2] >= r[2] ? 'D' : 'R'}+${(Math.abs(d[2] - r[2]) / t * 100).toFixed(1)}` : '';
+    return `<section aria-labelledby="cv-h" style="margin-top:6px"><h3 id="cv-h" style="margin:0 0 6px">How the county voted: ${esc(T.contest)}, the countywide race with the most votes</h3><div class="sizebar"><div class="sb-row"><div class="sb-label"><b>${esc(T.contest)}, 2026 (unofficial)</b><span class="num">${fmtN(T.total)} votes · ${mg}</span></div>
+      <div class="sb-track" style="height:26px">${seg(d, 'var(--dem)', '#fff')}${o > 0 ? `<div class="sb-seg" style="flex:${o / t} 1 0;background:var(--grid)"></div>` : ''}${seg(r, 'var(--rep)', '#fff')}</div>
+      <div class="sb-key">${T.cands.map(k => `<span>${k[1] === 'DEM' ? '<i class="dot d"></i>' : k[1] === 'REP' ? '<i class="dot r"></i>' : ''}${esc(k[0])} <b class="num">${fmtN(k[2])}</b></span>`).join('')}</div></div></div></section>`; })() : ''}
   <section aria-labelledby="proj-h" id="proj-sec" hidden><h2 id="proj-h">What the early vote points to for the final turnout</h2><p class="sub" id="proj-sub"></p><div style="overflow-x:auto"><table class="ntab" id="proj-tab"></table></div><p class="note" id="proj-note"></p></section>
   <section aria-labelledby="left-h" id="left-sec" hidden><h2 id="left-h"></h2><p class="sub" id="left-sub"></p><div class="sizebar" id="left-bars"></div><p class="note" style="margin-top:2px">Hover over or tap a bar for the numbers.</p><h3 style="margin-top:18px">By commissioner precinct</h3><div style="overflow-x:auto;max-width:560px"><table class="ntab" id="left-comm"></table></div><p class="note" id="left-note"></p></section>
   <section aria-labelledby="rof-h" id="rof-sec" hidden><h2 id="rof-h"></h2><p class="sub" id="rof-sub"></p><div class="sizebar" id="rof-bars"></div><div class="panel" style="margin-top:16px" id="rof-2026"></div><details style="margin-top:14px"><summary style="cursor:pointer;font-weight:600">Every countywide race, 2022 and 2024</summary><div style="overflow-x:auto"><table class="ntab" id="rof-tab" style="white-space:nowrap"></table></div></details><p class="note" id="rof-note"></p></section>
@@ -758,11 +779,15 @@
       $('#proj-sec').hidden = false;
       $('#proj-sub').textContent = `Through the 12 days of early voting, ${fmtN(last.total)} ballots are in. Here is what the final count would be if early voting makes up the same share of the total as in each past election.`;
       $('#proj-tab').innerHTML = `<thead><tr><th>If 2026 follows</th><th class="r">Early share of the final vote</th><th class="r">Final vote that year</th><th class="r">Implied 2026 final</th><th class="r">Implied 2026 turnout</th></tr></thead><tbody>${proj.rows.map(r => `<tr><td>${r.year}</td><td class="r num">${Math.round(r.share * 100)}%</td><td class="r num">${fmtN(r.final)} <small>(${pc1(r.final / r.reg)})</small></td><td class="r num"><b>${fmtN(Math.round(r.est / 1000) * 1000)}</b></td><td class="r num">${pc1(r.est / C.registered)}</td></tr>`).join('')}</tbody>`;
-      $('#proj-note').textContent = 'An estimate, not a forecast: it assumes Election Day adds the same share as in a past year. Early voting includes mail ballots received by the last day of early voting; a few more mail ballots will still arrive. Turnout uses the county’s registered-voter count.';
+      if (F) { $('#proj-h').textContent = 'How the final count compares with what the early vote pointed to';
+        $('#proj-sub').textContent = `After early voting closed, the pattern of past elections pointed to a final count between ${fmtN(Math.round(proj.lo / 1000) * 1000)} and ${fmtN(Math.round(proj.hi / 1000) * 1000)}. The unofficial count is ${fmtN(F.ballots)}, ${F.ballots < proj.lo ? 'below that range: Election Day added less than in any of those years' : F.ballots > proj.hi ? 'above that range' : 'inside that range'}.`;
+        $('#proj-tab').insertAdjacentHTML('beforeend', `<tfoot><tr><td><b>Actual, 2026 (unofficial)</b></td><td class="r num"><b>${Math.round(last.total / F.ballots * 100)}%</b></td><td class="r num"></td><td class="r num"><b>${fmtN(F.ballots)}</b></td><td class="r num"><b>${pc1(F.ballots / C.registered)}</b></td></tr></tfoot>`);
+        $('#proj-note').textContent = `Unofficial: the county’s election-night count, which can still change slightly in the canvass (late mail and provisional ballots). Turnout uses the county’s count of active registered voters (${fmtN(C.registered)}); the county’s results report lists ${fmtN(F.registered_county)} registered, counting voters on the suspense list, which puts turnout at ${pc1(F.ballots / F.registered_county)}.`; }
+      else $('#proj-note').textContent = 'An estimate, not a forecast: it assumes Election Day adds the same share as in a past year. Early voting includes mail ballots received by the last day of early voting; a few more mail ballots will still arrive. Turnout uses the county’s registered-voter count.';
     }
     // who's left
     const L = C.who && C.who.left, WA = C.who && C.who.all;
-    if (L && L.total) {
+    if (L && L.total && !F) {          // once the results are in, "who hasn't voted yet" is moot
       $('#left-sec').hidden = false;
       const tl = L.likely ? L.likely.reduce((a, v) => a + v, 0) : 0;
       $('#left-h').textContent = `${fmtN(L.total)} active voters haven’t voted yet${tl ? `; about ${fmtN(Math.round(tl / 1000) * 1000)} of them are likely to, judging by their voting records` : ''}`;
