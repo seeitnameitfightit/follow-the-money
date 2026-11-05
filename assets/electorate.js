@@ -302,6 +302,15 @@
         <p class="note">The most recent party primary each voter chose since 2022: Democratic, Republican, or neither. A primary ballot is not a November vote; the large 2026 Democratic primary also makes 2026 voters look more Democratic on this measure than 2022 voters.${now26 ? ` The 2026 result bar is the county’s ${now26.official === false ? 'unofficial election-night count; official totals come with the canvass' : 'official canvass'}.` : ''}${L ? ` The last bar is the actual November result ${seatRace ? `the last time this seat was contested${L.same_lines ? '' : ' (under the district lines of that election)'}` : `here in the ${lrs ? lrs.short : '2024'} presidential race`}, for comparison.` : ''}</p>`;
     }
   })();
+  // ticket-splitting: how far the U.S. Senate Democrat ran ahead of (or behind) the County Judge Democrat here
+  const splitGap = (rs, cr) => {
+    const pk = (R_, nm) => { const c = R_ && R_.contests.find(z => z.contest === nm); if (!c) return null; const d = c.cands.find(x => x[1] === 'DEM'), r = c.cands.find(x => x[1] === 'REP'); return d && r ? { d, r, m: (d[2] - r[2]) / ((d[2] + r[2]) || 1) * 100 } : null; };
+    const cj = pk(rs, 'County Judge'), se = pk(rs, 'U.S. Senate'); if (!cj || !se) return '';
+    const g = se.m - cj.m, ccj = pk(cr, 'County Judge'), cse = pk(cr, 'U.S. Senate'), cg = ccj && cse ? cse.m - ccj.m : null;
+    const ln = x => esc(lastName(x[0])), dv = Math.round(se.d[2] - cj.d[2]), rv = Math.round(cj.r[2] - se.r[2]);
+    return `<div class="panel" style="margin-top:14px"><p style="margin:0 0 4px;font-weight:600">Senate vs. County Judge: ${ln(se.d)} ran <span class="num">${Math.abs(g).toFixed(1)}</span> points ${g >= 0 ? 'ahead of' : 'behind'} ${ln(cj.d)} ${isCounty ? 'in the county' : 'here'}${cg != null && !isCounty ? ` <small style="font-weight:400;color:var(--ink-3)">(countywide: ${cg.toFixed(1)})</small>` : ''}</p>
+      <p class="note" style="margin:0">${ln(se.d)} got <b class="num">${fmtN(dv)}</b> ${dv >= 0 ? 'more' : 'fewer'} votes than ${ln(cj.d)}, and ${ln(se.r)} got <b class="num">${fmtN(Math.abs(rv))}</b> ${rv >= 0 ? 'fewer' : 'more'} than ${ln(cj.r)}. When those two numbers are close, it points to ticket-splitting: voters who chose the Democrat for Senate and the Republican for County Judge.${cg != null && !isCounty ? (g > cg + 1 ? ' The gap here is wider than countywide.' : g < cg - 1 ? ' The gap here is narrower than countywide.' : ' The gap here is about the same as countywide.') : ''} Margins are Democrat minus Republican, as a share of the two.</p></div>`;
+  };
   const genHtml = rs => {
     const pres = rs.contests.find(c => c.contest === 'President') || rs.contests[0], x = pres ? split(pres) : null;
     const cr = CTY && (CTY.results || []).find(z => z.key === rs.key);
@@ -313,7 +322,7 @@
       <p class="sub">${rs.method === 'bridged'
         ? `${rs.official === false ? 'The county’s' : 'Official results from the county’s'} ${src}, added up within today’s lines.${rs.split >= 0.02 ? ` About ${Math.round(rs.split * 100)}% of these votes come from precincts now split between districts; those are divided by where each precinct’s ${rs.key === 'g26' ? '2026' : 'November 2024'} voters live, so treat the figures as close estimates.` : ''}`
         : `${rs.official === false ? 'The county’s' : 'Official results from the county’s'} ${src}, added up across ${fmtN(rs.precincts)} precincts${G.partial ? ' in the Tarrant County part of the district' : ''}.`} ${rs.key === 'g26' && S6 ? `<b class="num">${fmtN(S6.voted)}</b> voters ${isCounty ? 'in the county' : 'here'} cast ballots, ${pc(S6.voted, S6.reg)} of registered voters.` : `About ${fmtN(rs.ballots)} ballots were cast, ${pc(rs.ballots, rs.registered)} of the voters registered at the time.`}</p>
-      <div class="sizebar">${rs.contests.map(c => resRow(c, !c.own && cr ? cr.contests.find(z => z.contest === c.contest) : null)).join('')}</div>${MARK}</section>`; };
+      <div class="sizebar">${rs.contests.map(c => resRow(c, !c.own && cr ? cr.contests.find(z => z.contest === c.contest) : null)).join('')}</div>${rs.key === 'g26' ? splitGap(rs, cr) : ''}${MARK}</section>`; };
   const GEN = (G.results || []).filter(rs => rs.kind !== 'primary'), G26 = GEN.filter(rs => rs.key === 'g26');
   const topResults = seatHtml + G26.map(genHtml).join('');          // the 2026 results: near the top of the page
   const resultsHtml = primaryHtml + GEN.filter(rs => rs.key !== 'g26').map(genHtml).join('');

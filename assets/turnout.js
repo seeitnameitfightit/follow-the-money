@@ -83,12 +83,18 @@
     <h1>${esc(h1)}</h1><p class="dek">${dek}</p>
     <div class="asof">${F ? 'Unofficial election-night results from Tarrant County Elections · early voting from the county’s daily reports' : `Tarrant County Elections daily reports${n ? ` · through ${dlab(last.date)}` : ''}`} · updated ${esc(D.updated)}</div></header>
   <section aria-label="Key numbers"><div class="stats">${tiles.join('')}</div></section>
-  ${F && F.top_race ? (() => { const T = F.top_race, t = T.total || 1, d = T.cands.find(x => x[1] === 'DEM'), r = T.cands.find(x => x[1] === 'REP'), o = t - (d ? d[2] : 0) - (r ? r[2] : 0);
-    const seg = (c, col, fg) => c && c[2] > 0 ? `<div class="sb-seg" style="flex:${c[2] / t} 1 0;background:${col};color:${fg}" title="${esc(c[0])}: ${fmtN(c[2])}">${c[2] / t >= .12 ? `${esc(c[0].split(' ').pop())} ${pc1(c[2] / t)}` : ''}</div>` : '';
-    const mg = d && r ? `${d[2] >= r[2] ? 'D' : 'R'}+${(Math.abs(d[2] - r[2]) / t * 100).toFixed(1)}` : '';
-    return `<section aria-labelledby="cv-h" style="margin-top:6px"><h3 id="cv-h" style="margin:0 0 6px">How the county voted: ${esc(T.contest)}, the countywide race with the most votes</h3><div class="sizebar"><div class="sb-row"><div class="sb-label"><b>${esc(T.contest)}, 2026 (unofficial)</b><span class="num">${fmtN(T.total)} votes · ${mg}</span></div>
-      <div class="sb-track" style="height:26px">${seg(d, 'var(--dem)', '#fff')}${o > 0 ? `<div class="sb-seg" style="flex:${o / t} 1 0;background:var(--grid)"></div>` : ''}${seg(r, 'var(--rep)', '#fff')}</div>
-      <div class="sb-key">${T.cands.map(k => `<span>${k[1] === 'DEM' ? '<i class="dot d"></i>' : k[1] === 'REP' ? '<i class="dot r"></i>' : ''}${esc(k[0])} <b class="num">${fmtN(k[2])}</b></span>`).join('')}</div></div></div></section>`; })() : ''}
+  ${F && (F.races3 || []).length ? (() => {
+    const two = T => { const d = T.cands.find(x => x[1] === 'DEM'), r = T.cands.find(x => x[1] === 'REP'); return { d, r, m: d && r ? (d[2] - r[2]) / ((d[2] + r[2]) || 1) * 100 : 0 }; };
+    const row = T => { const t = T.total || 1, { d, r, m } = two(T), o = t - (d ? d[2] : 0) - (r ? r[2] : 0);
+      const seg = (c, col, fg) => c && c[2] > 0 ? `<div class="sb-seg" style="flex:${c[2] / t} 1 0;background:${col};color:${fg}" title="${esc(c[0])}: ${fmtN(c[2])}">${c[2] / t >= .12 ? `${esc(c[0].split(' ').pop())} ${pc1(c[2] / t)}` : ''}</div>` : '';
+      return `<div class="sb-row"><div class="sb-label"><b>${esc(T.contest)}</b><span class="num">${fmtN(T.total)} votes · ${m >= 0 ? 'D' : 'R'}+${Math.abs(m).toFixed(1)}</span></div>
+        <div class="sb-track" style="height:24px">${seg(d, 'var(--dem)', '#fff')}${o > 0 ? `<div class="sb-seg" style="flex:${o / t} 1 0;background:var(--grid)" title="Others: ${fmtN(o)}"></div>` : ''}${seg(r, 'var(--rep)', '#fff')}</div>
+        <div class="sb-key">${T.cands.filter(k => k[2] > 0).slice(0, 3).map(k => `<span>${k[1] === 'DEM' ? '<i class="dot d"></i>' : k[1] === 'REP' ? '<i class="dot r"></i>' : ''}${esc(k[0])} <b class="num">${fmtN(k[2])}</b></span>`).join('')}</div></div>`; };
+    const RS = F.races3, cj = RS.find(x => x.contest === 'County Judge'), se = RS.find(x => x.contest === 'U.S. Senate'), go = RS.find(x => x.contest === 'Governor');
+    let note = '';
+    if (cj && se) { const a = two(cj), b = two(se), g = go ? two(go) : null;
+      note = `${esc(se.cands.find(x => x[1] === 'DEM')[0].split(' ').pop())} ran <b class="num">${(b.m - a.m).toFixed(1)}</b> points ahead of ${esc(a.d[0].split(' ').pop())} on the margin${g ? ` and ${(b.m - g.m).toFixed(1)} ahead of ${esc(g.d[0].split(' ').pop())}` : ''}: <b class="num">${fmtN(b.d[2] - a.d[2])}</b> more votes than ${esc(a.d[0].split(' ').pop())}, while ${esc(b.r[0].split(' ').pop())} got <b class="num">${fmtN(a.r[2] - b.r[2])}</b> fewer than ${esc(a.r[0].split(' ').pop())}. That gap is ticket-splitting: voters who backed the Democrat for Senate but the Republican further down the ballot. The district pages show where it happened.`; }
+    return `<section aria-labelledby="cv-h" style="margin-top:6px"><h3 id="cv-h" style="margin:0 0 6px">How the county voted at the top of the ballot (unofficial)</h3><div class="sizebar">${RS.map(row).join('')}</div>${note ? `<p class="note">${note}</p>` : ''}</section>`; })() : ''}
   <section aria-labelledby="proj-h" id="proj-sec" hidden><h2 id="proj-h">What the early vote points to for the final turnout</h2><p class="sub" id="proj-sub"></p><div style="overflow-x:auto"><table class="ntab" id="proj-tab"></table></div><p class="note" id="proj-note"></p></section>
   ${F ? `<section aria-labelledby="cut-h" id="cut-sec" style="margin-top:28px;padding:16px 18px;border:1px solid var(--rule);border-left:4px solid var(--ink);border-radius:6px;background:var(--surface)">
     ${C.who && C.who.rosters && C.who.rosters['election day']
@@ -125,6 +131,7 @@
     </div>
     <div style="overflow-x:auto"><table class="ntab" id="tx-tab"></table></div>
     <p class="note" id="tx-foot"></p>
+    <div id="tx-fin" hidden></div>
     <div id="tx-pie" hidden></div>${MARK}</section>
   <section aria-labelledby="ry-h" id="ry-sec" hidden><h2 id="ry-h">Texas: add up the early vote your way</h2><p class="sub" id="ry-sub"></p>
     <label class="note" style="display:block;margin:4px 0 8px">Show <select id="ry-sel" style="font:inherit;margin-left:4px"></select></label><div id="ry-box"></div>
@@ -144,7 +151,7 @@
     <div style="overflow-x:auto"><table class="ntab" id="days"></table></div></section>
   <section aria-labelledby="mail-h"><h2 id="mail-h">Mail ballots</h2><p class="sub" id="mail-sub"></p><ul class="kv" id="mail"></ul></section>
   <section aria-labelledby="who-h" id="who-sec" hidden><h2 id="who-h"></h2><p class="sub" id="who-sub"></p>
-    <div class="two"><div class="panel"><h3>Their voting history</h3><ul class="kv" id="who-kv"></ul><p class="note">Age, sex and race are in the day-by-day table below.</p></div>
+    <div class="two" id="who-two"><div class="panel"><h3>Their voting history</h3><ul class="kv" id="who-kv"></ul><p class="note">Age, sex and race are in the day-by-day table below.</p></div>
     <div class="panel"><h3>By commissioner precinct</h3><table class="ntab" id="who-comm"></table><p class="note">District pages show 2026 turnout for every precinct, district, city and school district. <a href="../electorate/index.html">The Electorate ›</a></p></div></div>
     <div id="bloc-wrap" hidden><h3 style="margin:22px 0 4px">By voting history, 2018 to 2026</h3>
     <p class="note" style="margin-top:0">Each registered voter falls in one group, from the March primaries of 2018, 2020, 2022, 2024 and 2026 and the November generals of 2018, 2020, 2022 and 2024. “Of voters” and “Of registered” show each group’s share of those who voted and of all registered voters; “Turnout” is the share of the group that voted.</p>
@@ -281,6 +288,13 @@
   let txB = 'TOTAL';
   const sRow = (y, d) => S[y] && S[y].rows.find(r => r.day === d);
   const share = c => c[2] / c[0];          // in-person early votes so far, as a share of registered voters
+  // the full election, per county (statewide results file + 2024 canvass): [2026 Senate votes, D, R, registered 2026, 2024 president votes, Harris, Trump]
+  const FT = D.fin_tx || null;
+  const reg24 = k => { const A = (S[2024] && S[2024].all) || {}; if (k === 'TOTAL') return Object.values(A).reduce((a, v) => a + (v[0] || 0), 0); return A[k] ? A[k][0] : null; };
+  const finSh = (y, k) => { const c = FT && FT[k]; if (!c) return null; if (y === 2026) return c[3] ? c[0] / c[3] : null; if (y === 2024) { const r = reg24(k); return r ? c[4] / r : null; } return null; };
+  const finGap = y => { if (!FT || !FT.TARRANT || !FT.TOTAL || txB !== 'TOTAL') return null; const t = FT.TARRANT, T = FT.TOTAL;
+    if (y === 2026) return (t[0] / t[3] - (T[0] - t[0]) / (T[3] - t[3])) * 100;
+    if (y === 2024) { const rt = reg24('TARRANT'), rT = reg24('TOTAL'); return rt && rT ? (t[4] / rt - (T[4] - t[4]) / (rT - rt)) * 100 : null; } return null; };
   const restSh = r => (r.c[txB][2] - r.c.TARRANT[2]) / (r.c[txB][0] - r.c.TARRANT[0]);
   const gapPts = r => (share(r.c.TARRANT) - restSh(r)) * 100;
   const txYears = () => SY.filter(y => txB === 'BASIS' ? S[y].rows.every(r => r.c.BASIS) : !S[y].partial);
@@ -292,9 +306,11 @@
   function drawTx() {
     const box = $('#tx'), W = box.clientWidth, H = Math.max(220, Math.min(300, W * 0.48)), m = { l: 52, r: 74, t: 14, b: 34 };
     const ser = txYears().map(y => ({ y, p: S[y].rows.map(r => ({ d: r.day, g: gapPts(r) })) }));
+    ser.forEach(s => { const g = finGap(s.y); if (g != null && s.p.length >= 12) s.p.push({ d: 13.4, g, fin: true }); });   // the full election (all votes)
+    const FIN = ser.some(s => s.p.some(p => p.fin));
     const gs = ser.flatMap(s => s.p.map(p => p.g));
     let lo = Math.min(0, ...gs), hi = Math.max(0, ...gs); const padv = Math.max(0.5, (hi - lo) * 0.12); lo = Math.floor(lo - padv); hi = Math.ceil(hi + padv);
-    const x = d => m.l + (d - 1) / 11 * (W - m.l - m.r), yy = g => m.t + (hi - g) / (hi - lo) * (H - m.t - m.b);
+    const x = d => m.l + (d - 1) / (FIN ? 12.4 : 11) * (W - m.l - m.r), yy = g => m.t + (hi - g) / (hi - lo) * (H - m.t - m.b);
     const step = (hi - lo) <= 4 ? 1 : (hi - lo) <= 10 ? 2 : 5;
     const ticks = []; for (let g = Math.ceil(lo / step) * step; g <= hi; g += step) ticks.push(g);
     const ly = {}; ser.map(s => ({ y: s.y, v: yy(s.p.at(-1).g) + (s.y === 2026 ? -9 : 4) })).sort((a, b) => a.v - b.v).forEach((o, i, arr) => { if (i && o.v - arr[i - 1].v < 13) o.v = arr[i - 1].v + 13; ly[o.y] = o.v; });
@@ -306,7 +322,7 @@
     box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Tarrant County's early turnout minus ${restName()}, in percentage points, by day of early voting">
       ${ticks.map(g => `<line x1="${m.l}" x2="${W - m.r}" y1="${yy(g)}" y2="${yy(g)}" stroke="${g === 0 ? 'var(--ink-3)' : 'var(--grid)'}"/><text x="${m.l - 8}" y="${yy(g) + 4}" text-anchor="end" font-size="11" fill="var(--ink-3)" class="num">${g === 0 ? 'Even' : pts(g)}</text>`).join('')}
       <text x="${m.l + 4}" y="${m.t + 4}" font-size="11" fill="var(--ink-3)">↑ Tarrant ahead of ${restName()}</text><text x="${m.l + 4}" y="${H - m.b - 6}" font-size="11" fill="var(--ink-3)">↓ Tarrant behind</text>
-      ${[1, 3, 5, 7, 9, 12].map(d => `<text x="${x(d)}" y="${H - 14}" text-anchor="middle" font-size="11" fill="var(--ink-3)">Day ${d}</text>`).join('')}
+      ${[1, 3, 5, 7, 9, 12].map(d => `<text x="${x(d)}" y="${H - 14}" text-anchor="middle" font-size="11" fill="var(--ink-3)">Day ${d}</text>`).join('')}${FIN ? `<text x="${x(13.4)}" y="${H - 14}" text-anchor="middle" font-size="11" fill="var(--ink-3)">Final</text>` : ''}
       ${lines}
       ${Array.from({ length: 12 }, (_, i) => `<rect x="${x(i + 1) - (W - m.l - m.r) / 22}" y="0" width="${(W - m.l - m.r) / 11}" height="${H - m.b}" fill="transparent" class="x-hit" data-d="${i + 1}"/>`).join('')}
     </svg><div class="tip" id="x-tip"></div>`;
@@ -365,8 +381,34 @@
     $('#tx-tab').innerHTML = `<thead><tr><th>County</th>${N ? '<th class="r">Registered</th>' : ''}${SY.map(y => `<th class="r">${y}</th>`).join('')}${has26 && base ? `<th class="r">2026 vs ${base}</th>` : ''}${N ? `<th aria-label="${lastY} votes, to scale"></th>` : ''}</tr></thead><tbody>${
       [...keys, ...totals].map((k, i) => `<tr${k === 'TARRANT' ? ' style="font-weight:600"' : ''}${i === keys.length ? ' style="border-top:2px solid var(--grid)"' : ''}><td style="white-space:nowrap;overflow-wrap:normal">${CNAME(k)}</td>${N ? `<td class="r num" style="color:var(--ink-2)">${regOf(k) ? fmtN(regOf(k)) : '—'}</td>` : ''}${SY.map(y => `<td class="r num">${cell(y, k)}</td>`).join('')}${has26 && base ? `<td class="r num">${chg(k)}</td>` : ''}${N ? `<td style="min-width:96px">${bar(k)}</td>` : ''}</tr>`).join('')}</tbody>`;
   }
+  // the full election, county by county: turnout and the top-of-ticket margin, 2024 against 2026
+  function finTable() {
+    if (!FT || !F) return;
+    const box = $('#tx-fin'); box.hidden = false;
+    const mg = (d, r) => (d - r) / ((d + r) || 1) * 100, M = v => `${v >= 0 ? 'D' : 'R'}+${Math.abs(v).toFixed(1)}`;
+    const keysAll = Object.keys(FT).filter(k => k !== 'TOTAL' && FT[k][3]).sort((a, b) => FT[b][3] - FT[a][3]);
+    const render = () => {
+      const all = $('#tf-all').checked, q = all ? ($('#tf-q').value || '').trim().toUpperCase() : '';
+      let keys = all ? keysAll.filter(k => !q || k.includes(q) || k === 'TARRANT') : keysAll.slice(0, 20);
+      keys = ['TARRANT', ...keys.filter(k => k !== 'TARRANT')];
+      const row = k => { const c = FT[k], t26 = finSh(2026, k), t24 = finSh(2024, k), m26 = mg(c[1], c[2]), m24 = mg(c[5], c[6]), sh = m26 - m24;
+        return `<tr${k === 'TARRANT' ? ' style="font-weight:600"' : k === 'TOTAL' ? ' style="border-top:2px solid var(--grid);font-weight:600"' : ''}><td style="white-space:nowrap">${CNAME(k)}</td><td class="r num">${fmtN(c[3])}</td><td class="r num">${t24 == null ? '—' : pc1(t24)}</td><td class="r num">${t26 == null ? '—' : pc1(t26)}</td><td class="r num">${t24 == null || t26 == null ? '—' : pts((t26 - t24) * 100)}</td><td class="r num">${M(m24)}</td><td class="r num">${M(m26)}</td><td class="r num"><b style="color:${sh >= 0 ? 'var(--dem)' : 'var(--rep)'}">${sh >= 0 ? 'D' : 'R'}+${Math.abs(sh).toFixed(1)}</b></td></tr>`; };
+      $('#tf-tab').innerHTML = `<thead><tr><th>County</th><th class="r">Registered</th><th class="r">Turnout 2024</th><th class="r">Turnout 2026</th><th class="r">Change, pts</th><th class="r">2024 president</th><th class="r">2026 U.S. Senate</th><th class="r">Shift</th></tr></thead><tbody>${[...keys, 'TOTAL'].map(row).join('')}</tbody>`;
+    };
+    const T = FT.TOTAL, t = FT.TARRANT, sT = mg(T[1], T[2]) - mg(T[5], T[6]), sTa = mg(t[1], t[2]) - mg(t[5], t[6]);
+    box.innerHTML = `<h3 style="margin-top:26px">The full election, county by county: Texas moved ${sT >= 0 ? 'D' : 'R'}+${Math.abs(sT).toFixed(1)} from 2024, Tarrant ${sTa >= 0 ? 'D' : 'R'}+${Math.abs(sTa).toFixed(1)}</h3>
+      <p class="note" style="margin-top:0">All votes, early and Election Day (unofficial). Turnout is votes in the race with the most votes (the 2024 presidential race, the 2026 U.S. Senate race) as a share of the state’s registered-voter count. The margin is Democrat minus Republican, as a share of the two; the shift is the change in that margin.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;margin:2px 0 10px"><label style="font-size:13px;color:var(--ink-2)"><input type="checkbox" id="tf-all"> Show all Texas counties</label>
+        <input type="search" id="tf-q" placeholder="Find a county" aria-label="Find a county" hidden style="font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink)"></div>
+      <div style="overflow-x:auto"><table class="ntab" id="tf-tab" style="white-space:nowrap"></table></div>
+      <p class="note">The 20 counties with the most registered voters, unless “all” is checked. Sources: statewide election-night results by county (2026, unofficial); Texas Secretary of State 2024 canvass and its registered-voter counts.</p>`;
+    $('#tf-all').onchange = () => { $('#tf-q').hidden = !$('#tf-all').checked; render(); };
+    $('#tf-q').oninput = render;
+    render();
+  }
   if (SY.length) {
     $('#tx-sec').hidden = false;
+    finTable();
     const r0 = nS ? sRow(2026, nS) : null;
     // the state posts its county counts about a day after the county does, so this section can trail the rest of the page
     if (n && nS && nS < n) $('#tx-sec .sub').insertAdjacentHTML('beforeend', ` <b>The state’s figures run about a day behind the county’s: ${nS ? `this section is through Day ${nS}` : '2026 appears once the state posts its first daily count'}, while the rest of this page is through Day ${n}.</b>`);
@@ -559,13 +601,24 @@
   // either in votes cast or in turnout rate (share of registered voters)
   (function () {
     const CG = D.county_groups; if (!CG || !CG.groups) return;
-    const G = CG.groups.filter(x => x.ev26 > 0), tot = G.reduce((a, x) => a + x.ev26, 0) || 1;
+    const G0 = CG.groups.filter(x => x.ev26 > 0); let G = G0, tot = G.reduce((a, x) => a + x.ev26, 0) || 1;
+    // the full election (all votes, 2026 U.S. Senate against 2024 president), grouped the same way
+    const BIN = [[0, .5], [.5, .6], [.6, .7], [.7, .8], [.8, 1.01]];
+    const GF = FT && F ? CG.groups.map((g, i) => ({ label: g.label, i, counties: 0, ev26: 0, ev24: 0, reg26: 0, reg24: 0, d26: 0, r26: 0, d24: 0, r24: 0 })) : null;
+    if (GF) Object.entries(FT).forEach(([k, c]) => { if (k === 'TOTAL' || !c[3]) return; const r_ = reg24(k); if (!r_) return;
+      const sh = c[6] / ((c[5] + c[6]) || 1), b = BIN.findIndex(([a, z]) => sh >= a && sh < z); if (b < 0) return;
+      const g = GF[b]; g.counties++; g.ev26 += c[0]; g.ev24 += c[4]; g.reg26 += c[3]; g.reg24 += r_; g.d26 += c[1]; g.r26 += c[2]; g.d24 += c[5]; g.r24 += c[6]; });
+    let scope = GF ? 'fin' : 'ev';
+    const mgn = (d, r) => (d - r) / ((d + r) || 1) * 100, Mg = v => `${v >= 0 ? 'D' : 'R'}+${Math.abs(v).toFixed(1)}`;
     const COLS = ['var(--dem)', 'color-mix(in oklab, var(--rep) 45%, var(--surface))', 'color-mix(in oklab, var(--rep) 65%, var(--surface))', 'color-mix(in oklab, var(--rep) 82%, var(--surface))', 'var(--rep)'];
     const has24 = G.every(x => x.vs24 != null), hasReg = G.every(x => x.reg26 && x.reg22);
     const sgn = v => (v >= 0 ? '+' : '−');
     let yr = '2022', ms = 'votes';
     $('#tx-pie').hidden = false;
     function draw() {
+      const FIN = scope === 'fin';
+      if (FIN) yr = '2024';
+      G = FIN ? GF.filter(x => x.ev26 > 0) : G0; tot = G.reduce((a, x) => a + x.ev26, 0) || 1;
       const y = yr.slice(2), ev = x => x['ev' + y], rg = x => x['reg' + y];
       const rate = ms === 'rate';
       const val = x => rate ? (x.ev26 / x.reg26 - ev(x) / rg(x)) * 100 : (ev(x) ? x.ev26 / ev(x) - 1 : null);
@@ -573,30 +626,36 @@
       const S = 360, cx = S / 2, cy = S / 2, R = 150, r0 = 88; let a0 = -Math.PI / 2, arcs = '';
       G.forEach((x, i) => { const a1 = a0 + x.ev26 / tot * 2 * Math.PI, big = a1 - a0 > Math.PI ? 1 : 0, p = (r, a) => `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
         const am = (a0 + a1) / 2, lr = (R + r0) / 2, sh = x.ev26 / tot;
-        arcs += `<path d="M${p(R, a0)}A${R},${R} 0 ${big} 1 ${p(R, a1)}L${p(r0, a1)}A${r0},${r0} 0 ${big} 0 ${p(r0, a0)}Z" fill="${COLS[CG.groups.indexOf(x)]}" stroke="var(--surface)" stroke-width="2"><title>${esc(x.label)}: ${fmtN(x.ev26)} early votes (${pc1(sh)} of Texas); ${lab(val(x))} vs. ${yr}; ${x.counties} counties</title></path>`
+        arcs += `<path d="M${p(R, a0)}A${R},${R} 0 ${big} 1 ${p(R, a1)}L${p(r0, a1)}A${r0},${r0} 0 ${big} 0 ${p(r0, a0)}Z" fill="${COLS[(x.i != null ? x.i : CG.groups.indexOf(x))]}" stroke="var(--surface)" stroke-width="2"><title>${esc(x.label)}: ${fmtN(x.ev26)} early votes (${pc1(sh)} of Texas); ${lab(val(x))} vs. ${yr}; ${x.counties} counties</title></path>`
           + (sh >= 0.06 ? `<text x="${cx + lr * Math.cos(am)}" y="${cy + lr * Math.sin(am) + 5}" text-anchor="middle" font-size="${rate ? 13 : 15}" font-weight="700" fill="${i === 0 || i === G.length - 1 ? '#fff' : 'var(--ink)'}" class="num">${lab(val(x))}</text>` : '');
         a0 = a1; });
       const S26 = G.reduce((a, x) => [a[0] + x.ev26, a[1] + x.reg26, a[2] + ev(x), a[3] + rg(x)], [0, 0, 0, 0]);
       const allv = rate ? (S26[0] / S26[1] - S26[2] / S26[3]) * 100 : (S26[2] ? S26[0] / S26[2] - 1 : null);
       const head = rate ? (yr === '2022' ? 'Turnout rates are up most in the counties Harris won and the closest Trump counties' : 'Against 2024, turnout rates have fallen least in the counties Harris won and the closest Trump counties')
         : (yr === '2022' ? 'Early voting is up most in the counties Harris won and the closest Trump counties' : 'Against the 2024 presidential year, early voting has fallen least in the counties Harris won and the closest Trump counties');
-      const what = rate ? `the label is the change in turnout (early votes as a share of registered voters) from the same point in ${yr}, in percentage points` : `the label is the change in the number of early votes from the same point in ${yr}`;
+      const shifts = FIN ? G.map(x => mgn(x.d26, x.r26) - mgn(x.d24, x.r24)) : [];
+      const best = FIN ? G.reduce((a, x) => (val(x) > val(a) ? x : a)) : null, mv = shifts.every(v => v > 0) ? ', and every group of counties moved toward Democrats' : '';
+      const head2 = FIN ? (rate ? `The full election: turnout ${allv < 0 ? 'fell' : 'rose'} ${Math.abs(allv).toFixed(1)} points from 2024 statewide, ${allv < 0 ? 'least' : 'most'} in the counties where ${best.label === 'Harris won' ? 'Harris won' : best.label.replace('Trump ', 'Trump won ')}${mv}`
+                                   : `The full election: ${Math.abs(allv * 100).toFixed(0)}% ${allv < 0 ? 'fewer' : 'more'} votes than 2024 statewide, the ${allv < 0 ? 'smallest drop' : 'biggest gain'} in the counties where ${best.label === 'Harris won' ? 'Harris won' : best.label.replace('Trump ', 'Trump won ')}${mv}`) : head;
+      const what = FIN ? (rate ? 'the label is the change in turnout (votes in the top race as a share of registered voters) from 2024, in percentage points' : 'the label is the change in the number of votes in the top race from 2024') : rate ? `the label is the change in turnout (early votes as a share of registered voters) from the same point in ${yr}, in percentage points` : `the label is the change in the number of early votes from the same point in ${yr}`;
       const btn = (attr, v, cur, t) => `<button type="button" ${attr}="${v}" aria-pressed="${v === cur}">${t}</button>`;
-      $('#tx-pie').innerHTML = `<h3 style="margin-top:26px">${head}</h3>
-        <p class="note" style="margin-top:0">Texas in-person early votes through Day ${CG.day} (${dlab(CG.through)}), grouped by how each county voted for president in 2024. Each slice is that group’s share of the 2026 early vote; ${what}.</p>
+      $('#tx-pie').innerHTML = `<h3 style="margin-top:26px">${head2}</h3>
+        <p class="note" style="margin-top:0">${FIN ? 'All Texas votes, early and Election Day (unofficial): the 2026 U.S. Senate race against the 2024 presidential race' : `Texas in-person early votes through Day ${CG.day} (${dlab(CG.through)})`}, grouped by how each county voted for president in 2024. Each slice is that group’s share of the 2026 ${FIN ? 'vote' : 'early vote'}; ${what}.</p>
         <div style="display:flex;flex-wrap:wrap;gap:8px 14px;margin:4px 0 10px">
+          ${GF ? `<div class="seg" role="group" aria-label="Votes counted" style="margin:0">${btn('data-cgs', 'fin', scope, 'Full election')}${btn('data-cgs', 'ev', scope, 'Early vote, through Day 12')}</div>` : ''}
           ${hasReg ? `<div class="seg" role="group" aria-label="Measure" style="margin:0">${btn('data-cgm', 'votes', ms, 'Change in votes')}${btn('data-cgm', 'rate', ms, 'Change in turnout rate')}</div>` : ''}
-          ${has24 ? `<div class="seg" role="group" aria-label="Compare with" style="margin:0">${btn('data-cgy', '2022', yr, 'vs. 2022 (midterm)')}${btn('data-cgy', '2024', yr, 'vs. 2024 (presidential)')}</div>` : ''}
+          ${has24 && !FIN ? `<div class="seg" role="group" aria-label="Compare with" style="margin:0">${btn('data-cgy', '2022', yr, 'vs. 2022 (midterm)')}${btn('data-cgy', '2024', yr, 'vs. 2024 (presidential)')}</div>` : ''}
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:18px 30px;align-items:center">
           <svg viewBox="0 0 ${S} ${S}" width="300" style="max-width:100%" role="img" aria-label="Donut chart of 2026 early votes by 2024 county result, with the change from ${yr}">${arcs}
             <text x="${cx}" y="${cy - 6}" text-anchor="middle" font-size="13" fill="var(--ink-2)">All of Texas</text><text x="${cx}" y="${cy + 18}" text-anchor="middle" font-size="${rate ? 19 : 22}" font-weight="700" fill="var(--ink)" class="num">${lab(allv)}</text>
             <text x="${cx}" y="${cy + 36}" text-anchor="middle" font-size="11" fill="var(--ink-3)">vs. ${yr}</text></svg>
-          <ul class="kv" style="flex:1 1 260px;margin:0">${G.map(x => `<li><span><i class="sw" style="background:${COLS[CG.groups.indexOf(x)]}"></i> ${esc(x.label)} <small>${x.counties} counties · ${rate ? `turnout ${pc1(x.ev26 / x.reg26)} in 2026, ${pc1(ev(x) / rg(x))} in ${yr}` : `${fmtN(x.ev26)} votes (${pc1(x.ev26 / tot)}) · ${yr}: ${fmtN(ev(x))}`}</small></span><span class="num"><b>${lab(val(x))}</b></span></li>`).join('')}</ul>
+          <ul class="kv" style="flex:1 1 260px;margin:0">${G.map(x => `<li><span><i class="sw" style="background:${COLS[(x.i != null ? x.i : CG.groups.indexOf(x))]}"></i> ${esc(x.label)} <small>${x.counties} counties · ${rate ? `turnout ${pc1(x.ev26 / x.reg26)} in 2026, ${pc1(ev(x) / rg(x))} in ${yr}` : `${fmtN(x.ev26)} votes (${pc1(x.ev26 / tot)}) · ${yr}: ${fmtN(ev(x))}`}${FIN ? ` · margin ${Mg(mgn(x.d24, x.r24))} → ${Mg(mgn(x.d26, x.r26))}` : ''}</small></span><span class="num"><b>${lab(val(x))}</b></span></li>`).join('')}</ul>
         </div>
         <p class="note">2024 results: Texas Secretary of State county-by-county canvass (Trump’s share of the Trump + Harris vote). Early votes: in person only, from the state’s daily county reports, with county files used for Harris, Dallas, Bexar, Collin, Fort Bend and Tarrant. Turnout rates use the state’s registered-voter count for each county and year. Higher turnout shows where voters are showing up, not how they voted.</p>`;
       $('#tx-pie').querySelectorAll('[data-cgy]').forEach(b => b.onclick = () => { yr = b.dataset.cgy; draw(); });
       $('#tx-pie').querySelectorAll('[data-cgm]').forEach(b => b.onclick = () => { ms = b.dataset.cgm; draw(); });
+      $('#tx-pie').querySelectorAll('[data-cgs]').forEach(b => b.onclick = () => { scope = b.dataset.cgs; if (scope === 'ev') yr = '2022'; draw(); });
     }
     draw();
   })();
@@ -706,7 +765,7 @@
     const gtxt = g => `${g >= 0 ? 'D' : 'R'}+${Math.abs(g).toFixed(1)}`;
     const kinds = Object.keys(W.rosters);
     $('#who-sec').hidden = false;
-    $('#who-h').textContent = `${F ? 'Who voted' : 'Who has voted so far'}: ${pc1(WA.dropoff / WA.n)} sat out the 2022 midterm, then voted in 2024, and ${pc1(WA.new22 / WA.n)} registered since 2022`;
+    $('#who-h').textContent = F ? 'Who voted' : `Who has voted so far: ${pc1(WA.dropoff / WA.n)} sat out the 2022 midterm, then voted in 2024, and ${pc1(WA.new22 / WA.n)} registered since 2022`;
     $('#who-sub').textContent = `The ${fmtN(WA.voters)} voters on the county’s lists of ${kinds.map(k => k === 'mail' ? 'returned mail ballots' : k === 'election day' ? 'Election Day voters' : 'early voters').join(', ').replace(/, ([^,]*)$/, ' and $1')}${WA.through ? ` through ${dlab(WA.through)}` : ''}, matched to the voter file by state voter ID (${fmtN(WA.n)} found). Each voter is counted once.`;
     $('#who-kv').innerHTML = [
       ['Sat out the 2022 midterm, then voted in 2024', WA.dropoff, REG.dropoff],
@@ -715,6 +774,10 @@
     ].map(([l, v, rv]) => `<li><span>${l} <small>all registered: ${pc1(rv / REG.n)}</small></span><span>${pc1(v / WA.n)}</span></li>`).join('') +
       `<li class="kv-h"><span><b>How they voted</b></span><span></span></li>` +
       kinds.map(k => `<li><span>${k === 'mail' ? 'Mail ballots' : k === 'election day' ? 'Election Day in person' : 'Early in person'}</span><span>${fmtN(W.rosters[k].voters)}</span></li>`).join('');
+    if (F) {      // after the election: just how they voted (the voting-history table below has the detail)
+      $('#who-two').outerHTML = `<div class="panel" style="max-width:560px"><h3>How they voted</h3><ul class="kv">${kinds.map(k => `<li><span>${k === 'mail' ? 'Mail ballots' : k === 'election day' ? 'Election Day in person' : 'Early in person'}</span><span>${fmtN(W.rosters[k].voters)}</span></li>`).join('')}</ul>
+        <p class="note">District pages show 2026 turnout for every precinct, district, city and school district. <a href="../electorate/index.html">The Electorate ›</a></p></div>`;
+    }
     // primary history: secondary, with its caveat
     const row = (lab, p) => { const t = p.n || 1, seg = (v, col, txt) => v > 0 ? `<div class="sb-seg" style="flex:${v / t} 1 0;background:${col};color:${col === 'var(--grid)' ? 'var(--ink)' : '#fff'}">${v / t >= .12 ? txt + ' ' + Math.round(v / t * 100) + '%' : ''}</div>` : '';
       return `<div class="sb-row"><div class="sb-label"><b>${esc(lab)}</b><span class="num">${fmtN(p.n)} · ${gtxt(gap(p))}</span></div><div class="sb-track" style="height:22px">${seg(p.lean[0], 'var(--dem)', 'D')}${seg(p.lean[2], 'var(--grid)', 'Neither')}${seg(p.lean[1], 'var(--rep)', 'R')}</div></div>`; };
@@ -756,7 +819,7 @@
     if (W.neither && (W.neither.daily || []).length) drawLean();
     $('#scen').innerHTML = scenarioHtml(WA.lean, { where: 'across Tarrant County', through: WA.through ? dlab(WA.through) : '', actual: (() => { const T = D.final && D.final.top_race; if (!T) return null; const d = T.cands.find(x => x[1] === 'DEM'), q = T.cands.find(x => x[1] === 'REP'); return d && q ? [T.contest, d[2] / (d[2] + q[2])] : null; })() }); scenarioInit();
     if (W.demo) $('#demo-day').innerHTML = demoDayHtml(W.demo, W.demo.base, W.demo.age_bands, { title: F ? 'Who voted, day by day: age, sex and race' : 'Who has voted, day by day: age, sex and race', note: ' Measured against active registered voters plus anyone who voted.' });
-    $('#who-comm').innerHTML = `<thead><tr><th>Pct</th><th class="r">Voted</th><th class="r">Lean</th><th class="r">2022 early + mail</th></tr></thead><tbody>${['01', '02', '03', '04'].map(c => {
+    if ($('#who-comm')) $('#who-comm').innerHTML = `<thead><tr><th>Pct</th><th class="r">Voted</th><th class="r">Lean</th><th class="r">2022 early + mail</th></tr></thead><tbody>${['01', '02', '03', '04'].map(c => {
       const a = WA.comm[c], t = a[0] + a[1] + a[2], b = ref && ref.comm[c], tb = b ? b[0] + b[1] + b[2] : 0;
       return `<tr><td>${+c}</td><td class="r num">${fmtN(t)}</td><td class="r num">${t ? gtxt((a[0] - a[1]) / t * 100) : '—'}</td><td class="r num">${tb ? gtxt((b[0] - b[1]) / tb * 100) : '—'}</td></tr>`; }).join('')}</tbody>`;
   }
