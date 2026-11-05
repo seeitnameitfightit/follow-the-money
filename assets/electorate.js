@@ -122,7 +122,7 @@
     const tip = s => s.r ? (ok(s.r) ? `${s.lab}${s.sub ? ` (${s.sub})` : ''}: ${f(tot(s.r))} voters · D ${p1(P(s.r, 0))} · Neither ${p1(P(s.r, 2))} · R ${p1(P(s.r, 1))} · ${mg(s.r)}` : `${s.lab}: fewer than 50 voters`) : `${s.lab}: still to come`;
     const build = arr => {
       const sl = Array.from({ length: 12 }, (_, i) => ({ lab: `Day ${i + 1}`, sm: String(i + 1), sub: dd(i), r: arr[i] || null, fut: i >= arr.length }));
-      sl.push({ lab: 'Election Day', sm: 'ED', sub: 'Nov 3', r: null, fut: true, gap: true });
+      sl.push({ lab: 'Election Day', sm: 'ED', sub: 'Nov 3', r: arr[12] || null, fut: !arr[12], gap: true });
       (refs || []).forEach(([lab, sm, r], i) => r && sl.push({ lab, sm, sub: '', r, ref: true, gap: i === 0 }));
       // columns (wide screens)
       const W = 680, H = 290, m = { l: 34, r: 2, t: 20, b: 38 }, ng = sl.filter(x => x.gap).length, gw = (W - m.l - m.r) / (sl.length + ng * 0.6), bw = Math.min(40, gw * 0.78), ch = H - m.t - m.b;
@@ -142,11 +142,13 @@
       return cols + rows;
     };
     const last = SF.days.at(-1), n = SF.days.length, prev = SF.days[n - 2];
-    const h = ok(last) ? `Day ${n} here: ${Math.round(P(last, 0) * 100)}% of the day’s in-person voters chose a Democratic primary last, ${Math.round(P(last, 2) * 100)}% neither, ${Math.round(P(last, 1) * 100)}% Republican (${mg(last)}${prev && ok(prev) ? `, against ${mg(prev)} on Day ${n - 1}` : ''})` : 'Who voted each day, by primary history';
+    const e0 = n > 12 && SF.cum && SF.cum[11];
+    const h = n > 12 && ok(last) ? `On Election Day ${where}, ${Math.round(P(last, 0) * 100)}% of in-person voters chose a Democratic primary last, ${Math.round(P(last, 2) * 100)}% neither, ${Math.round(P(last, 1) * 100)}% Republican (${mg(last)}${e0 && ok(e0) ? `, against ${mg(e0)} for everyone who voted early or by mail` : ''})`
+      : ok(last) ? `Day ${n} here: ${Math.round(P(last, 0) * 100)}% of the day’s in-person voters chose a Democratic primary last, ${Math.round(P(last, 2) * 100)}% neither, ${Math.round(P(last, 1) * 100)}% Republican (${mg(last)}${prev && ok(prev) ? `, against ${mg(prev)} on Day ${n - 1}` : ''})` : 'Who voted each day, by primary history';
     const id = 'dl' + Math.random().toString(36).slice(2, 7);
     return `<style>.dl-rows{display:none!important}@media (max-width:599px){.dl-cols{display:none!important}.dl-rows{display:block!important}}</style>
       <h3 style="margin:22px 0 4px">${h}</h3>
-      <p class="note" style="margin-top:0">Each early-voting day ${where}, by the most recent party primary each voter chose since 2022. “Each day on its own” counts only that day’s in-person voters; “All voters so far” is the running total, mail ballots included. Days with fewer than 50 voters are left blank.</p>
+      <p class="note" style="margin-top:0">Each early-voting day ${where}, by the most recent party primary each voter chose since 2022. “Each day on its own” counts only that day’s in-person voters; “All voters so far” is the running total, mail ballots included.${n > 12 ? ' The Election Day bar is the county’s list of Election Day in-person voters (unofficial; provisional and late mail ballots are not in it).' : ''} Days with fewer than 50 voters are left blank.</p>
       <div class="seg" role="group" aria-label="Voters shown" id="${id}"><button type="button" aria-pressed="true" data-m="d">Each day on its own</button><button type="button" aria-pressed="false" data-m="c">All voters so far</button></div>
       <div class="chart" data-dl="${id}" data-m="d">${build(SF.days)}</div><div class="chart" data-dl="${id}" data-m="c" hidden>${build(SF.cum || [])}</div>
       <div class="sb-key"><span><i class="sw" style="background:var(--dem)"></i>Democratic primary</span><span><i class="sw" style="background:var(--grid)"></i>Neither</span><span><i class="sw" style="background:var(--rep)"></i>Republican primary</span></div>
@@ -176,7 +178,7 @@
     };
     const DD = SF.dd, n = DD && DD.age ? DD.age.length - 1 : 0, pick = i => ({ age: DD.age[i], sex: DD.sex[i], race: DD.race && DD.race[i] });
     const opts = [['all', 'All voters so far', view(SF, true)]];
-    for (let i = n; i >= 1; i--) if (T(DD.age[i]) > 1) opts.push([String(i), `Day ${i}, ${dlb(i - 1)}: in person`, view(pick(i), false)]);
+    for (let i = n; i >= 1; i--) if (T(DD.age[i]) > 1) opts.push([String(i), i > 12 ? 'Election Day, Tue Nov 3: in person' : `Day ${i}, ${dlb(i - 1)}: in person`, view(pick(i), false)]);
     if (n && T(DD.age[0]) > 1) opts.push(['0', 'Mail ballots', view(pick(0), false)]);
     const id = 'dm' + Math.random().toString(36).slice(2, 7);
     return `<h3 style="margin:22px 0 4px">${o.title}</h3>
@@ -195,7 +197,7 @@
     return `<div class="panel" id="${id}" data-sc="${lean.join(',')}" style="margin-top:18px">
       <h3 style="margin-top:0">What if? Add up the votes cast so far your way</h3>
       <p class="note" style="margin-top:0">Move the sliders to set how each group votes${o && o.where ? ' ' + o.where : ''}. Every voter is grouped by the most recent party primary they chose since 2022. This counts only ballots already cast${o && o.through ? `, through ${o.through}` : ''}. It is not a forecast, and it is not how anyone actually voted: ballots are secret.</p>
-      ${sl('d', 'Democratic primary voters who vote Democratic', 95, 50)}
+      ${sl('d', 'Democratic primary voters who vote Democratic', 99, 50)}
       ${sl('r', 'Republican primary voters who vote Republican', 95, 50)}
       ${sl('n', 'Voters with neither primary who vote Democratic', 50, 0)}
       <div data-sco style="margin-top:14px"></div>
@@ -211,7 +213,7 @@
   };
   document.addEventListener('input', e => { const i = e.target; if (!i.dataset || !i.dataset.sck) return; scenarioDraw(i.closest('[data-sc]')); });
   document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-screset]'); if (!b) return; const box = b.closest('[data-sc]');
-    box.querySelectorAll('[data-sck]').forEach(i => { i.value = i.dataset.sck === 'n' ? 50 : 95; }); scenarioDraw(box); });
+    box.querySelectorAll('[data-sck]').forEach(i => { i.value = i.dataset.sck === 'n' ? 50 : i.dataset.sck === 'd' ? 99 : 95; }); scenarioDraw(box); });
   const scenarioInit = () => document.querySelectorAll('[data-sc]').forEach(scenarioDraw);
   setTimeout(scenarioInit, 0);
   // 2026 turnout so far (county daily lists of returned mail ballots and early voters)
@@ -250,9 +252,10 @@
       const gt = a => { const g = (a[0] - a[1]) / sum(a) * 100; return `${g >= 0 ? 'D' : 'R'}+${Math.abs(g).toFixed(1)}`; };
       const row = (lab, a) => { const t = sum(a), seg = (v, col, txt) => v > 0 ? `<div class="sb-seg" style="flex:${v / t} 1 0;background:${col};color:${col === 'var(--grid)' ? 'var(--ink)' : '#fff'}">${v / t >= .12 ? txt + ' ' + Math.round(v / t * 100) + '%' : ''}</div>` : '';
         return `<div class="sb-row"><div class="sb-label"><b>${lab}</b><span class="num">${fmtN(t)} · ${gt(a)}</span></div><div class="sb-track" style="height:22px">${seg(a[0], 'var(--dem)', 'D')}${seg(a[2], 'var(--grid)', 'Neither')}${seg(a[1], 'var(--rep)', 'R')}</div></div>`; };
-      const rows = [['2026 so far', SF.lean]];
+      const allIn = SF.through && SF.through >= '2026-11-03';
+      const rows = [[allIn ? 'All 2026 voters (unofficial)' : '2026 so far', SF.lean]];
       if (ok(SF.lean22) && sum(SF.lean22) >= 50) rows.push(['2022 early and mail voters', SF.lean22]);
-      if (!isCounty && CSF && ok(CSF.lean)) rows.push(['2026 so far, all of Tarrant County', CSF.lean]);
+      if (!isCounty && CSF && ok(CSF.lean)) rows.push([allIn ? 'All 2026 voters, all of Tarrant County' : '2026 so far, all of Tarrant County', CSF.lean]);
       // the last general-election result here, for comparison: the seat's own last contested race, or else the 2024 presidential
       const now26 = G.seat && G.seat.races.find(r => r.key === 'g26');
       const seatRace = G.seat && G.seat.races.find(r => r.contested && r.key !== 'g26');

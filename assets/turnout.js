@@ -91,8 +91,11 @@
       <div class="sb-key">${T.cands.map(k => `<span>${k[1] === 'DEM' ? '<i class="dot d"></i>' : k[1] === 'REP' ? '<i class="dot r"></i>' : ''}${esc(k[0])} <b class="num">${fmtN(k[2])}</b></span>`).join('')}</div></div></div></section>`; })() : ''}
   <section aria-labelledby="proj-h" id="proj-sec" hidden><h2 id="proj-h">What the early vote points to for the final turnout</h2><p class="sub" id="proj-sub"></p><div style="overflow-x:auto"><table class="ntab" id="proj-tab"></table></div><p class="note" id="proj-note"></p></section>
   ${F ? `<section aria-labelledby="cut-h" id="cut-sec" style="margin-top:28px;padding:16px 18px;border:1px solid var(--rule);border-left:4px solid var(--ink);border-radius:6px;background:var(--surface)">
-    <h2 id="cut-h" style="font-size:1.1rem;margin:0 0 6px">Below this point: early voting only, for now</h2>
-    <p style="margin:0">Everything above uses the county’s unofficial election-night count. The sections below are built from the county’s lists of who voted early and by mail, through the end of early voting on ${dlab(last.date)}, so they don’t include Election Day voters yet. They will be updated once the county releases its official canvass and its full list of who voted, including Election Day.</p></section>` : ''}
+    ${C.who && C.who.rosters && C.who.rosters['election day']
+      ? `<h2 id="cut-h" style="font-size:1.1rem;margin:0 0 6px">Below this point: who voted, from the county’s voter lists</h2>
+    <p style="margin:0">Everything above uses the county’s unofficial election-night count. The “who voted” sections below now include the county’s list of <b class="num">${fmtN(C.who.rosters['election day'].voters)}</b> Election Day in-person voters, along with early voters and mail ballots returned through ${dlab(last.date)}. Mail ballots that arrived later and provisional ballots aren’t on those lists yet. The early-voting charts and the statewide comparisons cover early voting only. All of it will be updated once the county releases its official canvass.</p>`
+      : `<h2 id="cut-h" style="font-size:1.1rem;margin:0 0 6px">Below this point: early voting only, for now</h2>
+    <p style="margin:0">Everything above uses the county’s unofficial election-night count. The sections below are built from the county’s lists of who voted early and by mail, through the end of early voting on ${dlab(last.date)}, so they don’t include Election Day voters yet. They will be updated once the county releases its official canvass and its full list of who voted, including Election Day.</p>`}</section>` : ''}
   <section aria-labelledby="left-h" id="left-sec" hidden><h2 id="left-h"></h2><p class="sub" id="left-sub"></p><div class="sizebar" id="left-bars"></div><p class="note" style="margin-top:2px">Hover over or tap a bar for the numbers.</p><h3 style="margin-top:18px">By commissioner precinct</h3><div style="overflow-x:auto;max-width:560px"><table class="ntab" id="left-comm"></table></div><p class="note" id="left-note"></p></section>
   <section aria-labelledby="rof-h" id="rof-sec" hidden><h2 id="rof-h"></h2><p class="sub" id="rof-sub"></p><div class="sizebar" id="rof-bars"></div><div class="panel" style="margin-top:16px" id="rof-2026"></div><details style="margin-top:14px"><summary style="cursor:pointer;font-weight:600">Every countywide race, 2022 and 2024</summary><div style="overflow-x:auto"><table class="ntab" id="rof-tab" style="white-space:nowrap"></table></div></details><p class="note" id="rof-note"></p></section>
   <section aria-labelledby="eds-h" id="eds-sec" hidden><h2 id="eds-h"></h2><p class="sub" id="eds-sub"></p><h3 style="margin-top:14px">The 15 sites likely to be busiest on Election Day</h3><div style="overflow-x:auto"><table class="ntab" id="eds-top" style="white-space:nowrap"></table></div><h3 style="margin-top:22px">The busiest 2024 Election Day sites that are closed this year</h3><div style="overflow-x:auto"><table class="ntab" id="eds-closed" style="white-space:nowrap"></table></div><p class="note" id="eds-note"></p></section>
@@ -460,23 +463,28 @@
   let dlMode = 'day';
   function drawLean() {
     const NE = D.current.who.neither, B = D.current.who.base, box = $('#dl'); $('#dl-wrap').hidden = false;
-    const evs = D.ev_days_2026, cum = dlMode === 'cum';
+    const evs = D.ev_days_2026.concat([D.current.election]), cum = dlMode === 'cum';
     const src = cum ? (NE.series || []).filter(r => r[3] && evs.includes(r[0])).map(r => [r[0], r[1], r[3][0], r[3][1], r[3][2]]) : (NE.daily || []).filter(r => evs.includes(r[0]));
     const byDay = {}; src.forEach(r => { byDay[evs.indexOf(r[0]) + 1] = r; });
-    const slots = evs.map((d, i) => ({ lab: `Day ${i + 1}`, sm: String(i + 1), sub: dlab(d), r: byDay[i + 1] }));
-    slots.push({ lab: 'Election Day', sm: 'ED', sub: dlab(D.current.election), r: null, gap: true });
+    const slots = evs.slice(0, -1).map((d, i) => ({ lab: `Day ${i + 1}`, sm: String(i + 1), sub: dlab(d), r: byDay[i + 1] }));
+    slots.push({ lab: 'Election Day', sm: 'ED', sub: dlab(D.current.election), r: byDay[evs.length] || null, gap: true });
     [['All 2022 voters', '2022'], ['All 2024 voters', '2024']].forEach(([k, sm], i) => { const p = B[k]; if (p) slots.push({ lab: k, sm, sub: 'all voters', r: [null, p.n, p.lean[0], p.lean[1], p.lean[2]], ref: true, gap: i === 0 }); });
     const done = src.at(-1), dn = done ? evs.indexOf(done[0]) + 1 : 0;
     const pct = (r, i) => r[i] / ((r[2] + r[3] + r[4]) || 1), mg = r => { const g = (pct(r, 2) - pct(r, 3)) * 100; return `${g >= 0 ? 'D' : 'R'}+${Math.abs(g).toFixed(1)}`; };
-    if (done) {
+    if (done && dn === evs.length) {
+      const e0 = (NE.series || []).filter(r => r[3] && r[0] === evs[evs.length - 2]).map(r => [r[0], r[1], r[3][0], r[3][1], r[3][2]])[0];
+      $('#dl-h').textContent = cum
+        ? `All 2026 voters (unofficial): ${Math.round(pct(done, 2) * 100)}% chose a Democratic primary last, ${Math.round(pct(done, 4) * 100)}% neither, ${Math.round(pct(done, 3) * 100)}% Republican (${mg(done)})`
+        : `Election Day: ${Math.round(pct(done, 2) * 100)}% of in-person voters chose a Democratic primary last, ${Math.round(pct(done, 4) * 100)}% neither, ${Math.round(pct(done, 3) * 100)}% Republican (${mg(done)}${e0 ? `, against ${mg(e0)} for everyone who voted early or by mail` : ''})`;
+    } else if (done) {
       const prev = byDay[dn - 1];
       $('#dl-h').textContent = cum
         ? `After ${dn} day${dn > 1 ? 's' : ''}: ${Math.round(pct(done, 2) * 100)}% of all 2026 voters so far chose a Democratic primary last, ${Math.round(pct(done, 4) * 100)}% neither, ${Math.round(pct(done, 3) * 100)}% Republican (${mg(done)})`
         : `Day ${dn} (${dlab(done[0])}): ${Math.round(pct(done, 2) * 100)}% of the day’s in-person voters chose a Democratic primary last, ${Math.round(pct(done, 4) * 100)}% neither, ${Math.round(pct(done, 3) * 100)}% Republican (${mg(done)}${prev ? `, against ${mg(prev)} on Day ${dn - 1}` : ''})`;
     }
     $('#dl-sub').textContent = cum
-      ? 'Everyone who has voted so far after each day of early voting, mail ballots included, by the most recent party primary they voted in.'
-      : 'The voters who voted in person on each day of early voting (new names on that day’s county list), by the most recent party primary they voted in. Mail ballots are left out here.';
+      ? 'Everyone who has voted so far after each day of early voting, mail ballots included, by the most recent party primary they voted in.' + (byDay[evs.length] ? ' The Election Day bar is everyone on the county’s lists, early, mail and Election Day.' : '')
+      : 'The voters who voted in person on each day of early voting (new names on that day’s county list), by the most recent party primary they voted in. Mail ballots are left out here.' + (byDay[evs.length] ? ' The Election Day bar is the county’s list of Election Day in-person voters.' : '');
     const W = box.clientWidth, seg = (v, col, fg) => ({ v, col, fg });
     const parts = r => [seg(pct(r, 2), 'var(--dem)', '#fff'), seg(pct(r, 4), 'var(--grid)', 'var(--ink)'), seg(pct(r, 3), 'var(--rep)', '#fff')];
     const tipTxt = s => s.r ? `${s.lab}${s.ref ? '' : ` (${s.sub})`}: ${fmtN(s.r[2] + s.r[3] + s.r[4])} voters · D ${pc1(pct(s.r, 2))} · Neither ${pc1(pct(s.r, 4))} · R ${pc1(pct(s.r, 3))} · ${mg(s.r)}` : `${s.lab}: still to come`;
@@ -512,7 +520,7 @@
     return `<div class="panel" id="${id}" data-sc="${lean.join(',')}" style="margin-top:18px">
       <h3 style="margin-top:0">What if? Add up the votes cast so far your way</h3>
       <p class="note" style="margin-top:0">Move the sliders to set how each group votes${o && o.where ? ' ' + o.where : ''}. ${o && o.def ? o.def : 'Every voter is grouped by the most recent party primary they chose since 2022.'} This counts only ballots already cast${o && o.through ? `, through ${o.through}` : ''}. It is not a forecast, and it is not how anyone actually voted: ballots are secret.</p>
-      ${sl('d', 'Democratic primary voters who vote Democratic', 95, 50)}
+      ${sl('d', 'Democratic primary voters who vote Democratic', 99, 50)}
       ${sl('r', 'Republican primary voters who vote Republican', 95, 50)}
       ${sl('n', 'Voters with neither primary who vote Democratic', 50, 0)}
       <div data-sco style="margin-top:14px"></div>
@@ -528,7 +536,7 @@
   };
   document.addEventListener('input', e => { const i = e.target; if (!i.dataset || !i.dataset.sck) return; scenarioDraw(i.closest('[data-sc]')); });
   document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-screset]'); if (!b) return; const box = b.closest('[data-sc]');
-    box.querySelectorAll('[data-sck]').forEach(i => { i.value = i.dataset.sck === 'n' ? 50 : 95; }); scenarioDraw(box); });
+    box.querySelectorAll('[data-sck]').forEach(i => { i.value = i.dataset.sck === 'n' ? 50 : i.dataset.sck === 'd' ? 99 : 95; }); scenarioDraw(box); });
   const scenarioInit = () => document.querySelectorAll('[data-sc]').forEach(scenarioDraw);
   setTimeout(scenarioInit, 0);
   // donut: 2026 in-person early votes by each county's 2024 presidential result, labeled with the change from 2022 or 2024,
@@ -630,7 +638,7 @@
     };
     const DD = SF.dd, n = DD && DD.age ? DD.age.length - 1 : 0, pick = i => ({ age: DD.age[i], sex: DD.sex[i], race: DD.race && DD.race[i] });
     const opts = [['all', 'All voters so far', view(SF, true)]];
-    for (let i = n; i >= 1; i--) if (T(DD.age[i]) > 1) opts.push([String(i), `Day ${i}, ${dlb(i - 1)}: in person`, view(pick(i), false)]);
+    for (let i = n; i >= 1; i--) if (T(DD.age[i]) > 1) opts.push([String(i), i > 12 ? 'Election Day, Tue Nov 3: in person' : `Day ${i}, ${dlb(i - 1)}: in person`, view(pick(i), false)]);
     if (n && T(DD.age[0]) > 1) opts.push(['0', 'Mail ballots', view(pick(0), false)]);
     const id = 'dm' + Math.random().toString(36).slice(2, 7);
     return `<h3 style="margin:22px 0 4px">${o.title}</h3>
@@ -683,19 +691,19 @@
     const kinds = Object.keys(W.rosters);
     $('#who-sec').hidden = false;
     $('#who-h').textContent = `Who has voted so far: ${pc1(WA.dropoff / WA.n)} sat out the 2022 midterm, then voted in 2024, and ${pc1(WA.new22 / WA.n)} registered since 2022`;
-    $('#who-sub').textContent = `The ${fmtN(WA.voters)} voters on the county’s lists of ${kinds.map(k => k === 'mail' ? 'returned mail ballots' : 'early voters').join(' and ')}${WA.through ? ` through ${dlab(WA.through)}` : ''}, matched to the voter file by state voter ID (${fmtN(WA.n)} found). Each voter is counted once.`;
+    $('#who-sub').textContent = `The ${fmtN(WA.voters)} voters on the county’s lists of ${kinds.map(k => k === 'mail' ? 'returned mail ballots' : k === 'election day' ? 'Election Day voters' : 'early voters').join(', ').replace(/, ([^,]*)$/, ' and $1')}${WA.through ? ` through ${dlab(WA.through)}` : ''}, matched to the voter file by state voter ID (${fmtN(WA.n)} found). Each voter is counted once.`;
     $('#who-kv').innerHTML = [
       ['Sat out the 2022 midterm, then voted in 2024', WA.dropoff, REG.dropoff],
       ['Registered since the 2022 midterm', WA.new22, REG.new22],
       ['On the rolls in 2022 but did not vote', WA.skipped22, REG.skipped22],
     ].map(([l, v, rv]) => `<li><span>${l} <small>all registered: ${pc1(rv / REG.n)}</small></span><span>${pc1(v / WA.n)}</span></li>`).join('') +
       `<li class="kv-h"><span><b>How they voted</b></span><span></span></li>` +
-      kinds.map(k => `<li><span>${k === 'mail' ? 'Mail ballots' : 'Early in person'}</span><span>${fmtN(W.rosters[k].voters)}</span></li>`).join('');
+      kinds.map(k => `<li><span>${k === 'mail' ? 'Mail ballots' : k === 'election day' ? 'Election Day in person' : 'Early in person'}</span><span>${fmtN(W.rosters[k].voters)}</span></li>`).join('');
     // primary history: secondary, with its caveat
     const row = (lab, p) => { const t = p.n || 1, seg = (v, col, txt) => v > 0 ? `<div class="sb-seg" style="flex:${v / t} 1 0;background:${col};color:${col === 'var(--grid)' ? 'var(--ink)' : '#fff'}">${v / t >= .12 ? txt + ' ' + Math.round(v / t * 100) + '%' : ''}</div>` : '';
       return `<div class="sb-row"><div class="sb-label"><b>${esc(lab)}</b><span class="num">${fmtN(p.n)} · ${gtxt(gap(p))}</span></div><div class="sb-track" style="height:22px">${seg(p.lean[0], 'var(--dem)', 'D')}${seg(p.lean[2], 'var(--grid)', 'Neither')}${seg(p.lean[1], 'var(--rep)', 'R')}</div></div>`; };
     $('#who').innerHTML = `<p class="note" style="margin:0">By primary history: the most recent party primary each voter chose since 2022. A primary ballot is not a November vote, and the large 2026 Democratic primary makes every 2026 group look more Democratic on this measure.</p>` +
-      row('2026 so far', WA) + kinds.filter(() => kinds.length > 1).map(k => row(`2026 ${k === 'mail' ? 'mail' : 'early in person'}`, W.rosters[k])).join('') +
+      row('2026 so far', WA) + kinds.filter(() => kinds.length > 1).map(k => row(`2026 ${k === 'mail' ? 'mail' : k === 'election day' ? 'Election Day in person' : 'early in person'}`, W.rosters[k])).join('') +
       Object.entries(B).filter(([, p]) => p).map(([k, p]) => row(k, p)).join('');
     if (WA.bloc && REG.bloc && WA.bloc.length === 16) {
       const BL = [['Democratic primaries only'], ['D1', 'Voted in 1'], ['D2', 'Voted in 2'], ['D3', 'Voted in 3'], ['D4', 'Voted in 4'], ['D5', 'Voted in all 5'],
