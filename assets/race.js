@@ -292,11 +292,13 @@
     const opts = [['all', 'All 2026 voters', view(SF, true)]];
     for (let i = n; i >= 1; i--) if (T(DD.age[i]) > 1) opts.push([String(i), i > 12 ? 'Election Day, Tue Nov 3: in person' : `Day ${i}, ${dlb(i - 1)}: in person`, view(pick(i), false)]);
     if (n && T(DD.age[0]) > 1) opts.push(['0', 'Mail ballots', view(pick(0), false)]);
+    if (SF.ld) opts.splice(1, 0, ...[['D', 'Democratic primary voters'], ['none', 'Neither: no primary since 2022'], ['R', 'Republican primary voters']]
+      .filter(([k]) => SF.ld[k] && SF.ld[k].n).map(([k, l]) => { const x = SF.ld[k]; return ['l' + k, `${l} (all 2026 voters)`, view({ age: x.age, sex: x.sex, race: x.race }, false)]; }));
     const id = 'dm' + Math.random().toString(36).slice(2, 7);
     return `<h3 style="margin:22px 0 4px">${o.title}</h3>
       ${opts.length > 1 ? `<label class="note" style="display:block;margin:4px 0 8px">Show <select id="${id}" data-dm="${id}" style="font:inherit;margin-left:4px">${opts.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></label>` : ''}
       ${opts.map(([k, , h], i) => `<div data-dmv="${id}" data-k="${k}"${i ? ' hidden' : ''}>${h}</div>`).join('')}
-      <p class="note">“All 2026 voters” compares each group’s share of the voters with its share of active voters: a group whose share of voters is bigger turned out ahead of the rest. Pick a day to see only the people who voted in person that day (or on Election Day), next to the share among all 2026 voters.${rc ? ' Race and ethnicity are estimates, rounded to the nearest 10.' : ''} Counts under 10 are withheld.${o.note || ''}</p>`;
+      <p class="note">“All 2026 voters” compares each group’s share of the voters with its share of active voters: a group whose share of voters is bigger turned out ahead of the rest. Pick a day to see only the people who voted in person that day (or on Election Day), next to the share among all 2026 voters.${SF.ld ? ' The primary-history choices cover every 2026 voter in that group, early, mail and Election Day, by the most recent party primary they chose since 2022.' : ''}${rc ? ' Race and ethnicity are estimates, rounded to the nearest 10.' : ''} Counts under 10 are withheld.${o.note || ''}</p>`;
   };
   document.addEventListener('change', e => { const s = e.target; if (!s.dataset || !s.dataset.dm) return;
     document.querySelectorAll(`[data-dmv="${s.dataset.dm}"]`).forEach(d => { d.hidden = d.dataset.k !== s.value; }); });

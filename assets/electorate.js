@@ -198,11 +198,13 @@
     const opts = [['all', 'All 2026 voters', view(SF, true)]];
     for (let i = n; i >= 1; i--) if (T(DD.age[i]) > 1) opts.push([String(i), i > 12 ? 'Election Day, Tue Nov 3: in person' : `Day ${i}, ${dlb(i - 1)}: in person`, view(pick(i), false)]);
     if (n && T(DD.age[0]) > 1) opts.push(['0', 'Mail ballots', view(pick(0), false)]);
+    if (SF.ld) opts.splice(1, 0, ...[['D', 'Democratic primary voters'], ['none', 'Neither: no primary since 2022'], ['R', 'Republican primary voters']]
+      .filter(([k]) => SF.ld[k] && SF.ld[k].n).map(([k, l]) => { const x = SF.ld[k]; return ['l' + k, `${l} (all 2026 voters)`, view({ age: x.age, sex: x.sex, race: x.race }, false)]; }));
     const id = 'dm' + Math.random().toString(36).slice(2, 7);
     return `<h3 style="margin:22px 0 4px">${o.title}</h3>
       ${opts.length > 1 ? `<label class="note" style="display:block;margin:4px 0 8px">Show <select id="${id}" data-dm="${id}" style="font:inherit;margin-left:4px">${opts.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></label>` : ''}
       ${opts.map(([k, , h], i) => `<div data-dmv="${id}" data-k="${k}"${i ? ' hidden' : ''}>${h}</div>`).join('')}
-      <p class="note">“All 2026 voters” compares each group’s share of the voters with its share of active voters: a group whose share of voters is bigger turned out ahead of the rest. Pick a day to see only the people who voted in person that day (or on Election Day), next to the share among all 2026 voters.${rc ? ' Race and ethnicity are estimates, rounded to the nearest 10.' : ''} Counts under 10 are withheld.${o.note || ''}</p>`;
+      <p class="note">“All 2026 voters” compares each group’s share of the voters with its share of active voters: a group whose share of voters is bigger turned out ahead of the rest. Pick a day to see only the people who voted in person that day (or on Election Day), next to the share among all 2026 voters.${SF.ld ? ' The primary-history choices cover every 2026 voter in that group, early, mail and Election Day, by the most recent party primary they chose since 2022.' : ''}${rc ? ' Race and ethnicity are estimates, rounded to the nearest 10.' : ''} Counts under 10 are withheld.${o.note || ''}</p>`;
   };
   document.addEventListener('change', e => { const s = e.target; if (!s.dataset || !s.dataset.dm) return;
     document.querySelectorAll(`[data-dmv="${s.dataset.dm}"]`).forEach(d => { d.hidden = d.dataset.k !== s.value; }); });
@@ -354,7 +356,11 @@
     <div class="panel"><h3>Sex, as recorded</h3><ul class="kv">${['Women', 'Men', 'Not recorded'].map((l, i) => `<li><span>${l}</span><span>${fmtS(G.sex[i])} <small>${pc(G.sex[i], G.reg)}</small></span></li>`).join('')}</ul></div>
     <div class="panel"><h3>How they voted in Nov 2024</h3><ul class="kv">${[['Early in person', 'early'], ['Election Day', 'eday'], ['By mail', 'mail']].map(([l, k]) => `<li><span>${l}</span><span>${fmtS(g24[k])} <small>${pc(g24[k], g24.voted)}</small></span></li>`).join('')}</ul></div>
   </div></section>
-  ${D.directory ? `<section aria-labelledby="dir-h"><h2 id="dir-h">Every district, side by side</h2><p class="sub">Pick a district for its full profile. Turnout is the share of today’s registered voters who were on the rolls for that election and voted.</p>
+  ${D.directory && D.directory.some(g => g.items.some(x => x.xo)) ? `<section aria-labelledby="xo-h"><h2 id="xo-h">Ticket-splitting and the Neither break, district by district</h2>
+    <p class="sub">The 2024 presidential margin, then the 2026 U.S. Senate, governor and County Judge margins (unofficial, Democrat minus Republican as a share of the two). With very little roll-off, the County Judge race is the closest thing to a straight party vote, so the gap between it and the Senate or governor race is a rough measure of crossover voting: “likely crossover” is how many points better the Democrat did in that race than in County Judge.</p>
+    <div id="xo"></div>
+    <p class="note">“Neither → D” estimates the share of voters with no party primary since 2022 who voted Democratic for County Judge, assuming 99% of Democratic-primary voters and 95% of Republican-primary voters stayed with their party. All figures are estimates from totals: ballots are secret, areas with split precincts are close estimates, and the Neither estimate is less reliable where few voters have no primary history.</p></section>` : ''}
+  ${D.directory ? `<section aria-labelledby="dir-h"><h2 id="dir-h">Every district, side by side</h2><p class="sub">Pick a district for its full profile. Turnout is the share of today’s registered voters who were on the rolls for that election and voted${D.directory.some(g => g.items.some(x => x.g26)) ? '; Nov ’26 is from the county’s early, mail and Election Day voter lists (unofficial), as a share of active voters plus anyone who voted' : ''}.</p>
     <label class="srch"><span>Filter</span><input id="f" type="search" placeholder="District number, city or school district" autocomplete="off"></label><div id="dir"></div></section>` : ''}
   <footer><b>How these numbers work</b><ul>
     <li>Source: the Tarrant County Elections voter registration and election history file (${fmtN(M.rows)} records, ${dlabel(M.file_date)}). Only totals are published here: no names, addresses or birth dates. Counts under 10 are withheld.</li>
@@ -466,10 +472,19 @@
     $('#regb').innerHTML = M.reg_bands.map((b, i) => `<div class="hb-row"><span class="hb-l">${esc(b)}</span><span class="hb-t"><i style="width:${v[i] / max * 100}%"></i>${cv ? `<em style="left:${cv[i] / max * 100}%"></em>` : ''}</span><span class="hb-v num">${pc1(v[i])}</span></div>`).join('');
   })();
 
+  // ---------- crossover table (countywide page)
+  if (D.directory && $('#xo')) {
+    const M = v => v == null ? '—' : `<span style="color:${v >= 0 ? 'var(--dem)' : 'var(--rep)'}">${v >= 0 ? 'D' : 'R'}+${Math.abs(v).toFixed(1)}</span>`;
+    const X = v => v == null ? '—' : `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}`;
+    const row = (name, href, partial, x) => `<tr><td style="white-space:nowrap">${href ? `<a href="${href}">${esc(name)}</a>` : `<b>${esc(name)}</b>`}${partial ? ' <small class="pt">Tarrant part</small>' : ''}</td><td class="r num">${M(x.p24)}</td><td class="r num">${M(x.se)}</td><td class="r num">${M(x.gov)}</td><td class="r num">${M(x.cj)}</td><td class="r num"><b>${X(x.se != null && x.cj != null ? x.se - x.cj : null)}</b></td><td class="r num"><b>${X(x.gov != null && x.cj != null ? x.gov - x.cj : null)}</b></td><td class="r num">${x.nd == null ? '—' : Math.round(x.nd) + '%'}</td></tr>`;
+    const head = `<thead><tr><th>District</th><th class="r">2024 president</th><th class="r">2026 Senate</th><th class="r">Governor</th><th class="r">County Judge</th><th class="r">Likely Senate crossover</th><th class="r">Likely governor crossover</th><th class="r">Neither → D</th></tr></thead>`;
+    $('#xo').innerHTML = (D.xo_county ? `<div style="overflow-x:auto"><table class="ntab" style="white-space:nowrap">${head}<tbody>${row('Tarrant County', '', false, D.xo_county)}</tbody></table></div>` : '') +
+      D.directory.filter(g => g.items.some(x => x.xo)).map((g, i) => `<details${i < 1 ? ' open' : ''} style="margin-top:12px"><summary style="cursor:pointer;font-weight:600">${esc(g.label)}</summary><div style="overflow-x:auto"><table class="ntab" style="white-space:nowrap">${head}<tbody>${g.items.filter(x => x.xo).map(x => row(x.name, x.slug + '/index.html', x.partial, x.xo)).join('')}</tbody></table></div></details>`).join('');
+  }
   // ---------- directory (countywide page)
   if (D.directory) {
-    $('#dir').innerHTML = D.directory.map(g => `<div class="dir-g"><h3 class="near-h">${esc(g.label)}</h3><table class="ntab"><thead><tr><th>District</th><th class="r">Registered</th><th class="r">Nov ’22</th><th class="r">Nov ’24</th><th class="r">Mar ’26 primary</th></tr></thead><tbody>
-      ${g.items.map(x => `<tr data-q="${esc((x.name + ' ' + g.label).toLowerCase())}"><td><a href="${x.slug}/index.html">${esc(x.name)}</a>${x.partial ? ' <small class="pt">Tarrant part</small>' : ''}</td><td class="r num">${fmtS(x.reg)}</td><td class="r num">${x.g22}</td><td class="r num">${x.g24}</td><td class="r num"><span style="color:var(--dem)">${fmtS(x.d)}</span> · <span style="color:var(--rep)">${fmtS(x.r)}</span></td></tr>`).join('')}</tbody></table></div>`).join('');
+    $('#dir').innerHTML = D.directory.map(g => `<div class="dir-g"><h3 class="near-h">${esc(g.label)}</h3><table class="ntab"><thead><tr><th>District</th><th class="r">Registered</th><th class="r">Nov ’22</th><th class="r">Nov ’24</th><th class="r">${g.items.some(x => x.g26) ? 'Nov ’26' : 'Mar ’26 primary'}</th></tr></thead><tbody>
+      ${g.items.map(x => `<tr data-q="${esc((x.name + ' ' + g.label).toLowerCase())}"><td><a href="${x.slug}/index.html">${esc(x.name)}</a>${x.partial ? ' <small class="pt">Tarrant part</small>' : ''}</td><td class="r num">${fmtS(x.reg)}</td><td class="r num">${x.g22}</td><td class="r num">${x.g24}</td><td class="r num">${g.items.some(y => y.g26) ? (x.g26 || '—') : `<span style="color:var(--dem)">${fmtS(x.d)}</span> · <span style="color:var(--rep)">${fmtS(x.r)}</span>`}</td></tr>`).join('')}</tbody></table></div>`).join('');
     const f = $('#f'); f.addEventListener('input', () => { const v = f.value.trim().toLowerCase();
       document.querySelectorAll('#dir tr[data-q]').forEach(r => { r.hidden = !!v && !r.dataset.q.includes(v); });
       document.querySelectorAll('#dir .dir-g').forEach(g => { g.hidden = !g.querySelector('tr[data-q]:not([hidden])'); }); });
