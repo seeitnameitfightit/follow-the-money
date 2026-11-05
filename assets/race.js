@@ -85,15 +85,25 @@
   const lead = R.period.coh >= Dm.period.coh ? 'r' : 'd', trail = lead === 'r' ? 'd' : 'r';
   const a = C[lead].period.coh, b = C[trail].period.coh, gap = a - b, ratio = b > 0 ? a / b : Infinity;
   let h1;
-  if (ratio < 1.2) h1 = `${fmt$(gap)} separates ${R.short} and ${Dm.short} in cash`;
-  else if (ratio >= 3) h1 = `${C[lead].short} ${V(C[lead], 'has', 'have')} a ${ratio === Infinity ? 'commanding' : ratioText(ratio)} cash advantage`;
-  else h1 = `${C[lead].short} ${V(C[lead], 'leads', 'lead')} ${C[trail].short} in cash, ${fmtK(a)} to ${fmtK(b)}`;
+  // the election is over (Nov 3, 2026): money lines in the past tense, and the result first where we have it
+  if (ratio < 1.2) h1 = `${fmt$(gap)} separated ${R.short} and ${Dm.short} in cash`;
+  else if (ratio >= 3) h1 = `${C[lead].short} had a ${ratio === Infinity ? 'commanding' : ratioText(ratio)} cash advantage`;
+  else h1 = `${C[lead].short} led ${C[trail].short} in cash, ${fmtK(a)} to ${fmtK(b)}`;
+  const RES = D.electorate && (D.electorate.last || []).find(r => r.key === 'g26');
   const dlead = R.period.donors >= Dm.period.donors ? 'r' : 'd', dtrail = dlead === 'r' ? 'd' : 'r';
   const dr = C[dtrail].period.donors ? C[dlead].period.donors / C[dtrail].period.donors : 0;
   let dek = `${R.short} had <b class="num">${fmtN(R.period.donors)}</b> donors this period. ${Dm.short} had <b class="num">${fmtN(Dm.period.donors)}</b>.`;
   if (dr >= 2) dek += ` That’s ${dr >= 10 ? Math.round(dr) : dr.toFixed(1).replace(/\.0$/, '')} times as many for ${C[dlead].short}.`;
   const rlead = R.period.raised >= Dm.period.raised ? 'r' : 'd';
   dek += ` ${C[rlead].short} raised more: ${fmtK(C[rlead].period.raised)} to ${fmtK(C[rlead === 'r' ? 'd' : 'r'].period.raised)}.`;
+  if (RES) {
+    const rd = RES.cands.find(x => x[1] === 'DEM'), rr = RES.cands.find(x => x[1] === 'REP'), t2 = (rd ? rd[2] : 0) + (rr ? rr[2] : 0) || 1;
+    if (rd && rr) {
+      const dw = rd[2] >= rr[2], W_ = dw ? Dm : R, L_ = dw ? R : Dm, wv = dw ? rd[2] : rr[2], lv = dw ? rr[2] : rd[2];
+      dek = `Unofficial results: ${esc(W_.short)} ${fmtN(wv)}, ${esc(L_.short)} ${fmtN(lv)}. Going into Election Day, ${esc(h1)}. ` + dek;
+      h1 = `${W_.short} beat ${L_.short}, ${(wv / t2 * 100).toFixed(1)}% to ${(lv / t2 * 100).toFixed(1)}%`;
+    }
+  }
 
   // ---- tape
   const tape = [
@@ -135,8 +145,8 @@
     const L = (W.last || []).find(r => r.contested && r.key !== 'g26') || null, P = !L && W.r24 ? W.r24 : null, C = L || P;
     if (N) out += resBar(`Result: ${N.contest}, 2026${N.official === false ? ' (unofficial)' : ''}`, N);
     if (C) out += resBar(`Result: ${L ? `${L.contest}, ${L.short}` : 'President, 2024'}`, C);
-    return `<h3 style="margin:20px 0 4px">Who has voted, by primary history${SF.through ? ` <small style="font-weight:400;color:var(--ink-3)">early and mail voting through ${dlabel(SF.through)}</small>` : ''}</h3><div class="sizebar">${out}</div>
-      <p class="note">The most recent party primary each voter chose since 2022: Democratic, Republican, or neither. A primary ballot is not a November vote and this is not a forecast; the large 2026 Democratic primary also makes 2026 voters look more Democratic on this measure.${N ? ` The 2026 result bar is the county’s ${N.official === false ? 'unofficial election-night count; official totals come with the canvass' : 'official canvass'}.` : ''}${C ? ` The ${N ? 'final' : 'last'} bar is the actual November result ${L ? `the last time this office was contested${L.same_lines === false ? ' (under the district lines of that election)' : ''}` : 'in the 2024 presidential race'}, for comparison.` : ''}</p>`;
+    return `<h3 style="margin:20px 0 4px">${allIn ? 'Who voted' : 'Who has voted'}, by primary history${SF.through ? ` <small style="font-weight:400;color:var(--ink-3)">${allIn ? 'early, mail and Election Day voters (unofficial)' : `early and mail voting through ${dlabel(SF.through)}`}</small>` : ''}</h3><div class="sizebar">${out}</div>
+      <p class="note">The most recent party primary each voter chose since 2022: Democratic, Republican, or neither. A primary ballot is not a November vote; the large 2026 Democratic primary also makes 2026 voters look more Democratic on this measure.${N ? ` The 2026 result bar is the county’s ${N.official === false ? 'unofficial election-night count; official totals come with the canvass' : 'official canvass'}.` : ''}${C ? ` The ${N ? 'final' : 'last'} bar is the actual November result ${L ? `the last time this office was contested${L.same_lines === false ? ' (under the district lines of that election)' : ''}` : 'in the 2024 presidential race'}, for comparison.` : ''}</p>`;
   };
   // primary history (D / neither / R) of each early-voting day's voters here, as 100% bars building to Election Day
   const dayLeanHtml = (SF, where, refs) => {
@@ -176,11 +186,11 @@
     const id = 'dl' + Math.random().toString(36).slice(2, 7);
     return `<style>.dl-rows{display:none!important}@media (max-width:599px){.dl-cols{display:none!important}.dl-rows{display:block!important}}</style>
       <h3 style="margin:22px 0 4px">${h}</h3>
-      <p class="note" style="margin-top:0">Each early-voting day ${where}, by the most recent party primary each voter chose since 2022. “Each day on its own” counts only that day’s in-person voters; “All voters so far” is the running total, mail ballots included.${n > 12 ? ' The Election Day bar is the county’s list of Election Day in-person voters (unofficial; provisional and late mail ballots are not in it).' : ''} Days with fewer than 50 voters are left blank.</p>
-      <div class="seg" role="group" aria-label="Voters shown" id="${id}"><button type="button" aria-pressed="true" data-m="d">Each day on its own</button><button type="button" aria-pressed="false" data-m="c">All voters so far</button></div>
+      <p class="note" style="margin-top:0">Each early-voting day ${where}, by the most recent party primary each voter chose since 2022. “Each day on its own” counts only that day’s in-person voters; “Running total” adds them up, mail ballots included.${n > 12 ? ' The Election Day bar is the county’s list of Election Day in-person voters (unofficial; provisional and late mail ballots are not in it).' : ''} Days with fewer than 50 voters are left blank.</p>
+      <div class="seg" role="group" aria-label="Voters shown" id="${id}"><button type="button" aria-pressed="true" data-m="d">Each day on its own</button><button type="button" aria-pressed="false" data-m="c">Running total</button></div>
       <div class="chart" data-dl="${id}" data-m="d">${build(SF.days)}</div><div class="chart" data-dl="${id}" data-m="c" hidden>${build(SF.cum || [])}</div>
       <div class="sb-key"><span><i class="sw" style="background:var(--dem)"></i>Democratic primary</span><span><i class="sw" style="background:var(--grid)"></i>Neither</span><span><i class="sw" style="background:var(--rep)"></i>Republican primary</span></div>
-      <p class="note">A primary ballot is not a November vote, and this is not a forecast.${(refs || []).some(r => r[2]) ? ' The bars on the right are for comparison.' : ''}</p>`;
+      <p class="note">A primary ballot is not a November vote.${(refs || []).some(r => r[2]) ? ' The bars on the right are for comparison.' : ''}</p>`;
   };
   document.addEventListener('click', e => { const b = e.target.closest('button[data-m]'); const g = b && b.parentElement; if (!g || !g.id || !g.id.startsWith('dl')) return;
     g.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
@@ -191,22 +201,33 @@
     const id = 'sc' + Math.random().toString(36).slice(2, 7);
     const sl = (k, lab, v, min) => `<label style="display:block;margin:10px 0 2px"><span style="display:flex;justify-content:space-between;gap:8px"><span>${lab}</span><b class="num" data-scv="${k}">${v}%</b></span>
       <input type="range" min="${min}" max="100" step="1" value="${v}" data-sck="${k}" style="width:100%;accent-color:var(--ink)" aria-label="${lab}"></label>`;
-    return `<div class="panel" id="${id}" data-sc="${lean.join(',')}" style="margin-top:18px">
-      <h3 style="margin-top:0">What if? Add up the votes cast so far your way</h3>
-      <p class="note" style="margin-top:0">Move the sliders to set how each group votes${o && o.where ? ' ' + o.where : ''}. Every voter is grouped by the most recent party primary they chose since 2022. This counts only ballots already cast${o && o.through ? `, through ${o.through}` : ''}. It is not a forecast, and it is not how anyone actually voted: ballots are secret.</p>
+    return `<div class="panel" id="${id}" data-sc="${lean.join(',')}"${o && o.actual ? ` data-act="${esc(o.actual[0])}|${o.actual[1]}"` : ''} style="margin-top:18px">
+      <h3 style="margin-top:0">What if? Add up the 2026 vote your way</h3>
+      <p class="note" style="margin-top:0">Move the sliders to set how each group votes${o && o.where ? ' ' + o.where : ''}. Every voter is grouped by the most recent party primary they chose since 2022. It counts the voters on record${o && o.through ? `, through ${o.through}` : ''}. It is not how anyone actually voted: ballots are secret.${o && o.actual ? ' Compare the result with the actual one below.' : ''}</p>
       ${sl('d', 'Democratic primary voters who vote Democratic', 99, 50)}
       ${sl('r', 'Republican primary voters who vote Republican', 95, 50)}
       ${sl('n', 'Voters with neither primary who vote Democratic', 50, 0)}
       <div data-sco style="margin-top:14px"></div>
       <p class="note"><button type="button" data-screset style="font:inherit;cursor:pointer;background:none;border:0;padding:0;text-decoration:underline;color:inherit">Reset</button> · Third-party and write-in votes are left out.</p></div>`;
   };
+  // the actual result, and the Neither share that reproduces it at the chosen loyalty settings
+  const actualHtml = (box, D, R, N, a, b) => {
+    const A = box.dataset.act; if (!A || !N) return '';
+    const i = A.lastIndexOf('|'), lab = A.slice(0, i), ds = +A.slice(i + 1), g = (2 * ds - 1) * 100;
+    const p = (ds * (D + R + N) - D * a - R * (1 - b)) / N, ok = p >= 0 && p <= 1;
+    return `<p class="note" style="margin:10px 0 0;padding-top:8px;border-top:1px solid var(--rule)"><b>Actual result, ${esc(lab)} (unofficial): ${g >= 0 ? 'D' : 'R'}+${Math.abs(g).toFixed(1)}</b> (two-party). ${ok
+      ? `With Democratic primary voters at ${Math.round(a * 100)}% and Republican primary voters at ${Math.round(b * 100)}%, voters with neither primary would have had to vote about <b>${Math.round(p * 100)}%</b> Democratic to produce it. <button type="button" data-scmatch="${Math.round(p * 100)}" style="font:inherit;cursor:pointer;background:none;border:0;padding:0;text-decoration:underline;color:inherit">Set the Neither slider to match</button>`
+      : 'No Neither share matches it at these loyalty settings.'} This is an estimate from totals; ballots are secret.</p>`;
+  };
+  document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-scmatch]'); if (!b) return; const box = b.closest('[data-sc]');
+    box.querySelector('[data-sck="n"]').value = b.dataset.scmatch; scenarioDraw(box); });
   const scenarioDraw = box => {
     const [D, R, N] = box.dataset.sc.split(',').map(Number), v = k => +box.querySelector(`[data-sck="${k}"]`).value / 100;
     const a = v('d'), b = v('r'), c = v('n'), dv = D * a + R * (1 - b) + N * c, rv = D * (1 - a) + R * b + N * (1 - c), t = dv + rv || 1;
     box.querySelectorAll('[data-sck]').forEach(i => { box.querySelector(`[data-scv="${i.dataset.sck}"]`).textContent = i.value + '%'; });
     const f = x => Math.round(x).toLocaleString('en-US'), m = (dv - rv) / t * 100, lead = dv >= rv ? 'D' : 'R';
     box.querySelector('[data-sco]').innerHTML = `<div class="sb-track" style="height:26px"><div class="sb-seg" style="flex:${dv / t} 1 0;background:var(--dem);color:#fff">D ${(dv / t * 100).toFixed(1)}%</div><div class="sb-seg" style="flex:${rv / t} 1 0;background:var(--rep);color:#fff">R ${(rv / t * 100).toFixed(1)}%</div></div>
-      <p style="margin:8px 0 0"><b>${Math.abs(m) < 0.05 ? 'Dead even' : `${lead}+${Math.abs(m).toFixed(1)}`}</b>${Math.abs(m) < 0.05 ? '' : `, a lead of <b class="num">${f(Math.abs(dv - rv))}</b> votes`}: about <span class="num">${f(dv)}</span> Democratic to <span class="num">${f(rv)}</span> Republican, out of <span class="num">${f(D + R + N)}</span> voters so far.</p>`;
+      <p style="margin:8px 0 0"><b>${Math.abs(m) < 0.05 ? 'Dead even' : `${lead}+${Math.abs(m).toFixed(1)}`}</b>${Math.abs(m) < 0.05 ? '' : `, a lead of <b class="num">${f(Math.abs(dv - rv))}</b> votes`}: about <span class="num">${f(dv)}</span> Democratic to <span class="num">${f(rv)}</span> Republican, out of <span class="num">${f(D + R + N)}</span> voters.</p>${actualHtml(box, D, R, N, a, b)}`;
   };
   document.addEventListener('input', e => { const i = e.target; if (!i.dataset || !i.dataset.sck) return; scenarioDraw(i.closest('[data-sc]')); });
   document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-screset]'); if (!b) return; const box = b.closest('[data-sc]');
@@ -228,19 +249,19 @@
       const body = groups.map(([h, k, labs]) => !V[k] ? '' : grp(h) + labs.map((l, i) => { const v = V[k][i], g = G[k][i], est = k === 'race';
         return `<tr><td style="overflow-wrap:normal">${l}</td><td class="r num">${est ? r10(v) : v == null ? '<10' : fN(v)}</td><td class="r num">${p0(v, T(V[k]))}</td>`
           + (all ? `<td class="r num">${p0(g, T(G[k]))}</td><td class="r num">${g && v != null ? p0(v, g) : '—'}</td>` : `<td class="r num">${p0(SF[k][i], T(SF[k]))}</td><td class="r num">${p0(g, T(G[k]))}</td>`) + '</tr>'; }).join('')).join('');
-      const head = all ? '<th class="r">Voted so far</th><th class="r">Share of voters</th><th class="r">Share of active voters</th><th class="r">Turnout so far</th>'
-                       : '<th class="r">Voters</th><th class="r">Share of these voters</th><th class="r">Share of all voters so far</th><th class="r">Share of active voters</th>';
+      const head = all ? '<th class="r">Voted</th><th class="r">Share of voters</th><th class="r">Share of active voters</th><th class="r">Turnout</th>'
+                       : '<th class="r">Voters</th><th class="r">Share of these voters</th><th class="r">Share of all 2026 voters</th><th class="r">Share of active voters</th>';
       return `<div style="overflow-x:auto"><table class="ntab race-tab" style="white-space:nowrap"><thead><tr><th>Group</th>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
     };
     const DD = SF.dd, n = DD && DD.age ? DD.age.length - 1 : 0, pick = i => ({ age: DD.age[i], sex: DD.sex[i], race: DD.race && DD.race[i] });
-    const opts = [['all', 'All voters so far', view(SF, true)]];
+    const opts = [['all', 'All 2026 voters', view(SF, true)]];
     for (let i = n; i >= 1; i--) if (T(DD.age[i]) > 1) opts.push([String(i), i > 12 ? 'Election Day, Tue Nov 3: in person' : `Day ${i}, ${dlb(i - 1)}: in person`, view(pick(i), false)]);
     if (n && T(DD.age[0]) > 1) opts.push(['0', 'Mail ballots', view(pick(0), false)]);
     const id = 'dm' + Math.random().toString(36).slice(2, 7);
     return `<h3 style="margin:22px 0 4px">${o.title}</h3>
       ${opts.length > 1 ? `<label class="note" style="display:block;margin:4px 0 8px">Show <select id="${id}" data-dm="${id}" style="font:inherit;margin-left:4px">${opts.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></label>` : ''}
       ${opts.map(([k, , h], i) => `<div data-dmv="${id}" data-k="${k}"${i ? ' hidden' : ''}>${h}</div>`).join('')}
-      <p class="note">“All voters so far” compares each group’s share of the voters with its share of active voters: a group whose share of voters is bigger is turning out ahead of the rest. Pick a day to see only the people who voted in person that day, next to the share among all voters so far.${rc ? ' Race and ethnicity are estimates, rounded to the nearest 10.' : ''} Counts under 10 are withheld.${o.note || ''}</p>`;
+      <p class="note">“All 2026 voters” compares each group’s share of the voters with its share of active voters: a group whose share of voters is bigger turned out ahead of the rest. Pick a day to see only the people who voted in person that day (or on Election Day), next to the share among all 2026 voters.${rc ? ' Race and ethnicity are estimates, rounded to the nearest 10.' : ''} Counts under 10 are withheld.${o.note || ''}</p>`;
   };
   document.addEventListener('change', e => { const s = e.target; if (!s.dataset || !s.dataset.dm) return;
     document.querySelectorAll(`[data-dmv="${s.dataset.dm}"]`).forEach(d => { d.hidden = d.dataset.k !== s.value; }); });
@@ -256,9 +277,9 @@
       + grp('Sex, as recorded') + ['Women', 'Men', 'Not recorded'].map((l, i) => row(l, SF.sex[i], W.sex[i], T(SF.sex), T(W.sex))).join('');
     const rc = SF.race && W.race;
     if (rc) body += grp('Race and ethnicity, estimated') + ['Hispanic', 'White', 'Black', 'Asian or Pacific Islander', 'Other or multiracial'].map((l, i) => row(l, SF.race[i], W.race[i], T(SF.race), T(W.race), true)).join('');
-    return `<h3 style="margin:20px 0 4px">Who has voted so far, by age, sex${rc ? ' and race' : ''}</h3>
-      <div style="overflow-x:auto"><table class="ntab race-tab" style="white-space:nowrap"><thead><tr><th>Group</th><th class="r">Voted so far</th><th class="r">Share of voters</th><th class="r">Share of active voters</th><th class="r">Turnout so far</th></tr></thead><tbody>${body}</tbody></table></div>
-      <p class="note">A group whose share of voters is bigger than its share of active voters is turning out ahead of the rest. Turnout so far is each group’s voters so far divided by its active registered voters.${rc ? ' Race and ethnicity are estimates, rounded to the nearest 10.' : ''} Counts under 10 are withheld.${W.partial ? ' Tarrant County voters only.' : ''}</p>`;
+    return `<h3 style="margin:20px 0 4px">Who voted, by age, sex${rc ? ' and race' : ''}</h3>
+      <div style="overflow-x:auto"><table class="ntab race-tab" style="white-space:nowrap"><thead><tr><th>Group</th><th class="r">Voted</th><th class="r">Share of voters</th><th class="r">Share of active voters</th><th class="r">Turnout</th></tr></thead><tbody>${body}</tbody></table></div>
+      <p class="note">A group whose share of voters is bigger than its share of active voters turned out ahead of the rest. Turnout is each group’s 2026 voters divided by its active registered voters.${rc ? ' Race and ethnicity are estimates, rounded to the nearest 10.' : ''} Counts under 10 are withheld.${W.partial ? ' Tarrant County voters only.' : ''}</p>`;
   };
   // estimated race and ethnicity of the active voters here (sums of BIFSG estimates; see race_bisg.py)
   const whoRace = () => {
@@ -277,7 +298,7 @@
   const who = !W ? '' : `<section aria-labelledby="who-h"><h2 id="who-h">Who votes here</h2>
     <p class="sub">${W.slug === 'tarrant' ? 'Tarrant County' : esc(W.name)}${W.partial ? ', Tarrant County voters only' : ''}, from the county voter file of ${dlabel(W.file_date)}.</p>
     <div class="stats"><div><b class="num">${wn(W.reg)}</b><span>active registered voters</span></div><div><b class="num">${wp(W.g22[1], W.g22[0])}</b><span>voted in the 2022 midterm</span></div><div><b class="num">${wn(W.sat)}</b><span>sat out both 2022 and 2024</span></div></div>
-    <p class="note">March 2026 primaries: <b class="num">${wn(W.p26[0])}</b> Democratic ballots, <b class="num">${wn(W.p26[1])}</b> Republican.${!W.partial && W.reg ? ` Cash on hand works out to ${perV(R.period.coh / W.reg)} per registered voter for ${esc(R.short)} and ${perV(Dm.period.coh / W.reg)} for ${esc(Dm.short)}.` : ''} ${W.r24 ? (() => { const t = W.r24.total || 1, r = W.r24.cands.find(x => x[1] === 'REP'), d = W.r24.cands.find(x => x[1] === 'DEM'); if (!r || !d) return ''; const ln = n => n.split(' ').pop(), w = r[2] >= d[2] ? r : d, l = w === r ? d : r; return ` In the 2024 presidential race, ${esc(ln(w[0]))} carried ${W.slug === 'tarrant' ? 'the county' : 'this district'} ${Math.round(w[2] / t * 100)}% to ${Math.round(l[2] / t * 100)}%.`; })() : ''} <a href="${W.href}">Full electorate profile ›</a></p>${whoBars()}${scenarioHtml(W.so_far && W.so_far.lean, { where: W.slug === 'tarrant' ? 'in the county' : 'in this district', through: W.so_far && W.so_far.through ? dlabel(W.so_far.through) : '' })}${dayLeanHtml(W.so_far, W.slug === 'tarrant' ? 'in the county' : 'in this district', [['2022 early and mail voters', '2022', W.so_far && W.so_far.lean22 && W.so_far.lean22.every(v => v != null) ? W.so_far.lean22 : null]])}${demoDayHtml(W.so_far, W, W.age_bands, { title: `Who has voted so far, by age, sex${W.so_far && W.so_far.race ? ' and race' : ''}`, note: W.partial ? ' Tarrant County voters only.' : '' })}${whoRace()}</section>`;
+    <p class="note">March 2026 primaries: <b class="num">${wn(W.p26[0])}</b> Democratic ballots, <b class="num">${wn(W.p26[1])}</b> Republican.${!W.partial && W.reg ? ` Cash on hand works out to ${perV(R.period.coh / W.reg)} per registered voter for ${esc(R.short)} and ${perV(Dm.period.coh / W.reg)} for ${esc(Dm.short)}.` : ''} ${W.r24 ? (() => { const t = W.r24.total || 1, r = W.r24.cands.find(x => x[1] === 'REP'), d = W.r24.cands.find(x => x[1] === 'DEM'); if (!r || !d) return ''; const ln = n => n.split(' ').pop(), w = r[2] >= d[2] ? r : d, l = w === r ? d : r; return ` In the 2024 presidential race, ${esc(ln(w[0]))} carried ${W.slug === 'tarrant' ? 'the county' : 'this district'} ${Math.round(w[2] / t * 100)}% to ${Math.round(l[2] / t * 100)}%.`; })() : ''} <a href="${W.href}">Full electorate profile ›</a></p>${whoBars()}${scenarioHtml(W.so_far && W.so_far.lean, { where: W.slug === 'tarrant' ? 'in the county' : 'in this district', through: W.so_far && W.so_far.through ? dlabel(W.so_far.through) : '', actual: (() => { const tp = r => { if (!r) return null; const d = r.cands.find(x => x[1] === 'DEM'), q = r.cands.find(x => x[1] === 'REP'); return d && q ? [r.contest, d[2] / (d[2] + q[2])] : null; }; return tp((W.last || []).find(r => r.key === 'g26')); })() })}${dayLeanHtml(W.so_far, W.slug === 'tarrant' ? 'in the county' : 'in this district', [['2022 early and mail voters', '2022', W.so_far && W.so_far.lean22 && W.so_far.lean22.every(v => v != null) ? W.so_far.lean22 : null]])}${demoDayHtml(W.so_far, W, W.age_bands, { title: `Who voted, by age, sex${W.so_far && W.so_far.race ? ' and race' : ''}`, note: W.partial ? ' Tarrant County voters only.' : '' })}${whoRace()}</section>`;
 
   $('#app').insertAdjacentHTML('beforeend', `
   <header>
