@@ -373,6 +373,9 @@
     $('#tx-h').textContent = r0
       ? `Tarrant against Texas: ${pc1(share(r0.c.TARRANT))} of Tarrant voters voted early in person, against ${pc1(restSh(r0))} ${r0.rep ? 'in the Texas counties that have reported' : 'in the rest of the state'}`
       : 'Tarrant against Texas in past elections';
+    if (F && D.sw26) { const X = D.sw26, tp = X.tarrant[0] / X.tarrant[1], sp = X.tx[0] / X.tx[1];
+      $('#tx-h').textContent = `Tarrant against Texas: ${pc1(tp)} of Tarrant’s registered voters voted in the ${X.race} race, against ${pc1(sp)} statewide`;
+      $('#tx-sec .sub').insertAdjacentHTML('afterbegin', `<b>Final, unofficial:</b> ${fmtN(X.tarrant[0])} votes in the ${X.race} race in Tarrant County and ${fmtN(X.tx[0])} across Texas, out of ${fmtN(X.tarrant[1])} and ${fmtN(X.tx[1])} registered voters on the state’s count (the race with the most votes, so a close stand-in for turnout). The charts below compare the early vote. `); }
     if (NB) {
       const part = SY.filter(y => S[y].partial);
       $('#tx-seg').hidden = false; $('#tx-big').textContent = `${NB} largest counties${part.length ? ` (adds ${part.join(', ')})` : ''}`;

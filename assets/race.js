@@ -96,6 +96,17 @@
   if (dr >= 2) dek += ` That’s ${dr >= 10 ? Math.round(dr) : dr.toFixed(1).replace(/\.0$/, '')} times as many for ${C[dlead].short}.`;
   const rlead = R.period.raised >= Dm.period.raised ? 'r' : 'd';
   dek += ` ${C[rlead].short} raised more: ${fmtK(C[rlead].period.raised)} to ${fmtK(C[rlead === 'r' ? 'd' : 'r'].period.raised)}.`;
+  const SWD = D.statewide;                     // Nov 2026 statewide results (unofficial), from statewide26.py
+  if (SWD && SWD.cands && SWD.cands.length >= 2) {
+    const sd = SWD.cands.find(x => x[1] === 'DEM'), sr = SWD.cands.find(x => x[1] === 'REP'), tt = SWD.total || 1;
+    if (sd && sr) {
+      const dw = sd[2] >= sr[2], W_ = dw ? Dm : R, L_ = dw ? R : Dm, wv = dw ? sd[2] : sr[2], lv = dw ? sr[2] : sd[2];
+      const T_ = SWD.tarrant, td = T_ && T_.cands.find(x => x[1] === 'DEM'), tr = T_ && T_.cands.find(x => x[1] === 'REP');
+      const tl = td && tr ? (() => { const tw = td[2] >= tr[2], t2 = T_.total || 1; return `; in Tarrant County, ${esc((tw ? Dm : R).short)} won ${(Math.max(td[2], tr[2]) / t2 * 100).toFixed(1)}% to ${(Math.min(td[2], tr[2]) / t2 * 100).toFixed(1)}%`; })() : '';
+      dek = `Unofficial results: ${esc(W_.short)} ${fmtN(wv)}, ${esc(L_.short)} ${fmtN(lv)} across Texas${tl}. Going into Election Day, ${esc(h1)}. ` + dek;
+      h1 = `${W_.short} beat ${L_.short}, ${(wv / tt * 100).toFixed(1)}% to ${(lv / tt * 100).toFixed(1)}%`;
+    }
+  }
   if (RES) {
     const rd = RES.cands.find(x => x[1] === 'DEM'), rr = RES.cands.find(x => x[1] === 'REP'), t2 = (rd ? rd[2] : 0) + (rr ? rr[2] : 0) || 1;
     if (rd && rr) {
@@ -119,6 +130,30 @@
   const notes = (D.notes || []).map(n => `<p>${esc(n)}</p>`).join('');
   const periodStart = M.period_label;
 
+  // ---- how Texas voted (statewide races): statewide, Tarrant, and counties grouped by the 2024 presidential vote
+  const swHtml = (() => {
+    if (!SWD || !SWD.cands) return '';
+    const mgn = (d, r) => { const g = (d - r) / ((d + r) || 1) * 100; return `${g >= 0 ? 'D' : 'R'}+${Math.abs(g).toFixed(1)}`; };
+    const seg = (v, col, fg, txt) => v > 0 ? `<div class="sb-seg" style="flex:${v} 1 0;background:${col};color:${fg}">${v >= .12 ? txt : ''}</div>` : '';
+    const row = (lab, d, r, o, sub, big) => { const t = d + r + o || 1;
+      return `<div class="sb-row"><div class="sb-label"><b>${lab}</b><span class="num">${sub}</span></div><div class="sb-track" style="height:${big ? 26 : 20}px">${seg(d / t, 'var(--dem)', '#fff', `D ${(d / t * 100).toFixed(0)}%`)}${seg(o / t, 'var(--grid)', 'var(--ink)', '')}${seg(r / t, 'var(--rep)', '#fff', `R ${(r / t * 100).toFixed(0)}%`)}</div></div>`; };
+    const pick = (cs, p) => (cs.find(x => x[1] === p) || [0, 0, 0])[2];
+    const sd = pick(SWD.cands, 'DEM'), sr = pick(SWD.cands, 'REP'), so = SWD.total - sd - sr;
+    const h24 = SWD.harris24 != null ? `2024 president: ${mgn(SWD.harris24, 1 - SWD.harris24)}` : '';
+    const T_ = SWD.tarrant, Dn = SWD.cands.find(x => x[1] === 'DEM'), Rn = SWD.cands.find(x => x[1] === 'REP');
+    const dShort = Dm.short, rShort = R.short, won = sd >= sr ? dShort : rShort;
+    let out = row('Texas', sd, sr, so, `${fmtN(SWD.total)} votes · ${mgn(sd, sr)}${h24 ? ` · ${h24}` : ''}`, true);
+    if (T_) { const td = pick(T_.cands, 'DEM'), tr = pick(T_.cands, 'REP'); out += row('Tarrant County', td, tr, T_.total - td - tr, `${fmtN(T_.total)} votes · ${mgn(td, tr)}`, true); }
+    out += `<p class="note" style="margin:14px 0 4px"><b>Counties grouped by the 2024 presidential vote</b> (the margin, then Trump–Harris 2024 in the same counties)</p>`;
+    out += SWD.groups.filter(g => g.counties).map(g => row(`${g.label} <small style="font-weight:400;color:var(--ink-3)">${g.counties} counties</small>`, g.d, g.r, g.other, `${mgn(g.d, g.r)} · 2024: ${mgn(g.d24, g.r24)}`)).join('');
+    const sh = SWD.groups.filter(g => g.counties && g.d24 + g.r24).map(g => ((g.d - g.r) / ((g.d + g.r) || 1) - (g.d24 - g.r24) / (g.d24 + g.r24)) * 100);
+    const lo = Math.min(...sh), hi = Math.max(...sh);
+    return `<section aria-labelledby="sw-h"><h2 id="sw-h">${esc(won)} won ${sd >= sr ? SWD.d_counties : SWD.r_counties} of Texas’s ${SWD.n_counties} counties${sd >= sr && SWD.flips ? `, including ${SWD.flips} that Trump carried in 2024` : ''}</h2>
+      <p class="sub">Unofficial election-night results by county.${sd >= sr && SWD.flip_top && SWD.flip_top.length ? ` The biggest of those ${SWD.flips}: ${SWD.flip_top.slice(0, 6).map(esc).join(', ')}.` : ''}${sh.length && lo > 0 ? ` Every group of counties moved toward Democrats compared with the 2024 presidential race, by ${lo.toFixed(0)} to ${hi.toFixed(0)} points on the margin; the biggest move was in the counties where ${(() => { const gs = SWD.groups.filter(g => g.counties && g.d24 + g.r24), g = gs[sh.indexOf(hi)]; return g.label === 'Harris won' ? 'Harris won' : `Trump won ${g.label.replace('Trump ', '')}`; })()} in 2024.` : ''}</p>
+      <div class="sizebar">${out}</div>
+      <div class="sb-key">${SWD.cands.filter(c => c[2] > 0).slice(0, 4).map(c => `<span>${c[1] === 'DEM' ? '<i class="dot d"></i>' : c[1] === 'REP' ? '<i class="dot r"></i>' : '<i class="sw" style="background:var(--grid)"></i>'}${esc(c[0].replace(/\s*\(I\)/, ''))} <b class="num">${fmtN(c[2])}</b></span>`).join('')}</div>
+      <p class="note">Margins are Democrat minus Republican, as a share of the two of them; gray is third-party candidates. Counties are grouped by Donald Trump’s share of the Trump + Harris vote in 2024 (Texas Secretary of State canvass). Source: statewide election-night results by county (unofficial, all 254 counties); official totals come with the state canvass.</p>${MARK}</section>`;
+  })();
   // ---- who votes here (totals from the county voter file; see build_electorate.py)
   const W = D.electorate, perV = v => '$' + (v >= 100 ? Math.round(v).toLocaleString('en-US') : v.toFixed(2));
   const wp = (a, b) => b && a != null ? Math.round(a / b * 100) + '%' : '—', wn = v => v == null ? 'fewer than 10' : fmtN(v);
@@ -307,6 +342,7 @@
     <p class="dek">${dek}</p>
     <div class="asof">${esc(M.period_label)} · through ${dlabel(M.period_end)} · ${LOCAL ? 'Tarrant County filings' : 'Texas Ethics Commission'}</div>
   </header>
+  ${swHtml}
   <section aria-label="Head to head">
     <div class="tape">
       <div class="tape-head">
