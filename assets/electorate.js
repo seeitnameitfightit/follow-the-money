@@ -30,18 +30,36 @@
   const ty = G.types, newTot = n0(ty[4]) + n0(ty[5]);
 
   // ---------- headline
-  const h1 = `${fmtN(ty[3])} registered voters in ${where} sat out both of the last two November elections`;
-  const dl = n0(p26.d) >= n0(p26.r);
-  let dek = `In the March 2026 primaries, ${dl ? 'Democratic' : 'Republican'} ballots outnumbered ${dl ? 'Republican' : 'Democratic'} ballots <b class="num">${fmtN(dl ? p26.d : p26.r)}</b> to <b class="num">${fmtN(dl ? p26.r : p26.d)}</b>.`;
-  if (newTot) dek += ` Since the 2022 midterm, <b class="num">${fmtN(newTot)}</b> people have registered here, and ${pc(ty[5], newTot)} of them have not voted yet.`;
+  // after the Nov 2026 election: lead with how the area voted (the seat's own race where there is one, else County Judge)
+  const lnm = nm => nm.replace(/,?\s+(Jr\.?|Sr\.?|III|II|IV)$/i, '').split(' ').pop();
+  const two = c => { if (!c) return null; const d = c.cands.find(x => x[1] === 'DEM'), r = c.cands.find(x => x[1] === 'REP'); return d && r ? { d, r, w: d[2] >= r[2] ? d : r, m: Math.abs(d[2] - r[2]) / ((d[2] + r[2]) || 1) * 100, D: d[2] >= r[2] } : null; };
+  const R26 = (G.results || []).find(r => r.key === 'g26'), CJ = R26 && R26.contests.find(c => c.contest === 'County Judge');
+  const SEAT26 = G.seat && G.seat.races[0] && G.seat.races[0].key === 'g26' && G.seat.races[0].contested ? G.seat.races[0] : null;
+  const PRES24 = (G.results || []).find(r => r.key === 'g24'), P24 = two(PRES24 && PRES24.contests.find(c => c.contest === 'President'));
+  const S6 = G.so_far && G.so_far.through >= '2026-11-03' ? G.so_far : null, CS6 = CTY && CTY.so_far;
+  let h1, dek;
+  const hs = two(SEAT26), hc = two(CJ);
+  if (hs || hc) {
+    h1 = hs ? `${lnm(hs.w[0])} won ${where} by ${hs.m.toFixed(1)} points in 2026` : `${lnm(hc.w[0])} carried ${where} by ${hc.m.toFixed(1)} points in the 2026 County Judge race`;
+    dek = S6 ? `<b class="num">${fmtN(S6.voted)}</b> voters ${isCounty ? 'in the county' : 'here'} cast ballots in the Nov 2026 general election, ${pc(S6.voted, S6.reg)} of registered voters${!isCounty && CS6 && CS6.reg ? ` (countywide: ${pc(CS6.voted, CS6.reg)})` : ''}.` : '';
+    if (hs && hc) dek += ` In the County Judge race, ${lnm(hc.w[0])} carried ${isCounty ? 'the county' : 'it'} by ${hc.m.toFixed(1)} points.`;
+    if (P24 && hc) dek += ` In 2024, ${lnm(P24.w[0])} carried ${isCounty ? 'the county' : 'it'} by ${P24.m.toFixed(1)} points for president.`;
+    dek += ' Unofficial results.';
+  } else {
+    h1 = `${fmtN(ty[3])} registered voters in ${where} sat out both of the last two November elections`;
+    const dl = n0(p26.d) >= n0(p26.r);
+    dek = `In the March 2026 primaries, ${dl ? 'Democratic' : 'Republican'} ballots outnumbered ${dl ? 'Republican' : 'Democratic'} ballots <b class="num">${fmtN(dl ? p26.d : p26.r)}</b> to <b class="num">${fmtN(dl ? p26.r : p26.d)}</b>.`;
+    if (newTot) dek += ` Since the 2022 midterm, <b class="num">${fmtN(newTot)}</b> people have registered here, and ${pc(ty[5], newTot)} of them have not voted yet.`;
+  }
 
   const tile = (v, l) => `<div><b class="num">${v}</b><span>${l}</span></div>`;
   const tiles = [
     tile(fmtK(G.reg), 'active registered voters'),
+    ...(G.so_far && G.so_far.through >= '2026-11-03' ? [tile(pc(G.so_far.voted, G.so_far.reg), 'voted in Nov 2026 (unofficial)')] : []),
     tile(pc(g22.voted, g22.elig), 'voted in the Nov 2022 midterm'),
     tile(pc(g24.voted, g24.elig), 'voted in the Nov 2024 presidential'),
     tile(fmtK(n0(G.inactive)), 'on the suspense list, not counted here'),
-    tile(fmtK(newTot), 'registered since Nov 2022'),
+    ...(G.so_far && G.so_far.through >= '2026-11-03' ? [] : [tile(fmtK(newTot), 'registered since Nov 2022')]),
     tile(fmtK(G.reg + n0(G.inactive)), 'on the rolls, counting suspense'),
   ].join('');
 
@@ -284,16 +302,21 @@
         <p class="note">The most recent party primary each voter chose since 2022: Democratic, Republican, or neither. A primary ballot is not a November vote; the large 2026 Democratic primary also makes 2026 voters look more Democratic on this measure than 2022 voters.${now26 ? ` The 2026 result bar is the county’s ${now26.official === false ? 'unofficial election-night count; official totals come with the canvass' : 'official canvass'}.` : ''}${L ? ` The last bar is the actual November result ${seatRace ? `the last time this seat was contested${L.same_lines ? '' : ' (under the district lines of that election)'}` : `here in the ${lrs ? lrs.short : '2024'} presidential race`}, for comparison.` : ''}</p>`;
     }
   })();
-  const resultsHtml = seatHtml + primaryHtml + (G.results || []).filter(rs => rs.kind !== 'primary').map(rs => {
+  const genHtml = rs => {
     const pres = rs.contests.find(c => c.contest === 'President') || rs.contests[0], x = pres ? split(pres) : null;
     const cr = CTY && (CTY.results || []).find(z => z.key === rs.key);
     let h = `How ${where} voted in ${rs.short}`;
-    if (x && x.r && x.d) { const w = x.rs >= x.ds ? x.r : x.d; h = `${lastName(w[0])} carried ${where} by ${Math.abs((x.rs - x.ds) * 100).toFixed(1)} points in ${rs.short}`; }
+    if (x && x.r && x.d) { const w = x.rs >= x.ds ? x.r : x.d; h = `${lastName(w[0])} carried ${where} by ${Math.abs((x.rs - x.ds) * 100).toFixed(1)} points in ${rs.short}${pres.contest !== 'President' ? ` (${pres.contest})` : ''}`; }
+    if (rs.key === 'g26' && (hs || hc)) h = `How ${where} voted in 2026, race by race`;     // the headline already gives the result
+    const src = rs.official === false ? `unofficial election-night results for the ${esc(rs.label)}, by precinct` : `${esc(rs.label)} canvass`;
     return `<section aria-labelledby="res-${rs.key}"><h2 id="res-${rs.key}">${esc(h)}</h2>
       <p class="sub">${rs.method === 'bridged'
-        ? `Official results from the county’s ${esc(rs.label)} canvass, added up within today’s lines.${rs.split >= 0.02 ? ` About ${Math.round(rs.split * 100)}% of these votes come from precincts now split between districts; those are divided by where each precinct’s November 2024 voters live, so treat the figures as close estimates.` : ''}`
-        : `Official results from the county’s ${esc(rs.label)} canvass, added up across ${fmtN(rs.precincts)} precincts${G.partial ? ' in the Tarrant County part of the district' : ''}.`} About ${fmtN(rs.ballots)} ballots were cast, ${pc(rs.ballots, rs.registered)} of the voters registered at the time.</p>
-      <div class="sizebar">${rs.contests.map(c => resRow(c, !c.own && cr ? cr.contests.find(z => z.contest === c.contest) : null)).join('')}</div>${MARK}</section>`; }).join('');
+        ? `${rs.official === false ? 'The county’s' : 'Official results from the county’s'} ${src}, added up within today’s lines.${rs.split >= 0.02 ? ` About ${Math.round(rs.split * 100)}% of these votes come from precincts now split between districts; those are divided by where each precinct’s ${rs.key === 'g26' ? '2026' : 'November 2024'} voters live, so treat the figures as close estimates.` : ''}`
+        : `${rs.official === false ? 'The county’s' : 'Official results from the county’s'} ${src}, added up across ${fmtN(rs.precincts)} precincts${G.partial ? ' in the Tarrant County part of the district' : ''}.`} ${rs.key === 'g26' && S6 ? `<b class="num">${fmtN(S6.voted)}</b> voters ${isCounty ? 'in the county' : 'here'} cast ballots, ${pc(S6.voted, S6.reg)} of registered voters.` : `About ${fmtN(rs.ballots)} ballots were cast, ${pc(rs.ballots, rs.registered)} of the voters registered at the time.`}</p>
+      <div class="sizebar">${rs.contests.map(c => resRow(c, !c.own && cr ? cr.contests.find(z => z.contest === c.contest) : null)).join('')}</div>${MARK}</section>`; };
+  const GEN = (G.results || []).filter(rs => rs.kind !== 'primary'), G26 = GEN.filter(rs => rs.key === 'g26');
+  const topResults = seatHtml + G26.map(genHtml).join('');          // the 2026 results: near the top of the page
+  const resultsHtml = primaryHtml + GEN.filter(rs => rs.key !== 'g26').map(genHtml).join('');
 
   const app = $('#app');
   app.insertAdjacentHTML('beforeend', `${crumb}
@@ -302,6 +325,7 @@
     <div class="asof">Tarrant County voter file, ${dlabel(M.file_date)} · ${fmtN(M.rows)} registration records</div></header>
   <section aria-label="Key numbers"><div class="stats">${tiles}</div></section>
   ${partialNote}
+  ${topResults}
   ${sofarHtml}
   ${raceCards ? `<section aria-labelledby="ra-h"><h2 id="ra-h">On the ballot here</h2><p class="sub">${isCounty ? 'Countywide races' : 'Races'} tracked on Follow the Money${G.partial ? '' : ', with each campaign’s cash on hand divided by the number of registered voters'}.</p><ul class="hits">${raceCards}</ul></section>` : ''}
   <section aria-labelledby="to-h"><h2 id="to-h"></h2><p class="sub">Share of today’s registered voters who were on the rolls for each election and cast a ballot in it, back to the 2018 primaries.${G.so_far && G.so_far.through >= '2026-11-03' ? ' The last bar (dark) is Nov 2026, from the county’s early, mail and Election Day voter lists (unofficial), measured against active voters plus anyone who voted.' : ''} Hover or tap a bar for the count.</p>
