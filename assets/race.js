@@ -234,14 +234,20 @@
   const scenarioHtml = (lean, o) => {
     if (!lean || lean.length !== 3 || lean.some(v => v == null) || lean[0] + lean[1] + lean[2] < 100) return '';
     const id = 'sc' + Math.random().toString(36).slice(2, 7);
+    // starting points: D-primary 99%; R-primary 100 minus (3-point base + this area's governor crossover), rounded up;
+    // Neither at the share that reproduces the actual result here, when there is one
+    const gx = o && o.gx != null && isFinite(o.gx) ? o.gx : null, rl = gx != null ? Math.max(50, Math.min(100, 100 - Math.ceil(3 + gx))) : 95;
+    let nd0 = 50;
+    if (o && o.actual) { const [Dl, Rl, Nl] = lean, Tl = Dl + Rl + Nl, p0 = (o.actual[1] * Tl - .99 * Dl - (1 - rl / 100) * Rl) / Nl; if (Nl && p0 >= 0 && p0 <= 1) nd0 = Math.round(p0 * 100); }
+    const defNote = gx != null ? ` The Republican-primary slider starts at ${rl}%: a 3-point base crossover plus the ${gx >= 0 ? '' : '−'}${Math.abs(gx).toFixed(1)}-point governor crossover here (the governor’s margin minus the County Judge margin), rounded up.${o && o.actual && nd0 !== 50 ? ` Neither starts at ${nd0}%, the share that matches the actual ${esc(o.actual[0])} result.` : ''}` : '';
     const sl = (k, lab, v, min) => `<label style="display:block;margin:10px 0 2px"><span style="display:flex;justify-content:space-between;gap:8px"><span>${lab}</span><b class="num" data-scv="${k}">${v}%</b></span>
       <input type="range" min="${min}" max="100" step="1" value="${v}" data-sck="${k}" style="width:100%;accent-color:var(--ink)" aria-label="${lab}"></label>`;
-    return `<div class="panel" id="${id}" data-sc="${lean.join(',')}"${o && o.actual ? ` data-act="${esc(o.actual[0])}|${o.actual[1]}"` : ''} style="margin-top:18px">
+    return `<div class="panel" id="${id}" data-sc="${lean.join(',')}" data-def="99,${rl},${nd0}"${o && o.actual ? ` data-act="${esc(o.actual[0])}|${o.actual[1]}"` : ''} style="margin-top:18px">
       <h3 style="margin-top:0">What if? Add up the 2026 vote your way</h3>
-      <p class="note" style="margin-top:0">Move the sliders to set how each group votes${o && o.where ? ' ' + o.where : ''}. Every voter is grouped by the most recent party primary they chose since 2022. It counts the voters on record${o && o.through ? `, through ${o.through}` : ''}. It is not how anyone actually voted: ballots are secret.${o && o.actual ? ' Compare the result with the actual one below.' : ''}</p>
+      <p class="note" style="margin-top:0">Move the sliders to set how each group votes${o && o.where ? ' ' + o.where : ''}. Every voter is grouped by the most recent party primary they chose since 2022. It counts the voters on record${o && o.through ? `, through ${o.through}` : ''}. It is not how anyone actually voted: ballots are secret.${defNote}${o && o.actual ? ' Compare the result with the actual one below.' : ''}</p>
       ${sl('d', 'Democratic primary voters who vote Democratic', 99, 50)}
-      ${sl('r', 'Republican primary voters who vote Republican', 95, 50)}
-      ${sl('n', 'Voters with neither primary who vote Democratic', 50, 0)}
+      ${sl('r', 'Republican primary voters who vote Republican', rl, 50)}
+      ${sl('n', 'Voters with neither primary who vote Democratic', nd0, 0)}
       <div data-sco style="margin-top:14px"></div>
       <p class="note"><button type="button" data-screset style="font:inherit;cursor:pointer;background:none;border:0;padding:0;text-decoration:underline;color:inherit">Reset</button> · Third-party and write-in votes are left out.</p></div>`;
   };
@@ -266,7 +272,8 @@
   };
   document.addEventListener('input', e => { const i = e.target; if (!i.dataset || !i.dataset.sck) return; scenarioDraw(i.closest('[data-sc]')); });
   document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-screset]'); if (!b) return; const box = b.closest('[data-sc]');
-    box.querySelectorAll('[data-sck]').forEach(i => { i.value = i.dataset.sck === 'n' ? 50 : i.dataset.sck === 'd' ? 99 : 95; }); scenarioDraw(box); });
+    const df = (box.dataset.def || '99,95,50').split(',').map(Number);
+    box.querySelectorAll('[data-sck]').forEach(i => { i.value = i.dataset.sck === 'n' ? df[2] : i.dataset.sck === 'd' ? df[0] : df[1]; }); scenarioDraw(box); });
   const scenarioInit = () => document.querySelectorAll('[data-sc]').forEach(scenarioDraw);
   setTimeout(scenarioInit, 0);
   // who voted, by age, sex and estimated race: all voters so far, or one early-voting day (in person) or mail ballots alone
@@ -335,7 +342,7 @@
   const who = !W ? '' : `<section aria-labelledby="who-h"><h2 id="who-h">Who votes here</h2>
     <p class="sub">${W.slug === 'tarrant' ? 'Tarrant County' : esc(W.name)}${W.partial ? ', Tarrant County voters only' : ''}, from the county voter file of ${dlabel(W.file_date)}.</p>
     <div class="stats"><div><b class="num">${wn(W.reg)}</b><span>active registered voters</span></div><div><b class="num">${wp(W.g22[1], W.g22[0])}</b><span>voted in the 2022 midterm</span></div><div><b class="num">${wn(W.sat)}</b><span>sat out both 2022 and 2024</span></div></div>
-    <p class="note">March 2026 primaries: <b class="num">${wn(W.p26[0])}</b> Democratic ballots, <b class="num">${wn(W.p26[1])}</b> Republican.${!W.partial && W.reg ? ` Cash on hand works out to ${perV(R.period.coh / W.reg)} per registered voter for ${esc(R.short)} and ${perV(Dm.period.coh / W.reg)} for ${esc(Dm.short)}.` : ''} ${W.r24 ? (() => { const t = W.r24.total || 1, r = W.r24.cands.find(x => x[1] === 'REP'), d = W.r24.cands.find(x => x[1] === 'DEM'); if (!r || !d) return ''; const ln = n => n.split(' ').pop(), w = r[2] >= d[2] ? r : d, l = w === r ? d : r; return ` In the 2024 presidential race, ${esc(ln(w[0]))} carried ${W.slug === 'tarrant' ? 'the county' : 'this district'} ${Math.round(w[2] / t * 100)}% to ${Math.round(l[2] / t * 100)}%.`; })() : ''} <a href="${W.href}">Full electorate profile ›</a></p>${whoBars()}${scenarioHtml(W.so_far && W.so_far.lean, { where: W.slug === 'tarrant' ? 'in the county' : 'in this district', through: W.so_far && W.so_far.through ? dlabel(W.so_far.through) : '', actual: (() => { const tp = r => { if (!r) return null; const d = r.cands.find(x => x[1] === 'DEM'), q = r.cands.find(x => x[1] === 'REP'); return d && q ? [r.contest, d[2] / (d[2] + q[2])] : null; }; return tp((W.last || []).find(r => r.key === 'g26')); })() })}${dayLeanHtml(W.so_far, W.slug === 'tarrant' ? 'in the county' : 'in this district', [['2022 early and mail voters', '2022', W.so_far && W.so_far.lean22 && W.so_far.lean22.every(v => v != null) ? W.so_far.lean22 : null]])}${demoDayHtml(W.so_far, W, W.age_bands, { title: `Who voted, by age, sex${W.so_far && W.so_far.race ? ' and race' : ''}`, note: W.partial ? ' Tarrant County voters only.' : '' })}${whoRace()}</section>`;
+    <p class="note">March 2026 primaries: <b class="num">${wn(W.p26[0])}</b> Democratic ballots, <b class="num">${wn(W.p26[1])}</b> Republican.${!W.partial && W.reg ? ` Cash on hand works out to ${perV(R.period.coh / W.reg)} per registered voter for ${esc(R.short)} and ${perV(Dm.period.coh / W.reg)} for ${esc(Dm.short)}.` : ''} ${W.r24 ? (() => { const t = W.r24.total || 1, r = W.r24.cands.find(x => x[1] === 'REP'), d = W.r24.cands.find(x => x[1] === 'DEM'); if (!r || !d) return ''; const ln = n => n.split(' ').pop(), w = r[2] >= d[2] ? r : d, l = w === r ? d : r; return ` In the 2024 presidential race, ${esc(ln(w[0]))} carried ${W.slug === 'tarrant' ? 'the county' : 'this district'} ${Math.round(w[2] / t * 100)}% to ${Math.round(l[2] / t * 100)}%.`; })() : ''} <a href="${W.href}">Full electorate profile ›</a></p>${whoBars()}${scenarioHtml(W.so_far && W.so_far.lean, { where: W.slug === 'tarrant' ? 'in the county' : 'in this district', through: W.so_far && W.so_far.through ? dlabel(W.so_far.through) : '', gx: W.xo && W.xo.gov != null && W.xo.cj != null ? W.xo.gov - W.xo.cj : null, actual: (() => { const tp = r => { if (!r) return null; const d = r.cands.find(x => x[1] === 'DEM'), q = r.cands.find(x => x[1] === 'REP'); return d && q ? [r.contest, d[2] / (d[2] + q[2])] : null; }; return tp((W.last || []).find(r => r.key === 'g26')); })() })}${dayLeanHtml(W.so_far, W.slug === 'tarrant' ? 'in the county' : 'in this district', [['2022 early and mail voters', '2022', W.so_far && W.so_far.lean22 && W.so_far.lean22.every(v => v != null) ? W.so_far.lean22 : null]])}${demoDayHtml(W.so_far, W, W.age_bands, { title: `Who voted, by age, sex${W.so_far && W.so_far.race ? ' and race' : ''}`, note: W.partial ? ' Tarrant County voters only.' : '' })}${whoRace()}</section>`;
 
   $('#app').insertAdjacentHTML('beforeend', `
   <header>

@@ -562,14 +562,20 @@
   const scenarioHtml = (lean, o) => {
     if (!lean || lean.length !== 3 || lean.some(v => v == null) || lean[0] + lean[1] + lean[2] < 100) return '';
     const id = 'sc' + Math.random().toString(36).slice(2, 7);
+    // starting points: D-primary 99%; R-primary 100 minus (3-point base + this area's governor crossover), rounded up;
+    // Neither at the share that reproduces the actual result here, when there is one
+    const gx = o && o.gx != null && isFinite(o.gx) ? o.gx : null, rl = gx != null ? Math.max(50, Math.min(100, 100 - Math.ceil(3 + gx))) : 95;
+    let nd0 = 50;
+    if (o && o.actual) { const [Dl, Rl, Nl] = lean, Tl = Dl + Rl + Nl, p0 = (o.actual[1] * Tl - .99 * Dl - (1 - rl / 100) * Rl) / Nl; if (Nl && p0 >= 0 && p0 <= 1) nd0 = Math.round(p0 * 100); }
+    const defNote = gx != null ? ` The Republican-primary slider starts at ${rl}%: a 3-point base crossover plus the ${gx >= 0 ? '' : '−'}${Math.abs(gx).toFixed(1)}-point governor crossover here (the governor’s margin minus the County Judge margin), rounded up.${o && o.actual && nd0 !== 50 ? ` Neither starts at ${nd0}%, the share that matches the actual ${esc(o.actual[0])} result.` : ''}` : '';
     const sl = (k, lab, v, min) => `<label style="display:block;margin:10px 0 2px"><span style="display:flex;justify-content:space-between;gap:8px"><span>${lab}</span><b class="num" data-scv="${k}">${v}%</b></span>
       <input type="range" min="${min}" max="100" step="1" value="${v}" data-sck="${k}" style="width:100%;accent-color:var(--ink)" aria-label="${lab}"></label>`;
-    return `<div class="panel" id="${id}" data-sc="${lean.join(',')}"${o && o.actual ? ` data-act="${esc(o.actual[0])}|${o.actual[1]}"` : ''} style="margin-top:18px">
+    return `<div class="panel" id="${id}" data-sc="${lean.join(',')}" data-def="99,${rl},${nd0}"${o && o.actual ? ` data-act="${esc(o.actual[0])}|${o.actual[1]}"` : ''} style="margin-top:18px">
       <h3 style="margin-top:0">What if? Add up the 2026 vote your way</h3>
-      <p class="note" style="margin-top:0">Move the sliders to set how each group votes${o && o.where ? ' ' + o.where : ''}. ${o && o.def ? o.def : 'Every voter is grouped by the most recent party primary they chose since 2022.'} It counts the voters on record${o && o.through ? `, through ${o.through}` : ''}. It is not how anyone actually voted: ballots are secret.${o && o.actual ? ' Compare the result with the actual one below.' : ''}</p>
+      <p class="note" style="margin-top:0">Move the sliders to set how each group votes${o && o.where ? ' ' + o.where : ''}. ${o && o.def ? o.def : 'Every voter is grouped by the most recent party primary they chose since 2022.'} It counts the voters on record${o && o.through ? `, through ${o.through}` : ''}. It is not how anyone actually voted: ballots are secret.${defNote}${o && o.actual ? ' Compare the result with the actual one below.' : ''}</p>
       ${sl('d', 'Democratic primary voters who vote Democratic', 99, 50)}
-      ${sl('r', 'Republican primary voters who vote Republican', 95, 50)}
-      ${sl('n', 'Voters with neither primary who vote Democratic', 50, 0)}
+      ${sl('r', 'Republican primary voters who vote Republican', rl, 50)}
+      ${sl('n', 'Voters with neither primary who vote Democratic', nd0, 0)}
       <div data-sco style="margin-top:14px"></div>
       <p class="note"><button type="button" data-screset style="font:inherit;cursor:pointer;background:none;border:0;padding:0;text-decoration:underline;color:inherit">Reset</button> · Third-party and write-in votes are left out.</p></div>`;
   };
@@ -594,7 +600,8 @@
   };
   document.addEventListener('input', e => { const i = e.target; if (!i.dataset || !i.dataset.sck) return; scenarioDraw(i.closest('[data-sc]')); });
   document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-screset]'); if (!b) return; const box = b.closest('[data-sc]');
-    box.querySelectorAll('[data-sck]').forEach(i => { i.value = i.dataset.sck === 'n' ? 50 : i.dataset.sck === 'd' ? 99 : 95; }); scenarioDraw(box); });
+    const df = (box.dataset.def || '99,95,50').split(',').map(Number);
+    box.querySelectorAll('[data-sck]').forEach(i => { i.value = i.dataset.sck === 'n' ? df[2] : i.dataset.sck === 'd' ? df[0] : df[1]; }); scenarioDraw(box); });
   const scenarioInit = () => document.querySelectorAll('[data-sc]').forEach(scenarioDraw);
   setTimeout(scenarioInit, 0);
   // donut: 2026 in-person early votes by each county's 2024 presidential result, labeled with the change from 2022 or 2024,
@@ -819,7 +826,7 @@
     }
     if (W.neither && W.neither.series.length && !EVDONE) drawNei();
     if (W.neither && (W.neither.daily || []).length) drawLean();
-    $('#scen').innerHTML = scenarioHtml(WA.lean, { where: 'across Tarrant County', through: WA.through ? dlab(WA.through) : '', actual: (() => { const T = D.final && D.final.top_race; if (!T) return null; const d = T.cands.find(x => x[1] === 'DEM'), q = T.cands.find(x => x[1] === 'REP'); return d && q ? [T.contest, d[2] / (d[2] + q[2])] : null; })() }); scenarioInit();
+    $('#scen').innerHTML = scenarioHtml(WA.lean, { where: 'across Tarrant County', through: WA.through ? dlab(WA.through) : '', gx: (() => { const R3 = D.final && D.final.races3 || [], m = nm => { const T = R3.find(x => x.contest === nm); if (!T) return null; const d = T.cands.find(x => x[1] === 'DEM'), r = T.cands.find(x => x[1] === 'REP'); return d && r ? (d[2] - r[2]) / (d[2] + r[2]) * 100 : null; }; const g = m('Governor'), c = m('County Judge'); return g != null && c != null ? g - c : null; })(), actual: (() => { const T = D.final && D.final.top_race; if (!T) return null; const d = T.cands.find(x => x[1] === 'DEM'), q = T.cands.find(x => x[1] === 'REP'); return d && q ? [T.contest, d[2] / (d[2] + q[2])] : null; })() }); scenarioInit();
     if (W.demo) $('#demo-day').innerHTML = demoDayHtml(W.demo, W.demo.base, W.demo.age_bands, { title: F ? 'Who voted, day by day: age, sex and race' : 'Who has voted, day by day: age, sex and race', note: ' Measured against active registered voters plus anyone who voted.' });
     if ($('#who-comm')) $('#who-comm').innerHTML = `<thead><tr><th>Pct</th><th class="r">Voted</th><th class="r">Lean</th><th class="r">2022 early + mail</th></tr></thead><tbody>${['01', '02', '03', '04'].map(c => {
       const a = WA.comm[c], t = a[0] + a[1] + a[2], b = ref && ref.comm[c], tb = b ? b[0] + b[1] + b[2] : 0;
