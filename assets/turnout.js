@@ -506,6 +506,45 @@
   }
 
 
+  // ---------- estimated vote by group (subgroup_model in build_turnout.py): office x category grid, NYT-style
+  const SHOW_SUB = false;          // estimated-vote-by-group grid: built but off (Chris, Nov 7)
+  function subGrid(SB, box) {
+    let office = SB.offices['County Judge'] ? 'County Judge' : Object.keys(SB.offices)[0], view = 'est', cat = 'sex';
+    const CATS = { sex: ['Sex', ['Women', 'Men']], age: ['Age', ['18–34', '35–54', '55–64', '65 and older']], prim: ['Primary history', ['Democratic primary', 'Neither', 'Republican primary']] };
+    const M = v => `${v >= 0 ? 'D' : 'R'}+${Math.abs(v)}`;
+    const bg = v => { const a = Math.min(55, 8 + Math.abs(v) * 0.6); return `color-mix(in oklab, var(${v >= 0 ? '--dem' : '--rep'}) ${a}%, var(--surface))`; };
+    const fg = v => Math.abs(v) >= 70 ? 'var(--ink)' : `var(${v >= 0 ? '--dem' : '--rep'})`;
+    const cell = v => v == null ? `<td class="sg-na">No<br>estimate</td>` : view === 'est'
+      ? `<td style="background:${bg(v)};color:${fg(v)}">${M(v)}</td>`
+      : `<td style="background:${bg(v[0])};color:${fg(v[0])}">${M(v[0])}<small>Neither ${v[1]}%</small></td>`;
+    const draw = () => {
+      const C = view === 'est' ? SB.offices[office].cells : SB.prim, O = SB.offices[office];
+      const sel = (id, opts, cur) => `<select data-sg="${id}" style="font:inherit;padding:6px 10px;border:1px solid var(--rule);border-radius:8px;background:var(--surface);color:var(--ink)">${opts.map(([v, l]) => `<option value="${v}"${v === cur ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
+      const btn = (v, l) => `<button type="button" data-sgv="${v}" aria-pressed="${v === view}">${l}</button>`;
+      const head = `<tr><th style="text-align:left"><b>Tarrant</b><br><small>% of voters</small></th>${SB.cols.map((c, i) => `<th>${c}<br><small>${i ? SB.share_col[i] + '%' : '100%'}</small></th>`).join('')}</tr>`;
+      const row = r => `<tr><th style="text-align:left">${r}<br><small>${SB.share_row[r]}%</small></th>${C[r].map(cell).join('')}</tr>`;
+      box.innerHTML = `<h3 style="margin:26px 0 4px">How different groups of voters likely voted</h3>
+        <p class="note" style="margin-top:0">Pick an office and a category. ${view === 'est' ? `Estimated 2026 margins (unofficial), Democrat minus Republican as a share of the two. Countywide, the model gives ${M(O.cells.All[0])} for ${esc(office)}; the actual result was ${M(Math.round(O.actual))}.` : 'Primary-history balance among 2026 voters: Democratic-primary minus Republican-primary voters, as a share of everyone in the group, with the share who had no primary since 2022. These are counts from the voter file (race is estimated), not votes.'}</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:8px 0 10px">
+          <label class="note" style="margin:0">Office ${sel('o', Object.keys(SB.offices).map(k => [k, k]), office)}</label>
+          <label class="note" style="margin:0">Category ${sel('c', Object.entries(CATS).map(([k, v]) => [k, v[0]]), cat)}</label>
+          <div class="seg" role="group" aria-label="Measure" style="margin:0">${btn('est', 'Estimated margin')}${btn('prim', 'Primary history')}</div></div>
+        <div style="overflow-x:auto"><table class="sg">${head}<tbody>${row('All')}<tr class="sg-g"><th colspan="${SB.cols.length + 1}">${CATS[cat][0]}</th></tr>${CATS[cat][1].map(row).join('')}</tbody></table></div>
+        <p class="note">${view === 'est' ? `How the estimate works: Democratic-primary voters are counted ${SB.dl}% Democratic and Republican-primary voters ${SB.rl}% Republican (a 3-point base crossover plus the countywide governor crossover, rounded up). Voters with no primary since 2022 vote Democratic at a rate that depends on their estimated race, fitted so every precinct’s result matches the county’s unofficial count as closely as possible; for ${esc(office)} that rate is ${Object.entries({ White: 'w', Black: 'b', Hispanic: 'h', Asian: 'a', Other: 'o' }).map(([l, k]) => `${l} ${O.p[k]}%`).join(', ')}. Precinct-level estimates exaggerate differences between groups that live together, so each rate is pulled partway toward the overall Neither rate. Within each race, differences by sex, age and primary history come from how many in each group voted in a Democratic or Republican primary; the Neither rate itself varies only by race. Treat every cell as a rough estimate: ballots are secret, race is itself an estimate from names and neighborhoods, and cells built on fewer than 2,000 estimated voters are left out.` : 'Race is estimated from Census surname and first-name data and each voter’s Census block. Cells built on fewer than 2,000 estimated voters are left out.'}</p>`;
+      box.querySelectorAll('[data-sg]').forEach(s_ => s_.onchange = () => { if (s_.dataset.sg === 'o') office = s_.value; else cat = s_.value; draw(); });
+      box.querySelectorAll('[data-sgv]').forEach(b => b.onclick = () => { view = b.dataset.sgv; draw(); });
+    };
+    if (!$('#sg-css')) document.head.insertAdjacentHTML('beforeend', `<style id="sg-css">
+      table.sg{border-collapse:separate;border-spacing:2px;width:100%;min-width:560px;font-variant-numeric:tabular-nums}
+      table.sg th{font-weight:500;font-size:14px;color:var(--ink);text-align:center;padding:6px 6px;vertical-align:bottom}
+      table.sg th small,table.sg td small{display:block;font-size:11.5px;color:var(--ink-3);font-weight:400}
+      table.sg td{text-align:center;padding:12px 6px;font-size:16px;font-weight:500;border-radius:2px}
+      table.sg td small{color:inherit;opacity:.75}
+      table.sg tr.sg-g th{text-align:left;font-weight:700;font-size:15px;padding-top:14px}
+      table.sg td.sg-na{color:var(--ink-3);font-size:12px;font-weight:400;background:repeating-linear-gradient(135deg,var(--grid) 0 1px,transparent 1px 7px)}</style>`);
+    draw();
+  }
+
   // ---------- primary history (D / neither / R) of each early-voting day's voters, as 100% bars building to Election Day
   let dlMode = 'day';
   function drawLean() {
@@ -785,7 +824,8 @@
       kinds.map(k => `<li><span>${k === 'mail' ? 'Mail ballots' : k === 'election day' ? 'Election Day in person' : 'Early in person'}</span><span>${fmtN(W.rosters[k].voters)}</span></li>`).join('');
     if (F) {      // after the election: just how they voted (the voting-history table below has the detail)
       $('#who-two').outerHTML = `<div class="panel" style="max-width:560px"><h3>How they voted</h3><ul class="kv">${kinds.map(k => `<li><span>${k === 'mail' ? 'Mail ballots' : k === 'election day' ? 'Election Day in person' : 'Early in person'}</span><span>${fmtN(W.rosters[k].voters)}</span></li>`).join('')}</ul>
-        <p class="note">District pages show 2026 turnout for every precinct, district, city and school district. <a href="../electorate/index.html">The Electorate ›</a></p></div>`;
+        <p class="note">District pages show 2026 turnout for every precinct, district, city and school district. <a href="../electorate/index.html">The Electorate ›</a></p></div>${SHOW_SUB && W.sub ? '<div id="sub-box"></div>' : ''}`;
+      if (SHOW_SUB && W.sub) subGrid(W.sub, $('#sub-box'));
     }
     // primary history: secondary, with its caveat
     const row = (lab, p) => { const t = p.n || 1, seg = (v, col, txt) => v > 0 ? `<div class="sb-seg" style="flex:${v / t} 1 0;background:${col};color:${col === 'var(--grid)' ? 'var(--ink)' : '#fff'}">${v / t >= .12 ? txt + ' ' + Math.round(v / t * 100) + '%' : ''}</div>` : '';
