@@ -558,7 +558,7 @@
     const draw = () => {
       svg.querySelectorAll('.pm-p').forEach(e => { e.style.fill = col(e.dataset.p); });
       const y = P.years[yi], race = P.race[yi];
-      $('#pm-lab').textContent = `${y} · ${race}${P.official && !P.official[yi] ? ' (unofficial)' : ''}`;
+      $('#pm-lab').textContent = `${y} · ${race}`;      // 2026 is marked unofficial in the note below
       const vals = [...inn].map(p => P.v[p] && P.v[p][yi]).filter(Boolean), sc = isCounty ? 'today’s precincts' : `the precincts in ${where}`;
       if (mode === 'm') { const d = vals.filter(v => v[0] != null && v[0] > 0).length, r = vals.filter(v => v[0] != null && v[0] < 0).length;
         $('#pm-sum').textContent = `In ${y}, ${fmtN(d)} of ${sc} voted Democratic and ${fmtN(r)} voted Republican.`; }
