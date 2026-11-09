@@ -20,3 +20,23 @@
 .who .stats{margin-top:4px}
 .who .note a{font-weight:600}
 .seg{flex-wrap:wrap}
+
+/* precinct map */
+.pm{position:relative;margin-top:6px}
+.pm svg{display:block;width:100%;height:auto;max-height:680px;touch-action:manipulation}
+.pm-p{stroke:var(--surface);stroke-width:.5px;vector-effect:non-scaling-stroke;fill-rule:evenodd;cursor:pointer}
+.pm-out{opacity:.28}.pm-part{opacity:.55}
+.pm-ul path{fill:none;stroke:var(--ink);stroke-width:3.5px;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+.pm-county{fill:none;stroke:var(--ink-3);stroke-width:1px;vector-effect:non-scaling-stroke;pointer-events:none}
+.pm-hot{stroke:var(--ink);stroke-width:2px}
+.pm-lb text{fill:var(--ink);font-weight:600;stroke:var(--surface);stroke-width:3px;paint-order:stroke;vector-effect:non-scaling-stroke;pointer-events:none;opacity:.85}
+.pm-ctl{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin:10px 0 4px}
+.pm-ctl input[type=range]{flex:1 1 160px;min-width:140px;accent-color:var(--ink-2)}
+.pm-play{width:36px;height:32px;border:1px solid var(--rule);border-radius:8px;background:var(--surface);color:var(--ink);cursor:pointer;font-size:13px}
+.pm-lab{font-variant-numeric:tabular-nums;min-width:12em}
+.pm-sum{margin:2px 0 0;color:var(--ink-2);font-size:14px}
+.pm-key{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--ink-2);margin:6px 0}
+.pm-key span{display:inline-flex;align-items:center;gap:5px}
+.pm-key .sw{width:14px;height:12px;border-radius:2px;display:inline-block;border:1px solid var(--rule)}
+.pm-tip{position:absolute;z-index:5;background:var(--surface);color:var(--ink);border:1px solid var(--rule);border-radius:8px;padding:8px 10px;font-size:13px;line-height:1.35;box-shadow:0 4px 14px rgba(0,0,0,.14);pointer-events:none;max-width:250px}
+.pm-tip svg{display:block;margin-top:6px}.pm-tip small{color:var(--ink-3);font-size:11px}

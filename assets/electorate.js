@@ -363,7 +363,15 @@
       ${tr.length ? `<div style="overflow-x:auto"><table class="ntab" style="white-space:nowrap;margin-top:6px"><thead><tr><th>Turnout</th>${tr.map(r => `<th class="r">${r.short}</th>`).join('')}</tr></thead><tbody><tr><td>Ballots cast</td>${tr.map(r => `<td class="r num">${fmtN(r.ballots)}</td>`).join('')}</tr><tr><td>Share of registered</td>${tr.map(r => `<td class="r num">${pc(r.ballots, r.registered)}</td>`).join('')}</tr></tbody></table></div>` : ''}
       <p class="note">${isCounty ? 'Countywide figures are the county’s official canvass totals (2026 unofficial).' : 'County precinct results for each election, added up within today’s lines.'} From 2010 on, each year’s precinct map (Texas Legislative Council) is laid over today’s, and each old precinct’s votes are divided among today’s precincts by where its voters live now. For 2010–2014, only voters already registered by that election count, so newer subdivisions don’t get too much weight. No precinct maps exist for 2000–2008, so those years are matched to the 2010 precincts by the last three digits of the precinct number and then carried forward on the 2010 map. That makes them rougher in fast-growing areas. 2026 is unofficial. Registered voters are the county’s count at each election, suspense list included.</p>${MARK}</section>`;
   })();
-  const topResults = seatHtml + G26.map(genHtml).join('') + trendHtml;          // the 2026 results: near the top of the page
+  // ---------- precinct map: today's precincts, each November since 2000 (assets/precinct_map.json, built by build_electorate.precinct_map)
+  const mapHtml = isCounty || G.map ? `<section aria-labelledby="pm-h"><h2 id="pm-h">${isCounty ? 'Precinct by precinct, 2000 to 2026' : `${esc(Where)}, precinct by precinct, 2000 to 2026`}</h2>
+    <p class="sub">Today’s precincts, colored by the top-of-ticket result in each November election, or by turnout. Drag the slider or press play, and tap a precinct for its history.${isCounty ? '' : ` The outlined precincts make up ${esc(where)}; the faded ones around it are mostly or entirely outside it.`}</p>
+    <div class="pm-ctl"><div class="seg" role="group" aria-label="Color by" id="pm-mode"><button type="button" aria-pressed="true" data-m="m">Margin</button><button type="button" aria-pressed="false" data-m="t">Turnout</button></div>
+      <button type="button" id="pm-play" class="pm-play" aria-label="Play through the years">▶</button><input type="range" id="pm-yr" min="0" max="13" step="1" value="13" aria-label="Election"><b id="pm-lab" class="pm-lab"></b></div>
+    <p id="pm-sum" class="pm-sum"></p>
+    <div class="pm" id="pm"><p class="note">Loading the map…</p></div><div id="pm-key" class="pm-key"></div>
+    <p class="note">The race shown is President in presidential years and governor in midterms, except 2006 and 2018, which use the U.S. Senate race (a four-way governor’s race in 2006, a weak Democratic nominee for governor in 2018). Each election’s precinct results are divided onto today’s precincts by where voters live (precinct maps from the Texas Legislative Council, 2010 on; 2000–2008 are matched to the 2010 precincts by number), so small precincts in the older years are estimates. Precincts with fewer than 30 votes are left blank. 2026 is unofficial.</p>${MARK}</section>` : '';
+  const topResults = seatHtml + G26.map(genHtml).join('') + trendHtml + mapHtml;          // the 2026 results: near the top of the page
   const resultsHtml = primaryHtml + GEN.filter(rs => rs.key !== 'g26').map(genHtml).join('');
 
   const app = $('#app');
@@ -514,6 +522,72 @@
     $('#regb').innerHTML = M.reg_bands.map((b, i) => `<div class="hb-row"><span class="hb-l">${esc(b)}</span><span class="hb-t"><i style="width:${v[i] / max * 100}%"></i>${cv ? `<em style="left:${cv[i] / max * 100}%"></em>` : ''}</span><span class="hb-v num">${pc1(v[i])}</span></div>`).join('');
   })();
 
+  // ---------- precinct map
+  if ($('#pm')) (async () => {
+    let P; try { P = await (await fetch(up + 'assets/precinct_map.json')).json(); } catch (e) { $('#pm').innerHTML = '<p class="note">The map could not load.</p>'; return; }
+    const ids = Object.keys(P.p), inn = new Set(isCounty ? ids : G.map.in), part = new Set(isCounty ? [] : G.map.part);
+    const NY = P.years.length; let yi = NY - 1, mode = 'm', timer = null, hot = null;
+    const pth = (p, cls) => `<path class="${cls}" data-p="${p}" d="${P.p[p]}"/>`;
+    $('#pm').innerHTML = `<svg viewBox="0 0 ${P.w} ${P.h}" role="img" aria-label="Map of ${esc(where)} by precinct"><defs><pattern id="pm-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45) scale(${(P.w / 700).toFixed(2)})"><rect width="8" height="8" fill="var(--grid)"/><line x1="0" y1="0" x2="0" y2="8" stroke="var(--ink-3)" stroke-width="1.6" opacity=".5"/></pattern></defs><g class="pm-bg">${ids.filter(p => !inn.has(p)).map(p => pth(p, part.has(p) ? 'pm-p pm-part' : 'pm-p pm-out')).join('')}</g>` +
+      (isCounty ? '' : `<g class="pm-ul">${[...inn].map(p => `<path d="${P.p[p]}"/>`).join('')}</g>`) +
+      `<g class="pm-fg">${[...inn].map(p => pth(p, 'pm-p')).join('')}</g><path class="pm-county" d="${P.o}"/><g class="pm-lb"></g></svg><div class="pm-tip" hidden></div>`;
+    const svg = $('#pm svg'), tip = $('#pm .pm-tip');
+    // zoom to the area
+    let vb = [0, 0, P.w, P.h];
+    if (!isCounty) { const b = $('.pm-fg', svg).getBBox(), pad = Math.max(b.width, b.height) * .08 + 40, w = Math.max(b.width + 2 * pad, 500), h = Math.max(b.height + 2 * pad, 500);
+      const cl = (v, sz, mx) => sz >= mx ? (mx - sz) / 2 : Math.max(0, Math.min(mx - sz, v));      // keep the view inside the county
+      vb = [cl(b.x + b.width / 2 - w / 2, w, P.w), cl(b.y + b.height / 2 - h / 2, h, P.h), w, h]; svg.setAttribute('viewBox', vb.join(' ')); }
+    // city labels, sized to the view
+    const fs = vb[2] / 52;
+    $('.pm-lb', svg).innerHTML = (P.labels || []).filter(l => !/^Unincorporated/.test(l[0])).map(([nm, ps]) => {
+      let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9, n = 0, cx = 0, cy = 0;
+      ps.forEach(p => { const e = svg.querySelector(`path[data-p="${p}"]`); if (!e) return; const b = e.getBBox(), a = b.width * b.height; cx += (b.x + b.width / 2) * a; cy += (b.y + b.height / 2) * a; n += a; });
+      if (!n) return ''; cx /= n; cy /= n;
+      if (cx < vb[0] || cx > vb[0] + vb[2] || cy < vb[1] || cy > vb[1] + vb[3]) return '';
+      const hw = fs * .3 * nm.length + fs * .3; cx = Math.max(vb[0] + hw, Math.min(vb[0] + vb[2] - hw, cx));
+      return `<text x="${cx.toFixed(0)}" y="${cy.toFixed(0)}" font-size="${fs.toFixed(0)}" text-anchor="middle">${esc(nm)}</text>`; }).join('');
+    const MG = v => v == null ? 'too few votes' : `${v >= 0 ? 'D' : 'R'}+${Math.abs(v).toFixed(1)}`;
+    const col = p => { const v = P.v[p] && P.v[p][yi]; if (!v) return 'url(#pm-hatch)';
+      if (mode === 'm') { const m = v[0]; if (m == null) return 'url(#pm-hatch)'; const k = Math.round(10 + 90 * Math.min(1, Math.abs(m) / 50) ** .8); return `color-mix(in oklab, var(${m >= 0 ? '--dem' : '--rep'}) ${k}%, var(--surface))`; }
+      const t = v[1]; if (t == null) return 'url(#pm-hatch)'; const k = Math.round(6 + 84 * Math.max(0, Math.min(1, (t - 15) / 70))); return `color-mix(in oklab, var(--ink-2) ${k}%, var(--surface))`; };
+    const HATCH = 'repeating-linear-gradient(45deg, var(--grid) 0 3px, color-mix(in oklab, var(--ink-3) 50%, var(--grid)) 3px 4.5px)';
+    const key = () => { const sw = c => `<i class="sw" style="background:${c}"></i>`;
+      $('#pm-key').innerHTML = mode === 'm'
+        ? [-50, -30, -10, 0, 10, 30, 50].map(m => `<span>${sw(m ? `color-mix(in oklab, var(${m > 0 ? '--dem' : '--rep'}) ${Math.round(10 + 90 * Math.min(1, Math.abs(m) / 50) ** .8)}%, var(--surface))` : 'color-mix(in oklab, var(--dem) 10%, var(--surface))')}${m ? (m > 0 ? 'D+' : 'R+') + Math.abs(m) + (Math.abs(m) === 50 ? ' or more' : '') : 'Even'}</span>`).join('') + `<span>${sw(HATCH)}Too few votes</span>`
+        : [20, 35, 50, 65, 80].map(t => `<span>${sw(`color-mix(in oklab, var(--ink-2) ${Math.round(6 + 84 * Math.max(0, Math.min(1, (t - 15) / 70)))}%, var(--surface))`)}${t}%</span>`).join('') + `<span>${sw(HATCH)}Too few voters</span>`; };
+    const draw = () => {
+      svg.querySelectorAll('.pm-p').forEach(e => { e.style.fill = col(e.dataset.p); });
+      const y = P.years[yi], race = P.race[yi];
+      $('#pm-lab').textContent = `${y} · ${race}${P.official && !P.official[yi] ? ' (unofficial)' : ''}`;
+      const vals = [...inn].map(p => P.v[p] && P.v[p][yi]).filter(Boolean), sc = isCounty ? 'today’s precincts' : `the precincts in ${where}`;
+      if (mode === 'm') { const d = vals.filter(v => v[0] != null && v[0] > 0).length, r = vals.filter(v => v[0] != null && v[0] < 0).length;
+        $('#pm-sum').textContent = `In ${y}, ${fmtN(d)} of ${sc} voted Democratic and ${fmtN(r)} voted Republican.`; }
+      else { const ts = vals.map(v => v[1]).filter(t => t != null).sort((a, b) => a - b), med = ts.length ? ts[Math.floor(ts.length / 2)] : null;
+        $('#pm-sum').textContent = med == null ? '' : `In ${y}, turnout in the typical one of ${sc} was ${med}% of registered voters; a quarter were below ${ts[Math.floor(ts.length / 4)]}% and a quarter above ${ts[Math.floor(ts.length * 3 / 4)]}%.`; }
+      if (hot) showTip(hot.p, hot.x, hot.y); };
+    const spark = p => { const v = P.v[p] || [], W = 220, H = 56, ms = v.map(x => x && x[0]), top = Math.max(20, ...ms.filter(m => m != null).map(Math.abs)), X = i => 6 + i / (NY - 1) * (W - 12), Y = m => 4 + (top - m) / (2 * top) * (H - 8);
+      let d = '', pen = false; ms.forEach((m, i) => { if (m == null) { pen = false; return; } d += `${pen ? 'L' : 'M'}${X(i).toFixed(1)},${Y(m).toFixed(1)}`; pen = true; });
+      const cur = ms[yi];
+      return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true"><line x1="0" x2="${W}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--ink-3)" stroke-dasharray="2 3"/><path d="${d}" fill="none" stroke="var(--ink-2)" stroke-width="1.5"/>${ms.map((m, i) => m == null ? '' : `<circle cx="${X(i)}" cy="${Y(m)}" r="${i === yi ? 4 : 2}" fill="var(${m >= 0 ? '--dem' : '--rep'})"/>`).join('')}<text x="2" y="${H - 1}" font-size="9" fill="var(--ink-3)">${P.years[0]}</text><text x="${W - 2}" y="${H - 1}" font-size="9" fill="var(--ink-3)" text-anchor="end">${P.years[NY - 1]}</text></svg>`; };
+    const showTip = (p, x, y) => { const v = (P.v[p] || [])[yi] || [null, null];
+      tip.innerHTML = `<b>Precinct ${esc(p)}</b> · ${esc(P.city[p] || '')}<br>${P.years[yi]} ${esc(P.race[yi])}: <b>${MG(v[0])}</b>${v[1] != null ? ` · turnout ${v[1]}%` : ''}${spark(p)}<small>Margin in each November election since ${P.years[0]}</small>`;
+      tip.hidden = false; const box = $('#pm').getBoundingClientRect(), tw = tip.offsetWidth, th = tip.offsetHeight;
+      tip.style.left = Math.max(4, Math.min(box.width - tw - 4, x + 14)) + 'px'; tip.style.top = Math.max(4, y - th - 12 < 0 ? y + 16 : y - th - 12) + 'px'; };
+    const at = ev => { const b = $('#pm').getBoundingClientRect(); return [ev.clientX - b.left, ev.clientY - b.top]; };
+    const setHot = (e, ev) => { svg.querySelectorAll('.pm-hot').forEach(x => x.classList.remove('pm-hot'));
+      if (!e) { hot = null; tip.hidden = true; return; } e.classList.add('pm-hot'); e.parentNode.appendChild(e); const [x, y] = at(ev); hot = { p: e.dataset.p, x, y }; showTip(hot.p, x, y); };
+    svg.addEventListener('pointermove', ev => { if (ev.pointerType !== 'mouse') return; const e = ev.target.closest('.pm-p'); setHot(e, ev); });
+    svg.addEventListener('pointerleave', ev => { if (ev.pointerType === 'mouse') setHot(null); });
+    svg.addEventListener('click', ev => { const e = ev.target.closest('.pm-p'); setHot(e && (!hot || hot.p !== e.dataset.p) ? e : null, ev); });
+    const yr = $('#pm-yr'), play = $('#pm-play');
+    const stop = () => { clearInterval(timer); timer = null; play.textContent = '▶'; play.setAttribute('aria-label', 'Play through the years'); };
+    yr.addEventListener('input', () => { stop(); yi = +yr.value; draw(); });
+    play.addEventListener('click', () => { if (timer) return stop(); if (yi >= NY - 1) { yi = 0; yr.value = 0; draw(); }
+      play.textContent = '❚❚'; play.setAttribute('aria-label', 'Pause');
+      timer = setInterval(() => { if (yi >= NY - 1) return stop(); yi++; yr.value = yi; draw(); }, 1100); });
+    document.querySelectorAll('#pm-mode button').forEach(b => b.addEventListener('click', () => { mode = b.dataset.m; document.querySelectorAll('#pm-mode button').forEach(x => x.setAttribute('aria-pressed', x === b)); key(); draw(); }));
+    key(); draw();
+  })();
   // ---------- ten-year trend table (countywide page)
   if (D.directory && $('#ttab')) {
     const M = v => v == null ? '—' : `<span style="color:${v >= 0 ? 'var(--dem)' : 'var(--rep)'}">${v >= 0 ? 'D' : 'R'}+${Math.abs(v).toFixed(1)}</span>`;
