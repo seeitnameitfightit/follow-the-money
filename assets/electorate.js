@@ -53,11 +53,13 @@
   }
 
   const tile = (v, l) => `<div><b class="num">${v}</b><span>${l}</span></div>`;
+  // November turnout from the county's precinct reports (ballots ÷ registered at the time, suspense list included), added up within today's lines
+  const CV = k => { const r = (G.results || []).find(x => x.key === k); return r && r.registered && r.ballots ? { voted: r.ballots, elig: r.registered } : null; };
   const tiles = [
     tile(fmtK(G.reg), 'active registered voters'),
     ...(G.so_far && G.so_far.through >= '2026-11-03' ? [tile(pc(G.so_far.voted, G.so_far.reg), 'voted in Nov 2026 (unofficial)')] : []),
-    tile(pc(g22.voted, g22.elig), 'voted in the Nov 2022 midterm'),
-    tile(pc(g24.voted, g24.elig), 'voted in the Nov 2024 presidential'),
+    tile((t => pc(t.voted, t.elig))(CV('g22') || g22), 'voted in the Nov 2022 midterm'),
+    tile((t => pc(t.voted, t.elig))(CV('g24') || g24), 'voted in the Nov 2024 presidential'),
     tile(fmtK(n0(G.inactive)), 'on the suspense list, not counted here'),
     ...(G.so_far && G.so_far.through >= '2026-11-03' ? [] : [tile(fmtK(newTot), 'registered since Nov 2022')]),
     tile(fmtK(G.reg + n0(G.inactive)), 'on the rolls, counting suspense'),
@@ -360,8 +362,7 @@
     return `<section aria-labelledby="tr-h"><h2 id="tr-h">${esc(h)}</h2>
       <p class="sub">The two-party margin ${isCounty ? 'countywide' : 'here'} at the top of the ballot in every November election since ${Y0}. Midterms use the governor’s race, except 2006 (a four-way governor’s race with two independents) and 2018 (Cruz vs. O’Rourke, since the governor’s race had a weak Democratic nominee), which use the U.S. Senate race.${m18 && g1 ? ` Since 2018 alone, the midterm margin moved ${Math.abs(g1[1] - m18[1]).toFixed(1)} points ${g1[1] >= m18[1] ? 'toward Democrats' : 'toward Republicans'}.` : ''}${p0 && p1 ? ` For president, the margin went from ${M(p0[1])} in ${p0[0]} to ${M(p1[1])} in 2024.` : ''}</p>
       <div class="chart"><svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Two-party margin by election, ${Y0} to 2026">${svg}</svg></div>
-      ${tr.length ? `<div style="overflow-x:auto"><table class="ntab" style="white-space:nowrap;margin-top:6px"><thead><tr><th>Turnout</th>${tr.map(r => `<th class="r">${r.short}</th>`).join('')}</tr></thead><tbody><tr><td>Ballots cast</td>${tr.map(r => `<td class="r num">${fmtN(r.ballots)}</td>`).join('')}</tr><tr><td>Share of registered</td>${tr.map(r => `<td class="r num">${pc(r.ballots, r.registered)}</td>`).join('')}</tr></tbody></table></div>` : ''}
-      <p class="note">${isCounty ? 'Countywide figures are the county’s official canvass totals (2026 unofficial).' : 'County precinct results for each election, added up within today’s lines.'} From 2010 on, each year’s precinct map (Texas Legislative Council) is laid over today’s, and each old precinct’s votes are divided among today’s precincts by where its voters live now. For 2010–2014, only voters already registered by that election count, so newer subdivisions don’t get too much weight. No precinct maps exist for 2000–2008, so those years are matched to the 2010 precincts by the last three digits of the precinct number and then carried forward on the 2010 map. That makes them rougher in fast-growing areas. 2026 is unofficial. Registered voters are the county’s count at each election, suspense list included.</p>${MARK}</section>`;
+      <p class="note">${isCounty ? 'Countywide figures are the county’s official canvass totals (2026 unofficial).' : 'County precinct results for each election, added up within today’s lines.'} From 2010 on, each year’s precinct map (Texas Legislative Council) is laid over today’s, and each old precinct’s votes are divided among today’s precincts by where its voters live now. For 2010–2014, only voters already registered by that election count, so newer subdivisions don’t get too much weight. No precinct maps exist for 2000–2008, so those years are matched to the 2010 precincts by the last three digits of the precinct number and then carried forward on the 2010 map. That makes them rougher in fast-growing areas. 2026 is unofficial.</p>${MARK}</section>`;
   })();
   // ---------- precinct map: today's precincts, each November since 2000 (assets/precinct_map.json, built by build_electorate.precinct_map)
   const mapHtml = isCounty || G.map ? `<section aria-labelledby="pm-h"><h2 id="pm-h">${isCounty ? 'Precinct by precinct, 2000 to 2026' : `${esc(Where)}, precinct by precinct, 2000 to 2026`}</h2>
@@ -384,11 +385,9 @@
   ${topResults}
   ${sofarHtml}
   ${raceCards ? `<section aria-labelledby="ra-h"><h2 id="ra-h">On the ballot here</h2><p class="sub">${isCounty ? 'Countywide races' : 'Races'} tracked on Follow the Money${G.partial ? '' : ', with each campaign’s cash on hand divided by the number of registered voters'}.</p><ul class="hits">${raceCards}</ul></section>` : ''}
-  <section aria-labelledby="to-h"><h2 id="to-h"></h2><p class="sub">Share of today’s registered voters who were on the rolls for each election and cast a ballot in it, back to the 2018 primaries.${G.so_far && G.so_far.through >= '2026-11-03' ? ' The last bar (dark) is Nov 2026, from the county’s early, mail and Election Day voter lists (unofficial), measured against active voters plus anyone who voted.' : ''} Hover or tap a bar for the count.</p>
-    <div class="legend"><span><i class="sw" style="background:var(--seq-4)"></i><span id="to-leg">November elections</span></span><span><i class="sw" style="background:var(--dem)"></i>Democratic primary</span><span><i class="sw" style="background:var(--rep)"></i>Republican primary</span></div>
-    <div class="seg" role="group" aria-label="Elections shown"><button type="button" id="to-ml" aria-pressed="true">March and November</button><button type="button" id="to-all" aria-pressed="false">Include May local elections</button></div>
+  <section aria-labelledby="to-h"><h2 id="to-h"></h2><p class="sub">Ballots cast as a share of registered voters in each November election since 2000, from the county’s precinct reports${isCounty ? '' : ', added up within today’s lines'}.${G.so_far && G.so_far.through >= '2026-11-03' ? ' The last bar (dark) is Nov 2026, from the county’s early, mail and Election Day voter lists (unofficial).' : ''} Hover or tap a bar for the count.</p>
     <div class="chart" id="turnout"></div>
-    <p class="note">May elections are city, school and other local contests, and many voters have none on their ballot, so they are hidden by default. From November 2024 on, voters the county marked ineligible for an election are left out of the count; before that, everyone registered by Election Day is counted.</p></section>
+    <p class="note">Registered voters are the county’s count at each election, which includes the suspense list${G.so_far && G.so_far.through >= '2026-11-03' ? '; Nov 2026 is measured against active voters plus anyone who voted, so it reads a little higher than the county’s own count would<span id="to-26"></span>' : ''}. ${isCounty ? '' : 'Before 2026, each year’s precinct results are divided onto today’s lines by where voters live, so smaller areas are close estimates. '}Primaries and local elections are left out until their precinct reports are added.</p></section>
   ${resultsHtml}
   <section aria-labelledby="ty-h"><h2 id="ty-h"></h2><p class="sub" id="ty-sub"></p><div class="sizebar" id="types"></div>${MARK}</section>
   <section aria-labelledby="pr-h"><h2 id="pr-h"></h2><p class="sub">Each voter is counted once, by the most recent party primary they voted in since 2022. Texas has no party registration, so this is the closest thing the voter file has to party.</p>
@@ -428,44 +427,45 @@
 
   // ---------- turnout by election
   // May elections are left off by default: many voters have no May contest, so those bars understate turnout
-  let showLocal = false;
-  // Nov 2026 (unofficial): everyone on the county's early, mail and Election Day lists, against the same pool as the 2026 panels
-  const SF6 = G.so_far, E6 = SF6 && SF6.through >= '2026-11-03' && SF6.voted && SF6.reg ? [{ key: 'g26', date: '2026-11-03', label: 'Nov 2026 midterm (unofficial)', kind: 'general' }] : [];
-  if (E6.length) { const sm = r => r ? (r[0] || 0) + (r[1] || 0) + (r[2] || 0) : null; T.g26 = { voted: SF6.voted, elig: SF6.reg, early: SF6.cum && SF6.cum[11] ? sm(SF6.cum[11]) : null, eday: SF6.days && SF6.days[12] ? sm(SF6.days[12]) : null, mail: null, u: true }; }
-  const ELS = () => (showLocal ? E : E.filter(e => e.kind !== 'local')).concat(E6);
+  // Novembers since 2000 from the county's precinct reports (CV); Nov 2026 (unofficial) from the county's early, mail and Election
+  // Day voter lists, against active voters plus anyone who voted (Chris, Nov 9: keep 2026 on that basis)
+  const TN = {};
+  const NOVS = [];
+  for (let y = 2000; y <= 2024; y += 2) { const k = 'g' + String(y).slice(2), t = CV(k);
+    if (t) { TN[k] = t; NOVS.push({ key: k, date: y + '-11', label: `Nov ${y} ${y % 4 ? 'midterm' : 'presidential'}`, kind: 'general' }); } }
+  const SF6 = G.so_far, E6 = SF6 && SF6.through >= '2026-11-03' && SF6.voted && SF6.reg ? [{ key: 'g26', date: '2026-11', label: 'Nov 2026 midterm (unofficial)', kind: 'general' }] : [];
+  if (E6.length) { const sm = r => r ? (r[0] || 0) + (r[1] || 0) + (r[2] || 0) : null; TN.g26 = { voted: SF6.voted, elig: SF6.reg, early: SF6.cum && SF6.cum[11] ? sm(SF6.cum[11]) : null, eday: SF6.days && SF6.days[12] ? sm(SF6.days[12]) : null, u: true };
+    const c26 = CV('g26'); if (c26 && $('#to-26')) $('#to-26').textContent = ` (${pc(c26.voted, c26.elig)} on the county’s election-night count)`; }
+  const ELS = () => NOVS.concat(E6);
   function turnoutHead() {
-  const EE = ELS();
-  const best = EE.filter(e => e.kind === 'general').reduce((a, e) => P(T[e.key].voted, T[e.key].elig) > P(T[a.key].voted, T[a.key].elig) ? e : a);
-  const low = EE.reduce((a, e) => P(T[e.key].voted, T[e.key].elig) < P(T[a.key].voted, T[a.key].elig) ? e : a);
-  $('#to-h').textContent = `Turnout ran from ${pc(T[best.key].voted, T[best.key].elig)} in the ${best.label} to ${pc(T[low.key].voted, T[low.key].elig)} in the ${low.label}`;
+  const EE = ELS(); if (!EE.length) { $('#to-h').textContent = 'Turnout in November elections'; return; }
+  const best = EE.reduce((a, e) => P(TN[e.key].voted, TN[e.key].elig) > P(TN[a.key].voted, TN[a.key].elig) ? e : a);
+  const low = EE.reduce((a, e) => P(TN[e.key].voted, TN[e.key].elig) < P(TN[a.key].voted, TN[a.key].elig) ? e : a);
+  $('#to-h').textContent = `Since 2000, November turnout has ranged from ${pc(TN[best.key].voted, TN[best.key].elig)} in the ${best.label.replace(' (unofficial)', '')} to ${pc(TN[low.key].voted, TN[low.key].elig)} in the ${low.label.replace(' (unofficial)', '')}`;
   }
   turnoutHead();
   function drawTurnout() {
-    const EE = ELS();
+    const EE = ELS(), T = TN; if (!EE.length) return;
     const box = $('#turnout'), W = box.clientWidth, H = Math.max(220, Math.min(290, W * 0.5)), m = { l: 36, r: 4, t: 18, b: 34 };
     const max = Math.min(1, niceMax(Math.max(...EE.map(e => P(T[e.key].voted, T[e.key].elig))) * 1.08));
     const band = (W - m.l - m.r) / EE.length, bw = Math.min(40, band * 0.62);
     const y = v => m.t + (1 - v / max) * (H - m.t - m.b);
     const rect = (x, v0, v1, col) => v1 > v0 ? `<rect x="${x}" y="${y(v1)}" width="${bw}" height="${Math.max(0.5, y(v0) - y(v1))}" fill="${col}" rx="2"/>` : '';
     const ticks = [0, max / 2, max];
-    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Turnout in each election since 2022 in ${esc(where)}">
+    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Turnout in each November election since 2000 in ${esc(where)}">
       ${ticks.map(v => `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/><text x="${m.l - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--ink-3)" class="num">${Math.round(v * 100)}%</text>`).join('')}
       ${EE.map((e, i) => { const t = T[e.key], x = m.l + i * band + (band - bw) / 2, tot = P(t.voted, t.elig);
-        const bars = e.kind === 'primary' ? rect(x, 0, P(t.d, t.elig), 'var(--dem)') + rect(x, P(t.d, t.elig), tot, 'var(--rep)') : rect(x, 0, tot, t.u ? 'var(--ink)' : 'var(--seq-4)');
-        const [yy, mm] = e.date.split('-'), narrow = band < 34, newYear = !i || EE[i - 1].date.slice(0, 4) !== yy;
-        const mon = narrow ? MONTHS[+mm - 1][0] : MONTHS[+mm - 1], fs = narrow ? 9 : 11;
+        const bars = rect(x, 0, tot, t.u ? 'var(--ink)' : (+e.date.slice(0, 4)) % 4 ? 'var(--seq-3)' : 'var(--seq-4)');
+        const yy = e.date.slice(0, 4), narrow = band < 34, fs = narrow ? 9 : 11;
         return bars + `<text x="${x + bw / 2}" y="${y(tot) - 5}" text-anchor="middle" font-size="${fs}" font-weight="600" fill="var(--ink)" class="num">${Math.round(tot * 100)}${narrow ? '' : '%'}</text>
-          <text x="${x + bw / 2}" y="${H - 18}" text-anchor="middle" font-size="${fs}" fill="var(--ink-3)">${mon}</text>${!narrow || newYear ? `<text x="${narrow ? m.l + i * band + 1 : x + bw / 2}" y="${H - 5}" text-anchor="${narrow ? 'start' : 'middle'}" font-size="10" fill="var(--ink-3)">’${yy.slice(2)}</text>` : ''}`; }).join('')}
+          <text x="${x + bw / 2}" y="${H - 12}" text-anchor="middle" font-size="${narrow ? 9 : 11}" fill="var(--ink-3)">${narrow ? '’' + yy.slice(2) : yy}</text>`; }).join('')}
       ${EE.map((e, i) => `<rect x="${m.l + i * band}" y="0" width="${band}" height="${H - m.b}" fill="transparent" data-i="${i}" class="to-hit"/>`).join('')}
     </svg><div class="tip" id="to-tip"></div>`;
     const tip = $('#to-tip', box);
     box.querySelectorAll('.to-hit').forEach(h => {
       const show = () => { const e = EE[+h.dataset.i], t = T[e.key], s = box.getBoundingClientRect().width / W;
-        const rows = e.kind === 'primary'
-          ? `<div class="t-row"><span><i class="dot d"></i> Democratic</span><span>${fmtS(t.d)}</span></div><div class="t-row"><span><i class="dot r"></i> Republican</span><span>${fmtS(t.r)}</span></div>`
-          : t.u ? `<div class="t-row"><span>Early and mail</span><span>${fmtS(t.early)}</span></div><div class="t-row"><span>Election Day</span><span>${fmtS(t.eday)}</span></div>`
-          : `<div class="t-row"><span>Early</span><span>${fmtS(t.early)}</span></div><div class="t-row"><span>Election Day</span><span>${fmtS(t.eday)}</span></div><div class="t-row"><span>Mail</span><span>${fmtS(t.mail)}</span></div>`;
-        tip.innerHTML = `<b>${esc(e.label)}</b><div class="t-row"><span>Voted</span><span>${fmtS(t.voted)} of ${fmtS(t.elig)}</span></div>${rows}`;
+        const rows = t.u ? `<div class="t-row"><span>Early and mail</span><span>${fmtS(t.early)}</span></div><div class="t-row"><span>Election Day</span><span>${fmtS(t.eday)}</span></div>` : '';
+        tip.innerHTML = `<b>${esc(e.label)}</b><div class="t-row"><span>Ballots</span><span>${fmtS(t.voted)}</span></div><div class="t-row"><span>${t.u ? 'Active voters' : 'Registered'}</span><span>${fmtS(t.elig)}</span></div><div class="t-row"><span>Turnout</span><span>${pc1(P(t.voted, t.elig))}</span></div>${rows}`;
         tip.style.opacity = 1; tipPos(tip, box, (m.l + (+h.dataset.i + .5) * band) * s, 20); h.setAttribute('fill', 'var(--grid)'); h.setAttribute('fill-opacity', '.45'); };
       const hide = () => { tip.style.opacity = 0; h.setAttribute('fill', 'transparent'); };
       h.addEventListener('mouseenter', show); h.addEventListener('mouseleave', hide);
@@ -473,8 +473,7 @@
     });
   }
 
-  const setLocal = v => { showLocal = v; $('#to-leg').textContent = v ? 'November and May elections' : 'November elections'; $('#to-ml').setAttribute('aria-pressed', !v); $('#to-all').setAttribute('aria-pressed', v); turnoutHead(); drawTurnout(); };
-  $('#to-ml').onclick = () => setLocal(false); $('#to-all').onclick = () => setLocal(true);
+
 
   // ---------- voter types
   const ORDER = [0, 1, 2, 4, 5, 3], TCOL = ['var(--seq-5)', 'var(--seq-4)', 'var(--seq-3)', 'var(--chip)', 'var(--seq-2)', 'var(--seq-1)'];
