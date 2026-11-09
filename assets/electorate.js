@@ -327,7 +327,7 @@
     const cr = CTY && (CTY.results || []).find(z => z.key === rs.key);
     let h = `How ${where} voted in ${rs.short}`;
     if (x && x.r && x.d) { const w = x.rs >= x.ds ? x.r : x.d; h = `${lastName(w[0])} carried ${where} by ${Math.abs((x.rs - x.ds) * 100).toFixed(1)} points in ${rs.short}${pres.contest !== 'President' ? ` (${pres.contest})` : ''}`; }
-    if (rs.key === 'g26' && (hs || hc)) h = `How ${where} voted in 2026, race by race`;     // the headline already gives the result
+    if (rs.key === 'g26' && (hs || hc)) h = `How ${where} voted in 2026 in ${['one', 'two', 'three', 'four', 'five'][rs.contests.length - 1] || rs.contests.length} ${rs.contests.length === 1 ? 'race' : 'top races'}`;     // the headline already gives the result
     const src = rs.official === false ? `unofficial election-night results for the ${esc(rs.label)}, by precinct` : `${esc(rs.label)} canvass`;
     return `<section aria-labelledby="res-${rs.key}"><h2 id="res-${rs.key}">${esc(h)}</h2>
       <p class="sub">${rs.method === 'bridged'
