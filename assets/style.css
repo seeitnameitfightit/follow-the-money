@@ -300,3 +300,4 @@ a.ob-card:hover{border-color:var(--ink-3)}
 .court-seat small{color:var(--ink-2);font-size:12px}
 .tr-teaser h2{margin-bottom:6px}.tr-teaser a{font-weight:600}
 .ob-el,.tr-teaser{background:var(--surface);border:1px solid var(--rule);border-radius:14px;padding:18px 20px}
+@media (max-width:720px){.home-h .eyebrow{min-height:56px;align-items:flex-start}}   /* home: title starts below the corner logo on phones */
