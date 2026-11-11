@@ -31,6 +31,7 @@
     const yr = s => (s.date || '').slice(-4);
     const lastRace = s => {
       if (s.notfiled) return '<span class="muted">Not on the county ballot last time (usually unopposed)</span>';
+      if (s.note) return esc(s.note);
       const by = s.margin ? `, by ${fmtN(s.margin)} vote${s.margin === 1 ? '' : 's'}` : '';
       if (s.runoff) { const m = +(s.date || '').split('/')[0]; return `Won the ${m ? MONTHS[m - 1] + ' ' : ''}${yr(s)} runoff with ${pc1(s.pct)}${by}`; }
       if (s.cands === 1) return `Unopposed (${yr(s)})`;
@@ -40,7 +41,7 @@
     const byJ = {}; D.may.forEach(s => (byJ[s.jur] = byJ[s.jur] || []).push(s));
     const rank = s => s.special_d ? 2 : s.isd ? 1 : 0;
     const jOrder = Object.keys(byJ).sort((a, b) => a === 'Fort Worth' ? -1 : b === 'Fort Worth' ? 1 : (rank(byJ[a][0]) - rank(byJ[b][0])) || (byJ[b].length - byJ[a].length) || a.localeCompare(b));
-    const seatRow = s => `<tr data-q="${esc((s.jur + ' ' + s.seat + ' ' + (s.holder || '')).toLowerCase())}"><td>${esc(s.seat)}</td><td>${s.holder ? esc(s.holder) : '<span class="muted">Being confirmed</span>'}</td><td>${lastRace(s)}</td><td class="r num">${s.votes != null ? fmtN(s.votes) : '—'}</td><td class="r num">${s.cands || '—'}</td></tr>`;
+    const seatRow = s => `<tr data-q="${esc((s.jur + ' ' + s.seat + ' ' + (s.holder || '')).toLowerCase())}"><td>${esc(s.seat)}</td><td>${s.holder ? esc(s.holder) : '<span class="muted">Being confirmed</span>'}${s.hnote ? `<small>${esc(s.hnote)}</small>` : ''}</td><td>${lastRace(s)}</td><td class="r num">${s.votes != null ? fmtN(s.votes) : '—'}</td><td class="r num">${s.cands || '—'}</td></tr>`;
     const fw = (byJ['Fort Worth'] || []).filter(s => /District/.test(s.seat) && s.votes);
     const fwLine = fw.length ? `<p class="note">In May 2025, Fort Worth’s council races drew between ${fmtN(Math.min(...fw.map(s => s.votes)))} and ${fmtN(Math.max(...fw.map(s => s.votes)))} votes each.</p>` : '';
     const seatList = ss => ss.map(s => s.seat.replace(/^(Council|Trustee),? /, '').replace(/^District (\d+)$/, 'District $1')).join(', ');
