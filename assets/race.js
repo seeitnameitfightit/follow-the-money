@@ -46,14 +46,50 @@
     const asof = `<div class="asof">${esc(M.period_label)} through ${dlabel(M.period_end)}</div>`;
     const foot = `<footer>Figures come from <a href="https://www.ethics.state.tx.us/search/cf/" target="_blank" rel="noopener">Texas Ethics Commission</a> filings, downloaded ${esc(M.data_downloaded)}, and from local filings for Tarrant County races. Records replaced by amended reports are left out. <a href="https://seeitnameitfightit.com" target="_blank" rel="noopener">${esc(M.org)}</a></footer>`;
     if (I.page === 'home') {
-      const secs = I.sections.map(s => s.count
-        ? `<a class="sec-card" href="${s.key}/index.html"><span class="sec-n num">${s.count}</span><span class="sec-t">${esc(s.label)}</span><span class="sec-d">${esc(s.desc)}</span><span class="sec-go">${s.count} ${s.unit ? s.unit : (s.count === 1 ? 'race' : 'races')} ›</span></a>`
-        : `<div class="sec-card soon"><span class="sec-n">—</span><span class="sec-t">${esc(s.label)}</span><span class="sec-d">${esc(s.desc)}</span><span class="sec-go">Coming soon</span></div>`).join('');
-      $('#app').innerHTML = `<header><div class="eyebrow"><span>${esc(M.org)}</span><span>${esc(M.election)}</span></div>
-        <h1>${esc(M.site_title)}</h1>
-        <p class="dek">Who has the cash, who has the donors and where the money comes from, race by race, from the governor’s office to your county commissioner.</p>${asof}</header>
-        <section aria-label="Find a race"><label class="srch"><span>Find a race</span><input id="q" type="search" placeholder="District number or candidate name" autocomplete="off"></label><ul class="hits" id="hits"></ul></section>
-        <section class="secs" aria-label="Sections">${secs}</section>${foot}`;
+      // Home: three branches (Tarrant County, Elections, The Money Web). Offices, calendar and trend come from build_offices.py
+      // and build_electorate.py; the section cards' counts from each builder.
+      const S = Object.fromEntries(I.sections.map(s => [s.key, s])), O = I.offices, TR = I.trend;
+      const today = new Date(); today.setHours(12, 0, 0, 0);
+      const days = s => Math.round((new Date(s + 'T12:00:00') - today) / 864e5);
+      const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const dlong = s => { const d = new Date(s + 'T12:00:00'); return `${DOW[d.getDay()]}, ${FULLM[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`; };
+      const CAL = (I.calendar || []).filter(c => days(c.date) >= 0), NX = CAL[0];
+      const PN = { D: 'Democrat', R: 'Republican' }, PC = { D: 'var(--dem)', R: 'var(--rep)' };
+      const M2 = v => `${v >= 0 ? 'D' : 'R'}+${Math.abs(v).toFixed(1)}`;
+      const n = k => S[k] && S[k].count;
+      const nextHtml = NX ? `<section class="next-up" aria-labelledby="nx-h"><div><small>Next on the ballot</small><h2 id="nx-h">${dlong(NX.date)}</h2>
+          <p>${esc(NX.label)}.${NX.detail && !/seats confirmed/.test(NX.detail) ? ` ${esc(NX.detail)}.` : ''}${O && O.may_fw && /#may/.test(NX.href || '') ? ' In Fort Worth alone, the mayor and every council seat are up.' : ''}</p>${NX.href ? `<a href="${NX.href}">${/#may/.test(NX.href) ? 'See every seat on the ballot' : 'See the seats'}</a>` : ''}</div>
+          <div class="nu-n"><b class="num">${fmtN(days(NX.date))}</b><small>days away</small></div>
+          <ul class="nu-list">${CAL.slice(1, 4).map(c => `<li><b>${dlabel(c.date)}</b><span>${esc(c.label.replace(/,? plus .*$/, '').replace(/, Tarrant County College and the water district$/, ' and more'))}</span></li>`).join('')}</ul></section>` : '';
+      const branch = (href, eyebrow, title, stat, statTxt, text, go, extra = '') => `<div class="br-card"><a class="br-main" href="${href}"><span class="br-eye">${eyebrow}</span><b class="br-t">${title}</b>
+          ${stat ? `<span class="br-stat"><b class="num">${stat}</b><span>${statTxt}</span></span>` : ''}<span class="br-x">${text}</span><span class="br-go">${go} ›</span></a>${extra}</div>`;
+      const moneyLinks = [['statewide', 'Statewide'], ['senate', 'Texas Senate'], ['house', 'Texas House'], ['sboe', 'State Board of Education'], ['courts', 'High courts'], ['local', 'Tarrant County races'], ['parties', 'County parties']]
+        .filter(([k]) => S[k] && S[k].count).map(([k, l]) => `<a href="${k}/index.html">${l}</a>`).join('');
+      const branches = `<section class="br" aria-label="Three ways in">
+          ${branch('tarrant/index.html', 'Tarrant County', 'Who serves, and when they’re up', O && O.total, 'federal, state and county offices, from Congress to constable', 'Who holds every seat and when it’s next on the ballot · the election calendar · voter profiles for 136 areas, with results back to 2000 and a precinct map', 'Explore Tarrant County')}
+          ${branch('elections/index.html', 'Elections', '2026, and every election to come', n('turnout'), 'ballots cast in Nov 2026 (unofficial)', 'Results by area · the Turnout Tracker · seven statewide races, Tarrant against Texas · the March primaries · May 2027 next', 'See the elections')}
+          ${branch('web/index.html', 'The Money Web', 'Who funds the races', n('web'), 'major donors traced through every PAC and campaign', 'The donor network, and the money in each race from statewide to county', 'Follow the money', moneyLinks ? `<div class="br-sub">${moneyLinks}</div>` : '')}</section>`;
+      let changed = '';
+      if (O && O.court && O.court.length) {
+        const tally = k => { const d = O.court.filter(c => c[k] === 'D').length, r = O.court.filter(c => c[k] === 'R').length; return [Math.max(d, r), Math.min(d, r), d > r ? 'Democratic' : 'Republican']; };
+        const [a, b, ma] = tally('was_p'), [c, d, mb] = tally('now_p');
+        const flip = O.court.some(x => x.new);
+        const h = ma !== mb || a !== c ? `In January, Commissioners Court goes from ${a}–${b} ${ma} to ${c}–${d} ${mb}` : `Commissioners Court stays ${c}–${d} ${mb}`;
+        const also = [...(O.newcw || []).map(x => `${x.office === 'Criminal District Attorney' ? 'Criminal District Attorney' : x.office} ${x.name}`), O.tad && O.tad.length ? `${O.tad.length === 1 ? 'one' : O.tad.length} elected appraisal district director${O.tad.length === 1 ? '' : 's'}${O.tad_runoff ? ` (${O.tad_runoff === 2 ? 'two more seats go' : 'one more seat goes'} to a December 12 runoff)` : ''}` : ''].filter(Boolean);
+        changed = `<section aria-labelledby="chg-h"><div class="eyebrow"><span>What changed in November</span></div><h2 id="chg-h">${esc(h)}</h2>
+          <p class="sub">Unofficial until the county canvasses the results. New officeholders take office January 1, 2027.</p>
+          <div class="court">${O.court.map(x => `<a class="court-seat" href="tarrant/index.html#g-countywide" style="border-top-color:${PC[x.now_p] || 'var(--rule)'}"><small>${esc(x.office)}</small><b>${esc(x.now)}</b><small style="${x.new ? `color:${PC[x.now_p]};font-weight:600` : ''}">${PN[x.now_p] || ''} · ${x.new ? 'new' : `term ends ${x.term}`}</small></a>`).join('')}</div>
+          ${flip && also.length ? `<p class="note">Also new in January: ${esc(also.slice(0, -1).join(', '))}${also.length > 1 ? ', and ' : ''}${esc(also[also.length - 1])}. <a href="tarrant/index.html">Every countywide office</a></p>` : ''}</section>`;
+      }
+      const trend = TR && TR.g02 != null && TR.g26 != null ? `<section class="panel tr-teaser" aria-labelledby="tr-h"><h2 id="tr-h">Tarrant moved ${Math.abs(TR.g26 - TR.g02).toFixed(0)} points toward ${TR.g26 >= TR.g02 ? 'Democrats' : 'Republicans'} in midterms since 2002</h2>
+          <p class="sub">From ${M2(TR.g02)} in the 2002 governor’s race to ${M2(TR.g26)} in 2026.${TR.p00 != null && TR.p24 != null ? ` For president, from ${M2(TR.p00)} in 2000 to ${M2(TR.p24)} in 2024.` : ''}</p>
+          <a href="electorate/index.html">See every district’s trend and the precinct map</a></section>` : '';
+      $('#app').innerHTML = `<header class="home-h"><div class="eyebrow"><span>Tarrant County, by the numbers</span></div>
+          <h1>Who holds power in Tarrant County, how they got there, and who paid for it</h1>
+          <p class="dek">A running record of the elected offices that represent Tarrant County, the elections that fill them back to 2000, and the money behind the races. Updated as results, filings and new terms come in.</p></header>
+        ${nextHtml}${branches}${changed}${trend}
+        <section aria-label="Find a race"><h2>Find a 2026 race</h2><label class="srch"><span>Find a race</span><input id="q" type="search" placeholder="District number or candidate name" autocomplete="off"></label><ul class="hits" id="hits"></ul></section>
+        <footer>Sources: Tarrant County Elections (precinct results, voter file and the roster of elected officials), <a href="https://www.ethics.state.tx.us/search/cf/" target="_blank" rel="noopener">Texas Ethics Commission</a> filings and local campaign finance reports, and Texas Legislative Council precinct maps. Election-night figures are unofficial until canvassed. <a href="https://seeitnameitfightit.com" target="_blank" rel="noopener">${esc(M.org)}</a></footer>`;
       const q = $('#q'), hits = $('#hits'), label = Object.fromEntries(I.sections.map(s => [s.key, s.label]));
       q.addEventListener('input', () => {
         const v = q.value.trim().toLowerCase(); if (!v) { hits.innerHTML = ''; return; }
