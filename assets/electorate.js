@@ -372,7 +372,8 @@
     <p id="pm-sum" class="pm-sum"></p>
     <div class="pm" id="pm"><p class="note">Loading the map…</p></div><div id="pm-key" class="pm-key"></div>
     <p class="note">The race shown is President in presidential years and governor in midterms, except 2006 and 2018, which use the U.S. Senate race (a four-way governor’s race in 2006, a weak Democratic nominee for governor in 2018). Each election’s precinct results are divided onto today’s precincts by where voters live (precinct maps from the Texas Legislative Council, 2010 on; 2000–2008 are matched to the 2010 precincts by number), so small precincts in the older years are estimates. Precincts with fewer than 30 votes are left blank. 2026 is unofficial.</p>${MARK}</section>` : '';
-  const topResults = seatHtml + G26.map(genHtml).join('') + trendHtml + mapHtml;          // the 2026 results: near the top of the page
+  const wheelHtml = isCounty || G.map ? `<section aria-labelledby="wh-h" id="wh-sec"><h2 id="wh-h">Did the redder precincts stay home?</h2><div id="wh"><p class="note">Loading…</p></div></section>` : '';
+  const topResults = seatHtml + G26.map(genHtml).join('') + trendHtml + mapHtml + wheelHtml;          // the 2026 results: near the top of the page
   const resultsHtml = primaryHtml + GEN.filter(rs => rs.key !== 'g26').map(genHtml).join('');
 
   const app = $('#app');
@@ -586,6 +587,63 @@
       timer = setInterval(() => { if (yi >= NY - 1) return stop(); yi++; yr.value = yi; draw(); }, 1100); });
     document.querySelectorAll('#pm-mode button').forEach(b => b.addEventListener('click', () => { mode = b.dataset.m; document.querySelectorAll('#pm-mode button').forEach(x => x.setAttribute('aria-pressed', x === b)); key(); draw(); }));
     key(); draw();
+  })();
+  // ---------- turnout wheel: today's precincts grouped by the 2024 presidential result, 2026 ballots against 2024 or 2022
+  // (same counts as the precinct map, assets/precinct_map.json 'wh': [D, R, ballots, registered] for 2022, 2024, 2026)
+  if ($('#wh')) (async () => {
+    let P; try { P = await (await fetch(up + 'assets/precinct_map.json')).json(); } catch (e) { $('#wh-sec').hidden = true; return; }
+    const WV = P.wh && P.wh.v; if (!WV) { $('#wh-sec').hidden = true; return; }
+    const ids = isCounty ? Object.keys(WV) : G.map.in.filter(p => WV[p]);
+    const GR = [['Harris 60% or more', 'the precincts Harris won with 60% or more', 0, 40, 'var(--dem)', '#fff'],
+                ['Harris 50–60%', 'the precincts Harris won narrowly', 40, 50, 'color-mix(in oklab, var(--dem) 50%, var(--surface))', 'var(--ink)'],
+                ['Trump 50–60%', 'the precincts Trump won narrowly', 50, 60, 'color-mix(in oklab, var(--rep) 45%, var(--surface))', 'var(--ink)'],
+                ['Trump 60–70%', 'the precincts Trump won with 60 to 70%', 60, 70, 'color-mix(in oklab, var(--rep) 72%, var(--surface))', 'var(--ink)'],
+                ['Trump 70% or more', 'the reddest precincts (Trump 70% or more)', 70, 101, 'var(--rep)', '#fff']];
+    const groups = GR.map(([label, phrase, lo, hi, col, fg]) => ({ label, phrase, col, fg, n: 0, s: [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]] }));
+    ids.forEach(p => { const v = WV[p], d = v[1][0], r = v[1][1]; if (d + r < 30 || !v[2][2]) return;
+      const t = r / (d + r) * 100, g = groups[GR.findIndex(x => t >= x[2] && t < x[3])]; g.n++;
+      for (let y = 0; y < 3; y++) for (let k = 0; k < 4; k++) g.s[y][k] += v[y][k]; });
+    const GS = groups.filter(g => g.n);
+    if (!GS.length || ids.length < 3) { $('#wh-sec').hidden = true; return; }
+    const mg = s => (s[0] - s[1]) / ((s[0] + s[1]) || 1) * 100, Mg = v => `${v >= 0 ? 'D' : 'R'}+${Math.abs(v).toFixed(1)}`;
+    const sgn = v => v >= 0 ? '+' : '−', YR = { 2024: 1, 2022: 0 };
+    let yr = 2024, ms = 'votes';
+    const draw = () => {
+      const yi = YR[yr], rate = ms === 'rate', ylab = yr === 2024 ? 'the 2024 presidential election' : 'the 2022 midterm';
+      const val = s => rate ? (s[2][2] / s[2][3] - s[yi][2] / s[yi][3]) * 100 : (s[yi][2] ? s[2][2] / s[yi][2] - 1 : null);
+      const lab = v => v == null || isNaN(v) ? '—' : rate ? `${sgn(v)}${Math.abs(v).toFixed(1)} pts` : `${sgn(v)}${Math.abs(v * 100).toFixed(0)}%`;
+      const all = [0, 1, 2].map(y => [0, 1, 2, 3].map(k => GS.reduce((a, g) => a + g.s[y][k], 0)));
+      const tot = all[2][2] || 1, allv = val(all);
+      const S = 360, cx = S / 2, cy = S / 2, R = 150, r0 = 88; let a0 = -Math.PI / 2, arcs = '';
+      GS.forEach(g => { const sh = g.s[2][2] / tot, a1 = a0 + sh * 2 * Math.PI, big = a1 - a0 > Math.PI ? 1 : 0, pt = (r, a) => `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
+        const am = (a0 + a1) / 2, lr = (R + r0) / 2;
+        arcs += (GS.length === 1 ? `<circle cx="${cx}" cy="${cy}" r="${(R + r0) / 2}" fill="none" stroke="${g.col}" stroke-width="${R - r0}"/>`
+          : `<path d="M${pt(R, a0)}A${R},${R} 0 ${big} 1 ${pt(R, a1)}L${pt(r0, a1)}A${r0},${r0} 0 ${big} 0 ${pt(r0, a0)}Z" fill="${g.col}" stroke="var(--surface)" stroke-width="2"><title>${esc(g.label)}: ${fmtN(g.s[2][2])} ballots in 2026 (${pc1(sh)}); ${lab(val(g.s))} vs. ${yr}</title></path>`)
+          + (sh >= 0.06 ? `<text x="${cx + lr * Math.cos(am)}" y="${cy + lr * Math.sin(am) + 5}" text-anchor="middle" font-size="${rate ? 13 : 15}" font-weight="700" fill="${g.fg}" class="num">${lab(val(g.s))}</text>` : '');
+        a0 = a1; });
+      const ranked = GS.filter(g => g.n >= 3 && val(g.s) != null).sort((a, b) => val(b.s) - val(a.s)), best = ranked[0], worst = ranked.at(-1);
+      const moved = GS.every(g => mg(g.s[2]) > mg(g.s[yi])) ? ', and every group moved toward Democrats' : GS.every(g => mg(g.s[2]) < mg(g.s[yi])) ? ', and every group moved toward Republicans' : '';
+      const dir = rate ? (allv < 0 ? 'fell' : 'rose') : '';
+      let head = rate ? `Turnout ${dir} ${Math.abs(allv).toFixed(1)} points from ${yr}` : `${Math.abs(allv * 100).toFixed(0)}% ${allv < 0 ? 'fewer' : 'more'} ballots than ${yr}`;
+      if (best && worst && best !== worst) head += rate || allv < 0 ? `: ${allv < 0 ? 'least' : 'most'} in ${best.phrase}, ${allv < 0 ? 'most' : 'least'} in ${worst.phrase}` : `: up most in ${best.phrase}, least in ${worst.phrase}`;
+      head = head.charAt(0).toUpperCase() + head.slice(1) + moved;
+      const btn = (attr, v, cur, t) => `<button type="button" ${attr}="${v}" aria-pressed="${String(v) === String(cur)}">${t}</button>`;
+      $('#wh').innerHTML = `<p class="sub" style="margin-top:2px"><b>${esc(head)}.</b></p>
+        <p class="note" style="margin-top:0">${isCounty ? 'Tarrant County’s' : `${esc(Where)}’s`} precincts, grouped by how each voted for president in 2024 (Trump’s share of the Trump + Harris vote). Each slice is that group’s share of 2026 ballots; the label is the change ${rate ? 'in turnout (ballots as a share of registered voters), in percentage points,' : 'in the number of ballots cast'} from ${ylab}.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px 14px;margin:4px 0 10px">
+          <div class="seg" role="group" aria-label="Compare with" style="margin:0">${btn('data-why', 2024, yr, 'vs. 2024 (presidential)')}${btn('data-why', 2022, yr, 'vs. 2022 (midterm)')}</div>
+          <div class="seg" role="group" aria-label="Measure" style="margin:0">${btn('data-whm', 'votes', ms, 'Change in ballots')}${btn('data-whm', 'rate', ms, 'Change in turnout rate')}</div></div>
+        <div style="display:flex;flex-wrap:wrap;gap:18px 30px;align-items:center">
+          <svg viewBox="0 0 ${S} ${S}" width="300" style="max-width:100%" role="img" aria-label="Donut chart of 2026 ballots by 2024 precinct result, with the change from ${yr}">${arcs}
+            <text x="${cx}" y="${cy - 6}" text-anchor="middle" font-size="13" fill="var(--ink-2)">${isCounty ? 'All of Tarrant' : 'All precincts'}</text><text x="${cx}" y="${cy + 18}" text-anchor="middle" font-size="${rate ? 19 : 22}" font-weight="700" fill="var(--ink)" class="num">${lab(allv)}</text>
+            <text x="${cx}" y="${cy + 36}" text-anchor="middle" font-size="11" fill="var(--ink-3)">vs. ${yr}</text></svg>
+          <ul class="kv" style="flex:1 1 260px;margin:0">${GS.map(g => `<li><span><i class="sw" style="background:${g.col}"></i> ${esc(g.label)} <small style="color:var(--ink-3)">${g.n} precinct${g.n > 1 ? 's' : ''} · ${rate ? `turnout ${pc1(g.s[yi][2] / g.s[yi][3])} in ${yr}, ${pc1(g.s[2][2] / g.s[2][3])} in 2026` : `${fmtN(g.s[2][2])} ballots (${pc1(g.s[2][2] / tot)}) · ${yr}: ${fmtN(g.s[yi][2])}`} · margin ${Mg(mg(g.s[yi]))} → ${Mg(mg(g.s[2]))}</small></span><span class="num"><b>${lab(val(g.s))}</b></span></li>`).join('')}</ul>
+        </div>
+        <p class="note">Margins: ${yr === 2024 ? 'president in 2024' : 'governor in 2022'}, governor in 2026 (unofficial), Democrat minus Republican as a share of the two. Ballots and registered voters are each precinct’s totals from the county’s results; 2026 is the unofficial count. Each election’s precinct results are divided onto today’s precincts by where voters live, so the counts are close estimates.${isCounty ? '' : ` Only precincts mostly inside ${esc(where)} are counted, so the totals differ a little from the results above.`} Higher turnout shows where voters showed up, not how they voted.</p>`;
+      $('#wh').querySelectorAll('[data-why]').forEach(b => b.onclick = () => { yr = +b.dataset.why; draw(); });
+      $('#wh').querySelectorAll('[data-whm]').forEach(b => b.onclick = () => { ms = b.dataset.whm; draw(); });
+    };
+    draw();
   })();
   // ---------- ten-year trend table (countywide page)
   if (D.directory && $('#ttab')) {
