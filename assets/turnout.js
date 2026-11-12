@@ -728,20 +728,23 @@
     const G0 = CG.groups.filter(x => x.ev26 > 0); let G = G0, tot = G.reduce((a, x) => a + x.ev26, 0) || 1;
     // the full election (all votes, 2026 U.S. Senate against 2024 president), grouped the same way
     const BIN = [[0, .5], [.5, .6], [.6, .7], [.7, .8], [.8, 1.01]];
-    const GF = FT && F ? CG.groups.map((g, i) => ({ label: g.label, i, counties: 0, ev26: 0, ev24: 0, reg26: 0, reg24: 0, d26: 0, r26: 0, d24: 0, r24: 0 })) : null;
+    const GF = FT && F ? CG.groups.map((g, i) => ({ label: g.label, i, counties: 0, ev26: 0, ev24: 0, reg26: 0, reg24: 0, d26: 0, r26: 0, d24: 0, r24: 0, ev22: 0, reg22: 0, d22: 0, r22: 0, n22: 0 })) : null;
+    const reg22 = k => { const A = (S[2022] && S[2022].all) || {}; return A[k] ? A[k][0] : null; };
     if (GF) Object.entries(FT).forEach(([k, c]) => { if (k === 'TOTAL' || !c[3]) return; const r_ = reg24(k); if (!r_) return;
       const sh = c[6] / ((c[5] + c[6]) || 1), b = BIN.findIndex(([a, z]) => sh >= a && sh < z); if (b < 0) return;
-      const g = GF[b]; g.counties++; g.ev26 += c[0]; g.ev24 += c[4]; g.reg26 += c[3]; g.reg24 += r_; g.d26 += c[1]; g.r26 += c[2]; g.d24 += c[5]; g.r24 += c[6]; });
+      const g = GF[b]; g.counties++; g.ev26 += c[0]; g.ev24 += c[4]; g.reg26 += c[3]; g.reg24 += r_; g.d26 += c[1]; g.r26 += c[2]; g.d24 += c[5]; g.r24 += c[6];
+      if (c.length > 9 && reg22(k)) { g.n22++; g.ev22 += c[7]; g.d22 += c[8]; g.r22 += c[9]; g.reg22 += reg22(k); } });
+    const has22F = !!GF && GF.every(g => !g.counties || g.n22 === g.counties);       // 2022 governor for every county in each group
     let scope = GF ? 'fin' : 'ev';
     const mgn = (d, r) => (d - r) / ((d + r) || 1) * 100, Mg = v => `${v >= 0 ? 'D' : 'R'}+${Math.abs(v).toFixed(1)}`;
     const COLS = ['var(--dem)', 'color-mix(in oklab, var(--rep) 45%, var(--surface))', 'color-mix(in oklab, var(--rep) 65%, var(--surface))', 'color-mix(in oklab, var(--rep) 82%, var(--surface))', 'var(--rep)'];
     const has24 = G.every(x => x.vs24 != null), hasReg = G.every(x => x.reg26 && x.reg22);
     const sgn = v => (v >= 0 ? '+' : '−');
-    let yr = '2022', ms = 'votes';
+    let yr = GF ? '2024' : '2022', ms = 'votes';
     $('#tx-pie').hidden = false;
     function draw() {
       const FIN = scope === 'fin';
-      if (FIN) yr = '2024';
+      if (FIN && !has22F) yr = '2024';
       G = FIN ? GF.filter(x => x.ev26 > 0) : G0; tot = G.reduce((a, x) => a + x.ev26, 0) || 1;
       const y = yr.slice(2), ev = x => x['ev' + y], rg = x => x['reg' + y];
       const rate = ms === 'rate';
@@ -757,26 +760,26 @@
       const allv = rate ? (S26[0] / S26[1] - S26[2] / S26[3]) * 100 : (S26[2] ? S26[0] / S26[2] - 1 : null);
       const head = rate ? (yr === '2022' ? 'Turnout rates are up most in the counties Harris won and the closest Trump counties' : 'Against 2024, turnout rates have fallen least in the counties Harris won and the closest Trump counties')
         : (yr === '2022' ? 'Early voting is up most in the counties Harris won and the closest Trump counties' : 'Against the 2024 presidential year, early voting has fallen least in the counties Harris won and the closest Trump counties');
-      const shifts = FIN ? G.map(x => mgn(x.d26, x.r26) - mgn(x.d24, x.r24)) : [];
+      const shifts = FIN ? G.map(x => mgn(x.d26, x.r26) - mgn(x['d' + y], x['r' + y])) : [];
       const best = FIN ? G.reduce((a, x) => (val(x) > val(a) ? x : a)) : null, mv = shifts.every(v => v > 0) ? ', and every group of counties moved toward Democrats' : '';
-      const head2 = FIN ? (rate ? `The full election: turnout ${allv < 0 ? 'fell' : 'rose'} ${Math.abs(allv).toFixed(1)} points from 2024 statewide, ${allv < 0 ? 'least' : 'most'} in the counties where ${best.label === 'Harris won' ? 'Harris won' : best.label.replace('Trump ', 'Trump won ')}${mv}`
-                                   : `The full election: ${Math.abs(allv * 100).toFixed(0)}% ${allv < 0 ? 'fewer' : 'more'} votes than 2024 statewide, the ${allv < 0 ? 'smallest drop' : 'biggest gain'} in the counties where ${best.label === 'Harris won' ? 'Harris won' : best.label.replace('Trump ', 'Trump won ')}${mv}`) : head;
-      const what = FIN ? (rate ? 'the label is the change in turnout (votes for governor in 2026 and president in 2024, as a share of registered voters), in percentage points' : 'the label is the change in the number of votes, governor in 2026 against president in 2024') : rate ? `the label is the change in turnout (early votes as a share of registered voters) from the same point in ${yr}, in percentage points` : `the label is the change in the number of early votes from the same point in ${yr}`;
+      const head2 = FIN ? (rate ? `The full election: turnout ${allv < 0 ? 'fell' : 'rose'} ${Math.abs(allv).toFixed(1)} points from ${yr} statewide, ${allv < 0 ? 'least' : 'most'} in the counties where ${best.label === 'Harris won' ? 'Harris won' : best.label.replace('Trump ', 'Trump won ')}${mv}`
+                                   : `The full election: ${Math.abs(allv * 100).toFixed(0)}% ${allv < 0 ? 'fewer' : 'more'} votes than ${yr} statewide, the ${allv < 0 ? 'smallest drop' : 'biggest gain'} in the counties where ${best.label === 'Harris won' ? 'Harris won' : best.label.replace('Trump ', 'Trump won ')}${mv}`) : head;
+      const what = FIN ? (rate ? `the label is the change in turnout (votes for governor in 2026 and ${yr === '2022' ? 'governor' : 'president'} in ${yr}, as a share of registered voters), in percentage points` : `the label is the change in the number of votes, governor in 2026 against ${yr === '2022' ? 'governor' : 'president'} in ${yr}`) : rate ? `the label is the change in turnout (early votes as a share of registered voters) from the same point in ${yr}, in percentage points` : `the label is the change in the number of early votes from the same point in ${yr}`;
       const btn = (attr, v, cur, t) => `<button type="button" ${attr}="${v}" aria-pressed="${v === cur}">${t}</button>`;
       $('#tx-pie').innerHTML = `<h3 style="margin-top:26px">${head2}</h3>
-        <p class="note" style="margin-top:0">${FIN ? 'All Texas votes, early and Election Day (unofficial): the 2026 governor’s race against the 2024 presidential race' : `Texas in-person early votes through Day ${CG.day} (${dlab(CG.through)})`}, grouped by how each county voted for president in 2024. Each slice is that group’s share of the 2026 ${FIN ? 'vote' : 'early vote'}; ${what}.</p>
+        <p class="note" style="margin-top:0">${FIN ? `All Texas votes, early and Election Day (unofficial): the 2026 governor’s race against the ${yr === '2022' ? '2022 governor’s race' : '2024 presidential race'}` : `Texas in-person early votes through Day ${CG.day} (${dlab(CG.through)})`}, grouped by how each county voted for president in 2024. Each slice is that group’s share of the 2026 ${FIN ? 'vote' : 'early vote'}; ${what}.</p>
         <div style="display:flex;flex-wrap:wrap;gap:8px 14px;margin:4px 0 10px">
           ${GF ? `<div class="seg" role="group" aria-label="Votes counted" style="margin:0">${btn('data-cgs', 'fin', scope, 'Full election')}${btn('data-cgs', 'ev', scope, 'Early vote, through Day 12')}</div>` : ''}
           ${hasReg ? `<div class="seg" role="group" aria-label="Measure" style="margin:0">${btn('data-cgm', 'votes', ms, 'Change in votes')}${btn('data-cgm', 'rate', ms, 'Change in turnout rate')}</div>` : ''}
-          ${has24 && !FIN ? `<div class="seg" role="group" aria-label="Compare with" style="margin:0">${btn('data-cgy', '2022', yr, 'vs. 2022 (midterm)')}${btn('data-cgy', '2024', yr, 'vs. 2024 (presidential)')}</div>` : ''}
+          ${has24 && (!FIN || has22F) ? `<div class="seg" role="group" aria-label="Compare with" style="margin:0">${btn('data-cgy', '2022', yr, 'vs. 2022 (midterm)')}${btn('data-cgy', '2024', yr, 'vs. 2024 (presidential)')}</div>` : ''}
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:18px 30px;align-items:center">
           <svg viewBox="0 0 ${S} ${S}" width="300" style="max-width:100%" role="img" aria-label="Donut chart of 2026 early votes by 2024 county result, with the change from ${yr}">${arcs}
             <text x="${cx}" y="${cy - 6}" text-anchor="middle" font-size="13" fill="var(--ink-2)">All of Texas</text><text x="${cx}" y="${cy + 18}" text-anchor="middle" font-size="${rate ? 19 : 22}" font-weight="700" fill="var(--ink)" class="num">${lab(allv)}</text>
             <text x="${cx}" y="${cy + 36}" text-anchor="middle" font-size="11" fill="var(--ink-3)">vs. ${yr}</text></svg>
-          <ul class="kv" style="flex:1 1 260px;margin:0">${G.map(x => `<li><span><i class="sw" style="background:${COLS[(x.i != null ? x.i : CG.groups.indexOf(x))]}"></i> ${esc(x.label)} <small>${x.counties} counties · ${rate ? `turnout ${pc1(x.ev26 / x.reg26)} in 2026, ${pc1(ev(x) / rg(x))} in ${yr}` : `${fmtN(x.ev26)} votes (${pc1(x.ev26 / tot)}) · ${yr}: ${fmtN(ev(x))}`}${FIN ? ` · margin ${Mg(mgn(x.d24, x.r24))} → ${Mg(mgn(x.d26, x.r26))}` : ''}</small></span><span class="num"><b>${lab(val(x))}</b></span></li>`).join('')}</ul>
+          <ul class="kv" style="flex:1 1 260px;margin:0">${G.map(x => `<li><span><i class="sw" style="background:${COLS[(x.i != null ? x.i : CG.groups.indexOf(x))]}"></i> ${esc(x.label)} <small>${x.counties} counties · ${rate ? `turnout ${pc1(x.ev26 / x.reg26)} in 2026, ${pc1(ev(x) / rg(x))} in ${yr}` : `${fmtN(x.ev26)} votes (${pc1(x.ev26 / tot)}) · ${yr}: ${fmtN(ev(x))}`}${FIN ? ` · margin ${Mg(mgn(x['d' + y], x['r' + y]))} → ${Mg(mgn(x.d26, x.r26))}` : ''}</small></span><span class="num"><b>${lab(val(x))}</b></span></li>`).join('')}</ul>
         </div>
-        <p class="note">2024 results: Texas Secretary of State county-by-county canvass (Trump’s share of the Trump + Harris vote). Early votes: in person only, from the state’s daily county reports, with county files used for Harris, Dallas, Bexar, Collin, Fort Bend and Tarrant. Turnout rates use the state’s registered-voter count for each county and year. Higher turnout shows where voters are showing up, not how they voted.</p>`;
+        <p class="note">2024 results: Texas Secretary of State county-by-county canvass (Trump’s share of the Trump + Harris vote)${FIN && has22F ? '; 2022 governor’s race from the Secretary of State’s 2022 county-by-county canvass' : ''}. Early votes: in person only, from the state’s daily county reports, with county files used for Harris, Dallas, Bexar, Collin, Fort Bend and Tarrant. Turnout rates use the state’s registered-voter count for each county and year. Higher turnout shows where voters are showing up, not how they voted.</p>`;
       $('#tx-pie').querySelectorAll('[data-cgy]').forEach(b => b.onclick = () => { yr = b.dataset.cgy; draw(); });
       $('#tx-pie').querySelectorAll('[data-cgm]').forEach(b => b.onclick = () => { ms = b.dataset.cgm; draw(); });
       $('#tx-pie').querySelectorAll('[data-cgs]').forEach(b => b.onclick = () => { scope = b.dataset.cgs; if (scope === 'ev') yr = '2022'; draw(); });
