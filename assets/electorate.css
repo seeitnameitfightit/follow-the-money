@@ -40,3 +40,6 @@
 .pm-key .sw{width:14px;height:12px;border-radius:2px;display:inline-block;border:1px solid var(--rule)}
 .pm-tip{position:absolute;z-index:5;background:var(--surface);color:var(--ink);border:1px solid var(--rule);border-radius:8px;padding:8px 10px;font-size:13px;line-height:1.35;box-shadow:0 4px 14px rgba(0,0,0,.14);pointer-events:none;max-width:250px}
 .pm-tip svg{display:block;margin-top:6px}.pm-tip small{color:var(--ink-3);font-size:11px}
+
+/* voting sites: early voting sites that were also Election Day vote centers */
+.ev-b{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.04em;line-height:1;padding:3px 5px;border-radius:4px;background:var(--ink);color:var(--bg);vertical-align:2px;margin-left:4px;white-space:nowrap}
