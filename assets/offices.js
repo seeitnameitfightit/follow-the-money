@@ -16,7 +16,7 @@
   const upcoming = (D.calendar || []).filter(c => days(c.date) >= 0);
   const PN = { D: 'Democrat', R: 'Republican' }, PC = { D: 'var(--dem)', R: 'var(--rep)' };
   const party = p => p && PN[p] ? `<span style="color:${PC[p]}">${PN[p]}</span>` : (p ? esc(p) : '<span class="muted">—</span>');
-  const SRC = `<p class="note">Officeholders and terms come from Tarrant County’s roster of elected officials and the county’s results reports, checked against each city’s and school district’s own pages. November 2026 winners are from the unofficial election-night count until the county canvasses the results. <a href="../tarrant/index.html#method">How this list is kept</a></p>`;
+  const SRC = `<p class="note">Officeholders and terms come from Tarrant County’s roster of elected officials and the county’s results reports, checked against each city’s and school district’s own pages. November 2026 winners are from the county’s canvassed results. <a href="../tarrant/index.html#method">How this list is kept</a></p>`;
   const calHtml = (list, root) => `<ol class="cal">${list.map(c => { const n = days(c.date);
     return `<li><div class="cal-d"><b>${dshort(c.date)}</b><small>${n === 0 ? 'today' : n === 1 ? 'tomorrow' : `${fmtN(n)} days away`}</small></div><div class="cal-t"><b>${esc(c.label)}</b>${c.detail ? `<small>${esc(c.detail)}</small>` : ''}${c.href ? ` <a href="${root}${c.href}">See the seats</a>` : ''}</div></li>`; }).join('')}</ol>`;
   const app = $('#app');
@@ -55,7 +55,7 @@
     const officeRow = o => {
       const R = o.res, links = [o.el ? `<a href="../${o.el}">Voters</a>` : '', o.race ? `<a href="../${o.race}">2026 money</a>` : ''].filter(Boolean).join(' · ');
       const bits = [];
-      if (R) bits.push(`${R.cands === 1 ? 'Unopposed in Nov 2026' : `${/^Re-elected/.test(R.change) ? 'Re-elected' : 'Won'} Nov 2026${R.pct != null ? ` · ${pc1(R.pct)} of the Tarrant vote` : ''}`} (unofficial${R.tbc ? ', being confirmed' : ''})`);
+      if (R) bits.push(`${R.cands === 1 ? 'Unopposed in Nov 2026' : `${/^Re-elected/.test(R.change) ? 'Re-elected' : 'Won'} Nov 2026${R.pct != null ? ` · ${pc1(R.pct)} of the Tarrant vote` : ''}`} ${R.tbc ? '(being confirmed)' : ''}`.trimEnd());
       if (o.new && o.prev) bits.push(`succeeds ${esc(o.prev)}`);
       if (o.place_tbc) bits.push('seat number being confirmed');
       const who = o.holder ? `${esc(o.holder)}${o.new ? ' <b class="new">new</b>' : ''}` : '<span class="muted">Being confirmed</span>';
@@ -70,7 +70,7 @@
     // ---- local seats decided Nov 3, 2026
     const novRes = x => x.tbc ? `Led with ${pc1(x.pct)}; runoff status being confirmed` : x.cands === 1 ? 'Unopposed' : `Won with ${pc1(x.pct)}${x.ru ? ` over ${esc(x.ru)}` : ''}`;
     const nov = (D.nov || []).length ? `<section aria-labelledby="nv-h" id="nov26" data-g="nov"><h2 id="nv-h">Local seats decided November 3, 2026</h2>
-      <p class="sub">Cities and school districts that vote in November. Unofficial until canvassed.</p>
+      <p class="sub">Cities and school districts that vote in November.</p>
       <div class="tscroll"><table class="ntab ot may"><colgroup><col style="width:18%"><col style="width:20%"><col style="width:18%"><col style="width:26%"><col style="width:9%"><col style="width:9%"></colgroup><thead><tr><th>Place</th><th>Seat</th><th>Winner</th><th>Result</th><th class="r">Votes</th><th>Next up</th></tr></thead>
       <tbody>${D.nov.map(x => `<tr data-q="${esc((x.jur + ' ' + x.seat + ' ' + (x.winner || '')).toLowerCase())}"><td>${esc(x.jur)}</td><td>${esc(x.seat)}</td><td>${x.tbc ? '<span class="muted">Being confirmed</span>' : esc(x.winner)}</td><td>${novRes(x)}</td><td class="r num">${fmtN(x.total)}</td><td>${esc(x.next || '—')}</td></tr>`).join('')}</tbody></table></div></section>` : '';
     const total = D.total;
@@ -78,7 +78,7 @@
       <header><div class="eyebrow"><span>Tarrant County</span><span>Who serves</span></div>
         <h1>Who serves Tarrant County, and when each seat is up</h1>
         <p class="dek">Every elected office that represents people in Tarrant County, from Congress to the constable. The federal, state and county offices are complete; city councils, school boards and special districts are added as each seat is confirmed.</p>
-        <div class="asof">Holders from January 2027 reflect the unofficial November 3 results · list checked ${dshort(D.built)}</div></header>
+        <div class="asof">Holders from January 2027 reflect the canvassed November 3 results · list checked ${dshort(D.built)}</div></header>
       <section aria-labelledby="sc-h"><h2 id="sc-h">${total} federal, state and county offices</h2>${bar}
         <div class="ob-cards"><a class="ob-card" href="#may"><b>City councils and school boards</b><span>${D.may.length} seats confirmed on the May 1, 2027 ballot so far${D.held_back ? `; ${D.held_back} more being confirmed` : ''}</span></a>
           <a class="ob-card" href="#special"><b>Special districts</b><span>${(() => { const t = (D.special.find(s => s.seats.length) || { seats: [] }).seats, ro = t.filter(x => x.runoff).length, w = t.length - ro;
@@ -122,10 +122,10 @@
       <header><div class="eyebrow"><span>Elections</span></div><h1>Tarrant County elections</h1>
         <p class="dek">Results, turnout and the money in each race, starting with 2026. Each new election joins this shelf, and every district’s results go back to 2000.</p></header>
       ${nx ? `<section aria-labelledby="nx-h" class="next-up"><div><small>Next on the ballot</small><h2 id="nx-h">${dlong(nx.date)}</h2><p>${esc(nx.label)}${nx.detail ? `. ${esc(nx.detail)}.` : ''}</p>${nx.href ? `<a href="../${nx.href}">See the seats</a>` : ''}</div><div class="nu-n"><b class="num">${fmtN(days(nx.date))}</b><small>days away</small></div></section>` : ''}
-      <section aria-labelledby="g26-h"><h2 id="g26-h">November 3, 2026 general election</h2><p class="sub">Unofficial until the county canvasses the results.</p>
+      <section aria-labelledby="g26-h"><h2 id="g26-h">November 3, 2026 general election</h2><p class="sub">Official canvassed results.</p>
         <div class="ob-cards">
           ${card('electorate/index.html', 'How Tarrant voted', 'County Judge, U.S. Senate and governor results countywide and in every district, with ticket-splitting district by district.')}
-          ${card('turnout/index.html', '2026 Turnout Tracker', 'Final turnout from the election-night count, against 2018, 2022 and 2024, with the early vote day by day.', n('turnout') ? `${n('turnout')} ballots` : '')}
+          ${card('turnout/index.html', '2026 Turnout Tracker', 'Final turnout from the canvassed count, against 2018, 2022 and 2024, with the early vote day by day.', n('turnout') ? `${n('turnout')} ballots` : '')}
           ${card('statewide/index.html', 'Statewide races', 'Governor through railroad commissioner and the U.S. Senate: results across Texas and in Tarrant, and the money in each race.', n('statewide') ? `${n('statewide')} races` : '')}
           ${card('local/index.html', 'Tarrant County races', 'County Judge, commissioners, district attorney, clerks, justices of the peace and the courts: the money in each race.', n('local') ? `${n('local')} races` : '')}
           ${card('house/index.html', 'Texas House and Senate', 'Every contested legislative race in Texas, with the money in each.', n('house') ? `${n('house')} House races` : '')}

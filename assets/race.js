@@ -67,7 +67,7 @@
         .filter(([k]) => S[k] && S[k].count).map(([k, l]) => `<a href="${k}/index.html">${l}</a>`).join('');
       const branches = `<section class="br" aria-label="Three ways in">
           ${branch('tarrant/index.html', 'Tarrant County', 'Who serves, and when they’re up', O && O.total, 'federal, state and county offices, from Congress to constable', 'Who holds every seat and when it’s next on the ballot · the election calendar · voter profiles for 136 areas, with results back to 2000 and a precinct map', 'Explore Tarrant County')}
-          ${branch('elections/index.html', 'Elections', '2026, and every election to come', n('turnout'), 'ballots cast in Nov 2026 (unofficial)', 'Results by area · the Turnout Tracker · seven statewide races, Tarrant against Texas · the March primaries · May 2027 next', 'See the elections')}
+          ${branch('elections/index.html', 'Elections', '2026, and every election to come', n('turnout'), 'ballots cast in Nov 2026', 'Results by area · the Turnout Tracker · seven statewide races, Tarrant against Texas · the March primaries · May 2027 next', 'See the elections')}
           ${branch('web/index.html', 'The Money Web', 'Who funds the races', n('web'), 'major donors traced through every PAC and campaign', 'The donor network, and the money in each race from statewide to county', 'Follow the money', moneyLinks ? `<div class="br-sub">${moneyLinks}</div>` : '')}</section>`;
       let changed = '';
       if (O && O.court && O.court.length) {
@@ -77,7 +77,7 @@
         const h = ma !== mb || a !== c ? `In January, Commissioners Court goes from ${a}–${b} ${ma} to ${c}–${d} ${mb}` : `Commissioners Court stays ${c}–${d} ${mb}`;
         const also = [...(O.newcw || []).map(x => `${x.office === 'Criminal District Attorney' ? 'Criminal District Attorney' : x.office} ${x.name}`), O.tad && O.tad.length ? `${O.tad.length === 1 ? 'one' : O.tad.length} elected appraisal district director${O.tad.length === 1 ? '' : 's'}${O.tad_runoff ? ` (${O.tad_runoff === 2 ? 'two more seats go' : 'one more seat goes'} to a December 12 runoff)` : ''}` : ''].filter(Boolean);
         changed = `<section aria-labelledby="chg-h"><div class="eyebrow"><span>What changed in November</span></div><h2 id="chg-h">${esc(h)}</h2>
-          <p class="sub">Unofficial until the county canvasses the results. New officeholders take office January 1, 2027.</p>
+          <p class="sub">Official canvassed results. New officeholders take office January 1, 2027.</p>
           <div class="court">${O.court.map(x => `<a class="court-seat" href="tarrant/index.html#g-countywide" style="border-top-color:${PC[x.now_p] || 'var(--rule)'}"><small>${esc(x.office)}</small><b>${esc(x.now)}</b><small style="${x.new ? `color:${PC[x.now_p]};font-weight:600` : ''}">${PN[x.now_p] || ''} · ${x.new ? 'new' : `term ends ${x.term}`}</small></a>`).join('')}</div>
           ${flip && also.length ? `<p class="note">Also new in January: ${esc(also.slice(0, -1).join(', '))}${also.length > 1 ? ', and ' : ''}${esc(also[also.length - 1])}. <a href="tarrant/index.html">Every countywide office</a></p>` : ''}</section>`;
       }
@@ -202,7 +202,7 @@
     const bar = (lab, sub, d, n, r, nl) => `<div class="sb-row"><div class="sb-label"><b>${esc(lab)}</b><span class="num">${sub}</span></div><div class="sb-track" style="height:22px">${seg(d, 'var(--dem)', 'D', '#fff')}${seg(n, 'var(--grid)', nl, 'var(--ink)')}${seg(r, 'var(--rep)', 'R', '#fff')}</div></div>`;
     const lean = (lab, a) => { const t = sum(a); return bar(lab, `${fmtN(t)} · ${gt(a[0] / t, a[1] / t)}`, a[0] / t, a[2] / t, a[1] / t, 'Neither'); };
     const allIn = SF.through && SF.through >= '2026-11-03';           // Election Day voters are in
-    let out = lean(allIn ? 'All 2026 voters (unofficial)' : '2026 voters so far', SF.lean);
+    let out = lean(allIn ? 'All 2026 voters' : '2026 voters so far', SF.lean);
     if (ok(SF.lean22) && sum(SF.lean22) >= 50) out += lean('2022 early and mail voters', SF.lean22);
     // this office's own 2026 race (election-night results), then its last contested race before 2026 (or the 2024 presidential)
     const resBar = (lab, C) => {
@@ -216,7 +216,7 @@
     const L = (W.last || []).find(r => r.contested && r.key !== 'g26') || null, P = !L && W.r24 ? W.r24 : null, C = L || P;
     if (N) out += resBar(`Result: ${N.contest}, 2026${N.official === false ? ' (unofficial)' : ''}`, N);
     if (C) out += resBar(`Result: ${L ? `${L.contest}, ${L.short}` : 'President, 2024'}`, C);
-    return `<h3 style="margin:20px 0 4px">${allIn ? 'Who voted' : 'Who has voted'}, by primary history${SF.through ? ` <small style="font-weight:400;color:var(--ink-3)">${allIn ? 'early, mail and Election Day voters (unofficial)' : `early and mail voting through ${dlabel(SF.through)}`}</small>` : ''}</h3><div class="sizebar">${out}</div>
+    return `<h3 style="margin:20px 0 4px">${allIn ? 'Who voted' : 'Who has voted'}, by primary history${SF.through ? ` <small style="font-weight:400;color:var(--ink-3)">${allIn ? 'early, mail and Election Day voters' : `early and mail voting through ${dlabel(SF.through)}`}</small>` : ''}</h3><div class="sizebar">${out}</div>
       <p class="note">The most recent party primary each voter chose since 2022: Democratic, Republican, or neither. A primary ballot is not a November vote; the large 2026 Democratic primary also makes 2026 voters look more Democratic on this measure.${N ? ` The 2026 result bar is the county’s ${N.official === false ? 'unofficial election-night count; official totals come with the canvass' : 'official canvass'}.` : ''}${C ? ` The ${N ? 'final' : 'last'} bar is the actual November result ${L ? `the last time this office was contested${L.same_lines === false ? ' (under the district lines of that election)' : ''}` : 'in the 2024 presidential race'}, for comparison.` : ''}</p>`;
   };
   // primary history (D / neither / R) of each early-voting day's voters here, as 100% bars building to Election Day
@@ -292,7 +292,7 @@
     const A = box.dataset.act; if (!A || !N) return '';
     const i = A.lastIndexOf('|'), lab = A.slice(0, i), ds = +A.slice(i + 1), g = (2 * ds - 1) * 100;
     const p = (ds * (D + R + N) - D * a - R * (1 - b)) / N, ok = p >= 0 && p <= 1;
-    return `<p class="note" style="margin:10px 0 0;padding-top:8px;border-top:1px solid var(--rule)"><b>Actual result, ${esc(lab)} (unofficial): ${g >= 0 ? 'D' : 'R'}+${Math.abs(g).toFixed(1)}</b> (two-party). ${ok
+    return `<p class="note" style="margin:10px 0 0;padding-top:8px;border-top:1px solid var(--rule)"><b>Actual result, ${esc(lab)}: ${g >= 0 ? 'D' : 'R'}+${Math.abs(g).toFixed(1)}</b> (two-party). ${ok
       ? `With Democratic primary voters at ${Math.round(a * 100)}% and Republican primary voters at ${Math.round(b * 100)}%, voters with neither primary would have had to vote about <b>${Math.round(p * 100)}%</b> Democratic to produce it. <button type="button" data-scmatch="${Math.round(p * 100)}" style="font:inherit;cursor:pointer;background:none;border:0;padding:0;text-decoration:underline;color:inherit">Set the Neither slider to match</button>`
       : 'No Neither share matches it at these loyalty settings.'} This is an estimate from totals; ballots are secret.</p>`;
   };
