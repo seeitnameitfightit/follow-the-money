@@ -16,7 +16,7 @@
 
   const el = $('#turnout-data'); if (!el) return;
   const D = JSON.parse(el.textContent), M = D.meta, Y = D.years, C = D.current;
-  setTimeout(() => { const app = $('#app'); if (app && !app.querySelector('.brand')) app.insertAdjacentHTML('afterbegin', `<a class="brand" href="https://seeitnameitfightit.com" target="_blank" rel="noopener"><img src="${LOGO}" alt="See It. Name It. Fight It." width="64" height="52"></a>`); }, 0);
+  if (!$('#tt-mount')) setTimeout(() => { const app = $('#app'); if (app && !app.querySelector('.brand')) app.insertAdjacentHTML('afterbegin', `<a class="brand" href="https://seeitnameitfightit.com" target="_blank" rel="noopener"><img src="${LOGO}" alt="See It. Name It. Fight It." width="64" height="52"></a>`); }, 0);
 
   const COL = { 2018: 'var(--seq-2)', 2022: 'var(--seq-4)', 2024: 'var(--seq-3)', 2026: 'var(--ink)' };
   const DASH = { 2024: '5 4' };
@@ -38,6 +38,12 @@
     if (!r.length) return null; const lo = Math.min(...r.map(x => x.est)), hi = Math.max(...r.map(x => x.est));
     return { rows: r, lo, hi }; })();
   const F = EVDONE && D.final && D.final.ballots ? D.final : null;     // election-night (unofficial) results are in
+  // Once results are in, this script draws two pages from the same data: on How Tarrant Voted (electorate/index.html, which
+  // has a #tt-mount) the Tarrant turnout sections ('county'); on turnout/index.html, 2026 Across Texas, the statewide ones
+  // ('state'). Before results are in, turnout/index.html is the full live tracker ('full') and How Tarrant Voted shows nothing here.
+  const MOUNT = $('#tt-mount');
+  const MODE = MOUNT ? (F ? 'county' : 'off') : (F ? 'state' : 'full');
+  if (MODE === 'off') return;
   const pastEday = y => y.final_total - y.rows[11].total;                // cast after early voting closed: Election Day plus late mail
   if (F) {
     const y22_ = Y.find(x => x.year === 2022), y24_ = Y.find(x => x.year === 2024), es = last.total / F.ballots;
@@ -77,8 +83,24 @@
     tile(fmtK(y18.final_total), 'voted in the 2018 midterm'), tile(fmtK(y22.final_total), 'voted in the 2022 midterm'), tile(fmtK(y24.final_total), 'voted in 2024')
   ];
 
-  const app = $('#app');
-  app.insertAdjacentHTML('beforeend', `<p class="crumb"><a href="../index.html">Home</a> › <a href="../electorate/index.html">The Electorate</a></p>
+  const app = MODE === 'county' ? MOUNT : $('#app');
+  const HEAD = MODE === 'county' ? `<section aria-labelledby="tt-intro" id="tt"><h2 id="tt-intro">How Tarrant’s 2026 turnout played out</h2>
+    <p class="sub">The final count against 2018, 2022 and 2024, how the vote built up over 12 days of early voting, and who turned out. How Tarrant compares with the rest of the state is on <a href="../turnout/index.html">2026 Across Texas</a>.</p></section>`
+    : MODE === 'state' ? (() => {
+      const X = D.sw26, FX = D.fin_tx, mg = c => (c[1] - c[2]) / ((c[1] + c[2]) || 1) * 100, sh = c => mg([0, c[1], c[2]]) - mg([0, c[5], c[6]]), MM = v => `${v >= 0 ? 'D' : 'R'}+${Math.abs(v).toFixed(1)}`;
+      const tp = X ? X.tarrant[0] / X.tarrant[1] : null, sp = X ? X.tx[0] / X.tx[1] : null;
+      const sT = FX && FX.TOTAL ? sh(FX.TOTAL) : null, sTa = FX && FX.TARRANT ? sh(FX.TARRANT) : null;
+      const t2 = X ? [tile(fmtK(X.tx[0]), `votes in the ${X.race} race across Texas`), tile(pc1(sp), 'of Texas registered voters'), tile(pc1(tp), 'of Tarrant registered voters'),
+        tile(pc1(X.tarrant[0] / X.tx[0]), 'of the Texas vote came from Tarrant')] : [];
+      if (sT != null) t2.push(tile(MM(sT), 'Texas shift from 2024 (president to governor)'), tile(MM(sTa), 'Tarrant shift from 2024'));
+      return `<p class="crumb"><a href="../index.html">Home</a> › <a href="../elections/index.html">Elections</a></p>
+  <header><div class="eyebrow"><span>2026 Across Texas</span><span>General election Nov 3, 2026</span></div>
+    <h1>${X ? `${esc(pc1(tp))} of Tarrant’s registered voters voted in the ${esc(X.race)} race, against ${esc(pc1(sp))} across Texas` : 'Tarrant against the rest of Texas in 2026'}</h1>
+    <p class="dek">How Tarrant County’s turnout and vote compare with every Texas county: the full election county by county, the early vote day by day, and who voted statewide by primary history. Tarrant’s own turnout story, day by day and by voting method, is on <a href="../electorate/index.html#tt">How Tarrant Voted</a>.</p>
+    <div class="asof">Statewide results by county (unofficial) · Texas Secretary of State daily early voting reports · Ryan Data &amp; Research · updated ${esc(D.updated)}</div></header>
+  ${t2.length ? `<section aria-label="Key numbers"><div class="stats">${t2.join('')}</div></section>` : ''}`; })()
+    : null;
+  app.insertAdjacentHTML('beforeend', `${HEAD != null ? HEAD : `<p class="crumb"><a href="../index.html">Home</a> › <a href="../electorate/index.html">The Electorate</a></p>
   <header><div class="eyebrow"><span>2026 Turnout Tracker</span><span>General election Nov 3, 2026</span></div>
     <h1>${esc(h1)}</h1><p class="dek">${dek}</p>
     <div class="asof">${F ? 'Official canvassed results from Tarrant County Elections · early voting from the county’s daily reports' : `Tarrant County Elections daily reports${n ? ` · through ${dlab(last.date)}` : ''}`} · updated ${esc(D.updated)}</div></header>
@@ -94,7 +116,7 @@
     let note = '';
     if (cj && se) { const a = two(cj), b = two(se), g = go ? two(go) : null;
       note = `${esc(se.cands.find(x => x[1] === 'DEM')[0].split(' ').pop())} ran <b class="num">${(b.m - a.m).toFixed(1)}</b> points ahead of ${esc(a.d[0].split(' ').pop())} on the margin${g ? ` and ${(b.m - g.m).toFixed(1)} ahead of ${esc(g.d[0].split(' ').pop())}` : ''}: <b class="num">${fmtN(b.d[2] - a.d[2])}</b> more votes than ${esc(a.d[0].split(' ').pop())}, while ${esc(b.r[0].split(' ').pop())} got <b class="num">${fmtN(a.r[2] - b.r[2])}</b> fewer than ${esc(a.r[0].split(' ').pop())}. That gap is ticket-splitting: voters who backed the Democrat for Senate but the Republican further down the ballot. The district pages show where it happened.`; }
-    return `<section aria-labelledby="cv-h" style="margin-top:6px"><h3 id="cv-h" style="margin:0 0 6px">How the county voted at the top of the ballot</h3><div class="sizebar">${RS.map(row).join('')}</div>${note ? `<p class="note">${note}</p>` : ''}</section>`; })() : ''}
+    return `<section aria-labelledby="cv-h" style="margin-top:6px"><h3 id="cv-h" style="margin:0 0 6px">How the county voted at the top of the ballot</h3><div class="sizebar">${RS.map(row).join('')}</div>${note ? `<p class="note">${note}</p>` : ''}</section>`; })() : ''}`}
   <section aria-labelledby="proj-h" id="proj-sec" hidden><h2 id="proj-h">What the early vote points to for the final turnout</h2><p class="sub" id="proj-sub"></p><div style="overflow-x:auto"><table class="ntab" id="proj-tab"></table></div><p class="note" id="proj-note"></p></section>
   ${F ? `<section aria-labelledby="cut-h" id="cut-sec" style="margin-top:28px;padding:16px 18px;border:1px solid var(--rule);border-left:4px solid var(--ink);border-radius:6px;background:var(--surface)">
     ${C.who && C.who.rosters && C.who.rosters['election day']
@@ -118,7 +140,7 @@
     <p class="note" id="day-call"></p>
     <div class="chart" id="byday"></div>${MARK}</section>
   <section aria-labelledby="tx-h" id="tx-sec" hidden><h2 id="tx-h"></h2>
-    <p class="sub">In-person early votes, added up through each day, as a share of registered voters. Mail ballots are left out here because many counties are slow to report them to the state. Past years use the Texas Secretary of State’s daily county counts for Tarrant and every other county, so Tarrant’s numbers here can differ slightly from the county’s own reports above.</p>
+    <p class="sub">In-person early votes, added up through each day, as a share of registered voters. Mail ballots are left out here because many counties are slow to report them to the state. Past years use the Texas Secretary of State’s daily county counts for Tarrant and every other county, so Tarrant’s numbers here can differ slightly from the county’s own reports${MODE === 'state' ? ' on How Tarrant Voted' : ' above'}.</p>
     <div class="seg" role="group" aria-label="Compare Tarrant with" id="tx-seg" hidden><button type="button" id="tx-all" aria-pressed="true">Rest of Texas</button><button type="button" id="tx-big" aria-pressed="false"></button></div>
     <p class="note" id="tx-call"></p>
     <div class="legend" id="tx-leg"></div>
@@ -176,21 +198,40 @@
       return `<tr><td>${y.year} ${y.kind.toLowerCase()}</td><td class="r num">${fmtN(m.early)}</td><td class="r num">${fmtN(m.mail)}</td><td class="r num">${fmtN(m.eday)}</td><td class="r num"><b>${fmtN(y.final_total)}</b></td><td class="r num">${pc1(y.final_total / y.registered)}</td><td class="r num">${pc1(before)}</td></tr>`; }).join('')}
     ${F ? `<tr style="font-weight:600;border-top:2px solid var(--grid)"><td>2026 midterm</td><td class="r num">${fmtN(last.ev_cum)}</td><td class="r num">${fmtN(last.mail_cum)}</td><td class="r num">${fmtN(F.ballots - last.total)}</td><td class="r num"><b>${fmtN(F.ballots)}</b></td><td class="r num">${pc1(F.ballots / C.registered)}</td><td class="r num">${pc1(last.total / F.ballots)}</td></tr>` : ''}
     </tbody></table></div></section>
-  <footer><b>How these numbers work</b><ul>
+  ${MODE === 'state' ? `<footer id="tt-foot"><b>How these numbers work</b><ul>
+    <li>Full-election results by county: the statewide results by county from the 2026 general election (unofficial until the state canvass), against the Texas Secretary of State’s 2024 canvass and its registered-voter counts. Turnout is votes in the race with the most votes (the 2026 governor’s race, the 2024 presidential race) as a share of registered voters.</li>
+    <li>Early voting by county: the Texas Secretary of State’s daily early-voting reports. In 2026 a few large counties posted their own daily counts sooner than the state did, and those are used where noted.</li>
+    <li>Who voted across Texas by primary history: Ryan Data &amp; Research (Derek Ryan) public reports. A primary vote shows which ballot a voter chose in a primary, not how they voted in November.</li>
+    <li>Tarrant County’s own turnout, from the county’s daily reports and canvass, is on <a href="../electorate/index.html#tt">How Tarrant Voted</a>.</li>
+  </ul><a href="https://seeitnameitfightit.com" target="_blank" rel="noopener">${esc(M.org)}</a> · <a href="../index.html">Follow the Money</a> · <a href="../elections/index.html">Elections</a></footer>` : `${MODE === 'county' ? '<details id="tt-foot" style="margin:20px 0 0"><summary style="cursor:pointer;font-weight:600">How the turnout numbers work</summary>' : '<footer id="tt-foot"><b>How these numbers work</b>'}<ul>
     <li>Source: Tarrant County Elections daily early voting, mail ballot and Election Day reports. Daily counts are preliminary; the final totals are the county’s official canvass, which also counts provisional and late mail ballots, so they run slightly higher than the daily reports add up to.</li>
     <li>2018’s daily reports have no Election Day count. Its split by voting method (36,703 mail, 434,029 early, 161,855 Election Day) comes from the county’s official cumulative report.</li>
     <li>Turnout shares use the registration count for each election: ${Y.map(y => `${y.year} ${fmtN(y.registered)}`).join(', ')}, and for 2026 ${C.registered_src === 'county' ? `the county’s own count of ${fmtN(C.registered)} active registered voters whose registration takes effect by Election Day${C.registered_sos ? ` (the Texas Secretary of State’s figure, ${fmtN(C.registered_sos)}, is lower; the county says it is incomplete, so it is used only in the Tarrant-against-Texas comparison, where every county is measured the same way)` : ''}` : C.registered_src === 'state' ? `the Texas Secretary of State’s count of ${fmtN(C.registered)} registered voters in Tarrant County` : `the ${fmtN(C.registered)} active voters on the county’s current voter file`}. Voters on the county’s suspense list (mostly people who have moved) are left out of every comparison on this page unless they have voted.</li>
     <li>“Who has voted” uses the county’s voter-level lists of returned mail ballots and early voters, matched by state voter ID to the voter file, with each voter counted once. Only totals are published. A primary vote shows which ballot a voter chose in a primary, not how they will vote in November.</li>
     ${C.who && C.who.all && C.who.all.race ? '<li>Race and ethnicity are estimates, not counts: each voter’s chances come from Census surname and first-name data and their Census block, adjusted so each tract matches its citizen voting-age makeup in the American Community Survey, then added up. Only totals are published.</li>' : ''}
     <li>Early voting ran 12 days each year, Monday through the Friday before Election Day, including one Sunday. 2026: Oct 19–30.</li>
-  </ul><a href="https://seeitnameitfightit.com" target="_blank" rel="noopener">${esc(M.org)}</a> · <a href="../index.html">Follow the Money</a> · <a href="../electorate/index.html">The Electorate</a></footer>`);
+  </ul>${MODE === 'county' ? '</details>' : `<a href="https://seeitnameitfightit.com" target="_blank" rel="noopener">${esc(M.org)}</a> · <a href="../index.html">Follow the Money</a> · <a href="../electorate/index.html">The Electorate</a></footer>`}`}`);
 
   // ---------- section order (reads as a story): scorecard, build-up, each day, who has voted, Texas, day-by-day table,
   // Texas what-if (Ryan Data), sites, mail, past finishes. Sections are moved after they are written, so each keeps its own markup above.
-  (F ? ['fin-h', 'pace-h', 'proj-h', 'cut-h', 'who-h', 'eds-h', 'rof-h', 'tx-h', 'ry-h', 'dd-h', 'day-h', 'tab-h', 'site-h', 'mail-h', 'left-h'] : EVDONE ? ['proj-h', 'cut-h', 'left-h', 'rof-h', 'eds-h', 'pace-h', 'who-h', 'tx-h', 'ry-h', 'dd-h', 'day-h', 'tab-h', 'site-h', 'mail-h', 'fin-h'] : ['pace-h', 'day-h', 'who-h', 'rof-h', 'tx-h', 'ry-h', 'tab-h', 'site-h', 'mail-h', 'fin-h']).forEach(id => {
-    const sec = app.querySelector(`section[aria-labelledby="${id}"]`), foot = app.querySelector('footer');
+  const ORDER = MODE === 'county' ? ['tt-intro', 'fin-h', 'pace-h', 'proj-h', 'rof-h', 'who-h', 'eds-h', 'dd-h', 'day-h', 'tab-h', 'site-h', 'mail-h', 'left-h']
+    : MODE === 'state' ? ['tx-h', 'ry-h'] : null;
+  (ORDER || (F ? ['fin-h', 'pace-h', 'proj-h', 'cut-h', 'who-h', 'eds-h', 'rof-h', 'tx-h', 'ry-h', 'dd-h', 'day-h', 'tab-h', 'site-h', 'mail-h', 'left-h'] : EVDONE ? ['proj-h', 'cut-h', 'left-h', 'rof-h', 'eds-h', 'pace-h', 'who-h', 'tx-h', 'ry-h', 'dd-h', 'day-h', 'tab-h', 'site-h', 'mail-h', 'fin-h'] : ['pace-h', 'day-h', 'who-h', 'rof-h', 'tx-h', 'ry-h', 'tab-h', 'site-h', 'mail-h', 'fin-h'])).forEach(id => {
+    const sec = app.querySelector(`section[aria-labelledby="${id}"]`), foot = app.querySelector('#tt-foot');
     if (sec && foot) app.insertBefore(sec, foot);
   });
+  if (ORDER) app.querySelectorAll(':scope > section[aria-labelledby]').forEach(s => { if (!ORDER.includes(s.getAttribute('aria-labelledby'))) s.style.setProperty('display', 'none', 'important'); });
+  if (MODE === 'county') {   // How Tarrant Voted already has the primary-history, age/sex/race and commissioner-precinct panels
+    ['#demo-day', '#who', '#scen', '#dl-wrap', '#nei-wrap'].forEach(s => { const x = $(s, app); if (x) x.style.setProperty('display', 'none', 'important'); });
+    const two = $('#who-two', app); if (two && two.children[1]) two.children[1].style.setProperty('display', 'none', 'important');
+    const kvn = $('#who-two .panel .note', app); if (kvn) kvn.remove();
+    // the daily and site-by-site detail, folded away
+    const dsecs = ['day-h', 'tab-h', 'site-h', 'mail-h'].map(id => app.querySelector(`:scope > section[aria-labelledby="${id}"]`)).filter(Boolean);
+    if (dsecs.length) { const dd = document.createElement('details'); dd.id = 'tt-daily'; dd.style.margin = '28px 0 0';
+      dd.innerHTML = '<summary style="cursor:pointer;font-weight:600;font-size:1.05rem">Day by day and site by site: each day of early voting and Election Day, and the votes at every voting site</summary>';
+      app.insertBefore(dd, dsecs[0]); dsecs.forEach(s => dd.appendChild(s));
+      dd.addEventListener('toggle', () => { if (dd.open) setTimeout(() => { if (typeof drawAll === 'function') drawAll(); }, 0); }); }
+  }
 
   // ---------- pace chart
   let mode = 'n';
@@ -201,6 +242,7 @@
     return pts;
   }
   function draw() {
+    if (!$('#pace').clientWidth) return;   // section not shown on this page
     const box = $('#pace'), W = box.clientWidth, H = Math.max(250, Math.min(340, W * 0.58)), m = { l: 52, r: 58, t: 14, b: 34 };
     const all = [...Y, C].filter(y => y.rows.length);
     const val = (y, v) => mode === 'n' ? v : v / y.registered;
@@ -243,6 +285,7 @@
   const edOf = y => y === C ? ED26 : (y.modes ? y.modes.eday : y.eday);
   const dRows = y => ED26 ? [...y.rows.slice(0, 12), { ev: edOf(y), date: y.election, ed: true }] : y.rows;
   function drawDays() {
+    if (!$('#byday').clientWidth) return;   // section not shown on this page
     const box = $('#byday'), W = box.clientWidth, H = Math.max(240, Math.min(320, W * 0.52)), m = { l: 52, r: 12, t: 14, b: 34 };
     const yrs = [y18, y22, y24, C];
     const val = (y, r) => !r ? null : bmode === 'n' ? r.ev : r.ev / y.registered;
@@ -312,6 +355,7 @@
   const nS = S[2026] ? S[2026].rows.at(-1).day : 0;
   const CNAME = k => k === 'TOTAL' ? 'Texas' : k === 'BASIS' ? `${NB} largest counties` : k.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
   function drawTx() {
+    if (!$('#tx').clientWidth) return;   // section not shown on this page
     const box = $('#tx'), W = box.clientWidth, H = Math.max(220, Math.min(300, W * 0.48)), m = { l: 52, r: 74, t: 14, b: 34 };
     const ser = txYears().map(y => ({ y, p: S[y].rows.map(r => ({ d: r.day, g: gapPts(r) })) }));
     ser.forEach(s => { const g = finGap(s.y); if (g != null && s.p.length >= 12) s.p.push({ d: 13.4, g, fin: true }); });   // the full election (all votes)
@@ -428,7 +472,7 @@
       ? `Tarrant against Texas: ${pc1(share(r0.c.TARRANT))} of Tarrant voters voted early in person, against ${pc1(restSh(r0))} ${r0.rep ? 'in the Texas counties that have reported' : 'in the rest of the state'}`
       : 'Tarrant against Texas in past elections';
     if (F && D.sw26) { const X = D.sw26, tp = X.tarrant[0] / X.tarrant[1], sp = X.tx[0] / X.tx[1];
-      $('#tx-h').textContent = `Tarrant against Texas: ${pc1(tp)} of Tarrant’s registered voters voted in the ${X.race} race, against ${pc1(sp)} statewide`;
+      $('#tx-h').textContent = MODE === 'state' ? 'Turnout and the vote, county by county' : `Tarrant against Texas: ${pc1(tp)} of Tarrant’s registered voters voted in the ${X.race} race, against ${pc1(sp)} statewide`;
       $('#tx-sec .sub').insertAdjacentHTML('afterbegin', `<b>Final, unofficial:</b> ${fmtN(X.tarrant[0])} votes in the ${X.race} race in Tarrant County and ${fmtN(X.tx[0])} across Texas, out of ${fmtN(X.tarrant[1])} and ${fmtN(X.tx[1])} registered voters on the state’s count (the race with the most votes, so a close stand-in for turnout). First the full election, county by county; then the early vote day by day. `); }
     if (NB) {
       const part = SY.filter(y => S[y].partial);
@@ -974,7 +1018,7 @@
     const gtxt = g => `${g >= 0 ? 'D' : 'R'}+${Math.abs(g).toFixed(1)}`;
     const kinds = Object.keys(W.rosters);
     $('#who-sec').hidden = false;
-    $('#who-h').textContent = F ? 'Who voted' : `Who has voted so far: ${pc1(WA.dropoff / WA.n)} sat out the 2022 midterm, then voted in 2024, and ${pc1(WA.new22 / WA.n)} registered since 2022`;
+    $('#who-h').textContent = MODE === 'county' ? 'Who turned out, by voting history' : F ? 'Who voted' : `Who has voted so far: ${pc1(WA.dropoff / WA.n)} sat out the 2022 midterm, then voted in 2024, and ${pc1(WA.new22 / WA.n)} registered since 2022`;
     $('#who-sub').textContent = `The ${fmtN(WA.voters)} voters on the county’s lists of ${kinds.map(k => k === 'mail' ? 'returned mail ballots' : k === 'election day' ? 'Election Day voters' : 'early voters').join(', ').replace(/, ([^,]*)$/, ' and $1')}${WA.through ? ` through ${dlab(WA.through)}` : ''}, matched to the voter file by state voter ID (${fmtN(WA.n)} found). Each voter is counted once.`;
     $('#who-kv').innerHTML = [
       ['Sat out the 2022 midterm, then voted in 2024', WA.dropoff, REG.dropoff],
@@ -985,7 +1029,7 @@
       kinds.map(k => `<li><span>${k === 'mail' ? 'Mail ballots' : k === 'election day' ? 'Election Day in person' : 'Early in person'}</span><span>${fmtN(W.rosters[k].voters)}</span></li>`).join('');
     if (F) {      // after the election: just how they voted (the voting-history table below has the detail)
       $('#who-two').outerHTML = `<div class="panel" style="max-width:560px"><h3>How they voted</h3><ul class="kv">${kinds.map(k => `<li><span>${k === 'mail' ? 'Mail ballots' : k === 'election day' ? 'Election Day in person' : 'Early in person'}</span><span>${fmtN(W.rosters[k].voters)}</span></li>`).join('')}</ul>
-        <p class="note">District pages show 2026 turnout for every precinct, district, city and school district. <a href="../electorate/index.html">The Electorate ›</a></p></div>${SHOW_SUB && W.sub ? '<div id="sub-box"></div>' : ''}`;
+        ${MODE === 'county' ? '' : '<p class="note">District pages show 2026 turnout for every precinct, district, city and school district. <a href="../electorate/index.html">The Electorate ›</a></p>'}</div>${SHOW_SUB && W.sub ? '<div id="sub-box"></div>' : ''}`;
       if (SHOW_SUB && W.sub) subGrid(W.sub, $('#sub-box'));
     }
     // primary history: secondary, with its caveat

@@ -67,7 +67,7 @@
         .filter(([k]) => S[k] && S[k].count).map(([k, l]) => `<a href="${k}/index.html">${l}</a>`).join('');
       const branches = `<section class="br" aria-label="Three ways in">
           ${branch('tarrant/index.html', 'Tarrant County', 'Who serves, and when they’re up', O && O.total, 'federal, state and county offices, from Congress to constable', 'Who holds every seat and when it’s next on the ballot · the election calendar · voter profiles for 136 areas, with results back to 2000 and a precinct map', 'Explore Tarrant County')}
-          ${branch('elections/index.html', 'Elections', '2026, and every election to come', n('turnout'), 'ballots cast in Nov 2026', 'Results by area · the Turnout Tracker · seven statewide races, Tarrant against Texas · the March primaries · May 2027 next', 'See the elections')}
+          ${branch('elections/index.html', 'Elections', '2026, and every election to come', n('turnout'), 'ballots cast in Nov 2026', 'Results and turnout by area · 2026 across Texas · seven statewide races · the March primaries · May 2027 next', 'See the elections')}
           ${branch('web/index.html', 'The Money Web', 'Who funds the races', n('web'), 'major donors traced through every PAC and campaign', 'The donor network, and the money in each race from statewide to county', 'Follow the money', moneyLinks ? `<div class="br-sub">${moneyLinks}</div>` : '')}</section>`;
       let changed = '';
       if (O && O.court && O.court.length) {

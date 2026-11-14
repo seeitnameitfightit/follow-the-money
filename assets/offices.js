@@ -124,8 +124,8 @@
       ${nx ? `<section aria-labelledby="nx-h" class="next-up"><div><small>Next on the ballot</small><h2 id="nx-h">${dlong(nx.date)}</h2><p>${esc(nx.label)}${nx.detail ? `. ${esc(nx.detail)}.` : ''}</p>${nx.href ? `<a href="../${nx.href}">See the seats</a>` : ''}</div><div class="nu-n"><b class="num">${fmtN(days(nx.date))}</b><small>days away</small></div></section>` : ''}
       <section aria-labelledby="g26-h"><h2 id="g26-h">November 3, 2026 general election</h2><p class="sub">Official canvassed results.</p>
         <div class="ob-cards">
-          ${card('electorate/index.html', 'How Tarrant voted', 'County Judge, U.S. Senate and governor results countywide and in every district, with ticket-splitting district by district.')}
-          ${card('turnout/index.html', '2026 Turnout Tracker', 'Final turnout from the canvassed count, against 2018, 2022 and 2024, with the early vote day by day.', n('turnout') ? `${n('turnout')} ballots` : '')}
+          ${card('electorate/index.html', 'How Tarrant voted', 'County Judge, U.S. Senate and governor results countywide and in every district, final turnout against 2018, 2022 and 2024 with the early vote day by day, and ticket-splitting district by district.', n('turnout') ? `${n('turnout')} ballots` : '')}
+          ${card('turnout/index.html', '2026 Across Texas', 'Tarrant against the rest of Texas: turnout and the vote in every county, the early vote day by day, and who voted statewide.')}
           ${card('statewide/index.html', 'Statewide races', 'Governor through railroad commissioner and the U.S. Senate: results across Texas and in Tarrant, and the money in each race.', n('statewide') ? `${n('statewide')} races` : '')}
           ${card('local/index.html', 'Tarrant County races', 'County Judge, commissioners, district attorney, clerks, justices of the peace and the courts: the money in each race.', n('local') ? `${n('local')} races` : '')}
           ${card('house/index.html', 'Texas House and Senate', 'Every contested legislative race in Texas, with the money in each.', n('house') ? `${n('house')} House races` : '')}
