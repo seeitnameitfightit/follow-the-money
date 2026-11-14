@@ -969,7 +969,7 @@
   // ---------- who has voted (county voter-level lists matched to the voter file)
   const W = C.who, WA = W && W.all;
   if (WA) {
-    const B = W.base, REG = W.registered, ref = B['2022 early and mail voters'];
+    const B = W.base, REG = W.registered, ref = F && B['All 2022 voters'] ? B['All 2022 voters'] : B['2022 early and mail voters'];   // complete 2026 vs complete 2022
     const sh = (p, i) => p.lean[i] / (p.n || 1), gap = p => (sh(p, 0) - sh(p, 1)) * 100;
     const gtxt = g => `${g >= 0 ? 'D' : 'R'}+${Math.abs(g).toFixed(1)}`;
     const kinds = Object.keys(W.rosters);
@@ -1029,7 +1029,7 @@
     if (W.neither && (W.neither.daily || []).length) drawLean();
     if (!F) $('#scen').innerHTML = scenarioHtml(WA.lean, { where: 'across Tarrant County', through: WA.through ? dlab(WA.through) : '', gx: (() => { const R3 = D.final && D.final.races3 || [], m = nm => { const T = R3.find(x => x.contest === nm); if (!T) return null; const d = T.cands.find(x => x[1] === 'DEM'), r = T.cands.find(x => x[1] === 'REP'); return d && r ? (d[2] - r[2]) / (d[2] + r[2]) * 100 : null; }; const g = m('Governor'), c = m('County Judge'); return g != null && c != null ? g - c : null; })(), actual: (() => { const T = D.final && D.final.top_race; if (!T) return null; const d = T.cands.find(x => x[1] === 'DEM'), q = T.cands.find(x => x[1] === 'REP'); return d && q ? [T.contest, d[2] / (d[2] + q[2])] : null; })() }); scenarioInit();
     if (W.demo) $('#demo-day').innerHTML = demoDayHtml(W.demo, W.demo.base, W.demo.age_bands, { title: F ? 'Who voted, day by day: age, sex and race' : 'Who has voted, day by day: age, sex and race', note: ' Measured against active registered voters plus anyone who voted.' });
-    if ($('#who-comm')) $('#who-comm').innerHTML = `<thead><tr><th>Pct</th><th class="r">Voted</th><th class="r">Lean</th><th class="r">2022 early + mail</th></tr></thead><tbody>${['01', '02', '03', '04'].map(c => {
+    if ($('#who-comm')) $('#who-comm').innerHTML = `<thead><tr><th>Pct</th><th class="r">Voted</th><th class="r">Lean</th><th class="r">${F && B['All 2022 voters'] ? 'All 2022' : '2022 early + mail'}</th></tr></thead><tbody>${['01', '02', '03', '04'].map(c => {
       const a = WA.comm[c], t = a[0] + a[1] + a[2], b = ref && ref.comm[c], tb = b ? b[0] + b[1] + b[2] : 0;
       return `<tr><td>${+c}</td><td class="r num">${fmtN(t)}</td><td class="r num">${t ? gtxt((a[0] - a[1]) / t * 100) : '—'}</td><td class="r num">${tb ? gtxt((b[0] - b[1]) / tb * 100) : '—'}</td></tr>`; }).join('')}</tbody>`;
   }
