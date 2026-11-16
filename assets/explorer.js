@@ -33,13 +33,29 @@
   .ex-note{font-size:12px;color:var(--ink-3);line-height:1.5}
   .ex-note p{margin:0 0 6px}
   .ex-msg{padding:24px 0;color:var(--ink-2)}
-  @media (max-width:640px){.ex-ctl{grid-template-columns:1fr}.ex-pie{grid-template-columns:1fr}.ex-pie svg{max-width:300px;margin:0 auto}}`;
+  .ex-out h3{font-family:var(--display);font-size:20px;margin:0 0 12px}
+  .ex-out{margin-top:34px;padding-top:6px;border-top:2px solid var(--rule)}
+  .ex-out>h2{font-family:var(--display);font-size:clamp(22px,5.5vw,28px);margin:18px 0 4px}
+  .ex-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:28px;align-items:start;margin-top:8px}
+  .ex-cat{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
+  .ex-cat li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;font-size:14px}
+  .ex-cat .bar{grid-column:1/-1;height:7px;background:var(--chip);border-radius:4px;overflow:hidden}
+  .ex-cat .bar i{display:block;height:100%;background:var(--web);border-radius:4px}
+  .ex-cat li span:nth-child(2),.ex-pay td:last-child{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .ex-cat small{color:var(--ink-3);font-weight:500}
+  .ex-pay{width:100%;border-collapse:collapse;font-size:14px}
+  .ex-pay th{font-size:12px;font-weight:600;color:var(--ink-2);text-align:left;padding:0 6px 6px 0;border-bottom:1px solid var(--rule)}
+  .ex-pay th:last-child{text-align:right}
+  .ex-pay td{padding:7px 6px 7px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+  .ex-pay td small{display:block;color:var(--ink-3);font-size:12px}
+  .ex-pay td:first-child{width:1.6em;color:var(--ink-3)}
+  @media (max-width:640px){.ex-cols{grid-template-columns:1fr}.ex-ctl{grid-template-columns:1fr}.ex-pie{grid-template-columns:1fr}.ex-pie svg{max-width:300px;margin:0 auto}}`;
   document.head.appendChild(css);
 
   const app = $('#app');
   app.innerHTML = `<a class="brand" href="https://seeitnameitfightit.com" target="_blank" rel="noopener"><img src="${LOGO}" alt="See It. Name It. Fight It." width="44" height="36"></a>
     <p class="crumb"><a href="../index.html">Home</a> › <a href="../money/index.html">TX Campaign Finance</a> › Who funds Texas politics?</p><header class="ex-h"><div class="eyebrow">TX Campaign Finance</div><h1>Who funds Texas politics?</h1>
-    <p>Pick any candidate, PAC or party to see the ten donors behind its money. Everything here comes from public Texas Ethics Commission filings.</p></header>
+    <p>Pick any candidate, PAC or party to see the ten donors behind its money, and where it spends it. Everything here comes from public Texas Ethics Commission filings.</p></header>
     <section class="ex-ctl" aria-label="Choose who and when">
       <label>Candidate, PAC or party<input id="ex-q" type="search" autocomplete="off" spellcheck="false" placeholder="Start typing a name" role="combobox" aria-expanded="false" aria-controls="ex-res" aria-autocomplete="list"><ul class="ex-res" id="ex-res" role="listbox" hidden></ul></label>
       <label>Time period<select id="ex-per"></select></label></section>
@@ -52,10 +68,27 @@
 
   function hashSet() { try { history.replaceState(null, '', '#' + cur.id + (per !== IDX.meta.default_period ? '/' + per : '')); } catch (e) { } }
 
+  function spendHTML() {
+    const M = IDX.meta, plab = (M.periods.find(p => p[0] === per) || [0, ''])[1], X = cur.out && cur.out[per];
+    const head = `<section class="ex-out" aria-label="Dollars out"><h2>Where the money went</h2>`;
+    if (!X) return head + `<p class="ex-msg">No itemized expenditures reported for ${esc(plab.charAt(0).toLowerCase() + plab.slice(1))}.</p></section>`;
+    const mx = Math.max(...X.cats.map(c => c[1]), 1), tp = X.top.reduce((a, r) => a + r[2], 0);
+    const cats = X.cats.map(c => `<li><span>${esc(c[0])} <small>${fmtN(c[2])} payment${c[2] === 1 ? '' : 's'}</small></span><span>${fmt$(c[1])}</span><span class="bar"><i style="width:${Math.max(1, c[1] / mx * 100).toFixed(1)}%"></i></span></li>`).join('');
+    const pay = X.top.map((r, i) => {
+      const nm = r[5] ? `<a class="ex-jump" href="#${r[5]}/${per}" title="See this committee’s own donors and spending">${esc(r[0])}</a>` : esc(r[0]);
+      const tag = r[4] ? ` <a class="webtag" href="${WEB + r[4]}/index.html" title="See this donor in the Money Web">Money Web</a>` : '';
+      return `<tr><td>${i + 1}</td><td>${nm}${tag}<small>${fmtN(r[3])} payment${r[3] === 1 ? '' : 's'}</small></td><td>${fmt$(r[2])}</td></tr>`;
+    }).join('');
+    return head + `<p class="ex-msg" style="padding:0 0 6px">Itemized spending, ${esc(plab.charAt(0).toLowerCase() + plab.slice(1))}.</p>
+      <div class="stats"><div><b>${fmtK(X.total)}</b><span>itemized spending</span></div><div><b>${fmtN(X.n)}</b><span>payments to ${fmtN(X.payees)} payees</span></div><div><b>${X.total ? Math.round(tp / X.total * 100) : 0}%</b><span>went to the top ${X.top.length} payees</span></div></div>
+      <div class="ex-cols"><div><h3>By category</h3><ul class="ex-cat">${cats}</ul></div>
+      <div><h3>Top ${X.top.length === 1 ? 'payee' : X.top.length + ' payees'}</h3><table class="ex-pay"><thead><tr><th></th><th>Paid to</th><th>Total</th></tr></thead><tbody>${pay}</tbody></table></div></div></section>`;
+  }
+
   function render() {
     const P = cur.periods[per], M = IDX.meta, plab = (M.periods.find(p => p[0] === per) || [0, ''])[1];
     const out = $('#ex-out');
-    if (!P) { out.innerHTML = `<div class="ex-who"><h2>${esc(cur.name)}</h2><span>${esc(cur.type)}</span></div><p class="ex-msg">No itemized contributions reported for ${esc(plab.toLowerCase())}. Try a longer time period.</p>`; return; }
+    if (!P) { out.innerHTML = `<div class="ex-who"><h2>${esc(cur.name)}</h2><span>${esc(cur.type)}</span></div><p class="ex-msg">No itemized contributions reported for ${esc(plab.charAt(0).toLowerCase() + plab.slice(1))}. Try a longer time period.</p>` + spendHTML(); return; }
     const top = P.top, topSum = top.reduce((a, r) => a + r[2], 0), rest = Math.max(0, P.total - topSum), pct = (a, b) => b ? Math.round(a / b * 100) : 0;
     const slices = top.map((r, i) => ({ name: r[0], kind: r[1], amt: r[2], n: r[3], href: r[4] ? WEB + r[4] + '/index.html' : null, col: COLS[i], rank: i + 1 }));
     if (rest > 0) slices.push({ name: 'All others', meta: fmtN(Math.max(0, P.donors - top.length)) + ' other donors', amt: rest, n: null, col: 'color-mix(in oklab, var(--ink-3) 30%, var(--surface))', rank: '', other: true });
@@ -69,12 +102,13 @@
       a0 = a1;
       return `<path d="${d}" fill="${s.col}" stroke="var(--surface)" stroke-width="1.5" data-i="${i}" class="slice"><title>${esc(s.name)}: ${fmt$(s.amt)} (${(frac * 100).toFixed(1)}%)</title></path>${lbl}`;
     }).join('');
-    out.innerHTML = `
+    const mainHTML = `
       <div class="ex-who"><h2>${esc(cur.name)}</h2><span>${esc(cur.type)} · ${esc(plab)}</span></div>
       <div class="stats" style="margin-top:14px"><div><b>${fmtK(P.total)}</b><span>itemized contributions</span></div><div><b>${fmtN(P.n)}</b><span>contributions from ${fmtN(P.donors)} donors</span></div><div><b>${pct(topSum, P.total)}%</b><span>from the top ${top.length} donor${top.length === 1 ? '' : 's'}</span></div></div>
       <h3 style="font-family:var(--display);font-size:20px;margin:26px 0 12px">${top.length === 1 ? 'One donor supplied' : 'Ten donors supplied'} ${pct(topSum, P.total)}% of ${esc(poss(cur.name))} itemized money</h3>
       <div class="ex-pie"><svg viewBox="0 0 220 220" role="img" aria-label="${esc(cur.name)}: top ${top.length} donors gave ${pct(topSum, P.total)}% of itemized contributions">${paths}</svg>
       <ol class="pie-list">${slices.map((s, i) => `<li data-i="${i}"><i class="sw" style="background:${s.col}"></i><span class="pl-name"><b>${s.rank ? s.rank + '. ' : ''}${s.href ? `<a href="${s.href}" title="See this donor in the Money Web">${esc(s.name)}</a><span class="webtag">Money Web</span>` : esc(s.name)}</b><small>${s.other ? esc(s.meta) : (s.kind === 'E' ? 'Organization' : 'Individual') + ' · ' + fmtN(s.n) + ' contribution' + (s.n > 1 ? 's' : '')}</small></span><span class="pl-amt num">${fmt$(s.amt)}<small>${(s.amt / tot * 100).toFixed(1)}%</small></span></li>`).join('')}</ol></div>`;
+    out.innerHTML = mainHTML + spendHTML();
     const hl = i => { out.querySelectorAll('.slice').forEach(p => p.style.opacity = (i === null || +p.dataset.i === i) ? 1 : .35); out.querySelectorAll('.pie-list li').forEach(li => li.classList.toggle('on', +li.dataset.i === i)); };
     out.querySelectorAll('.slice, .pie-list li').forEach(n => { n.addEventListener('mouseenter', () => hl(+n.dataset.i)); n.addEventListener('mouseleave', () => hl(null)); n.addEventListener('click', () => hl(+n.dataset.i)); });
   }
@@ -107,7 +141,7 @@
     bs.forEach((b, i) => b.setAttribute('aria-selected', i === sel)); if (bs[sel]) bs[sel].scrollIntoView({ block: 'nearest' });
   });
   list.addEventListener('mousedown', e => { const b = e.target.closest('button'); if (b) { e.preventDefault(); choose(+b.dataset.i); } });
-  document.addEventListener('click', e => { if (!e.target.closest('.ex-ctl')) closeList(); });
+  document.addEventListener('click', e => { if (!e.target.closest('.ex-ctl')) closeList(); if (e.target.closest('a.ex-jump')) setTimeout(() => window.scrollTo(0, 0), 0); });
 
   // ---- boot
   fetch(BASE + 'filers.json').then(r => r.json()).then(d => {
@@ -117,7 +151,8 @@
     sp.addEventListener('change', () => { per = sp.value; hashSet(); render(); });
     const start = /^[0-9A-Za-z]+$/.test(h || '') ? h : 'all';
     $('#ex-note').innerHTML = `<p><b>How to read this.</b> Totals are itemized contributions only: the ones each campaign or committee listed by name in its reports. Small contributions that were not itemized are not included. Donors are matched on name and ZIP code for individuals and on name for organizations, so a donor who gave under two spellings or two addresses can appear twice.</p>
-      <p>"All Texas filers" adds every committee together, so money passed from one PAC to another is counted at both ends. Slices tagged Money Web link to that donor’s page. Filings run through ${esc(new Date(M.through + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }))}; late and corrected reports can change the numbers.</p>`;
+      <p>"All Texas filers" adds every committee together, so money passed from one PAC to another is counted at both ends. Slices tagged Money Web link to that donor’s page. Filings run through ${esc(new Date(M.through + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }))}; late and corrected reports can change the numbers.</p>
+      <p><b>Spending.</b> Itemized political expenditures: payments listed by name in each report, with credit card charges counted instead of the card payoff. Purchases of investments, payments from personal funds, non-political expenses and unpaid bills are left out. A payee linked by name opens that committee’s own page, so you can follow money from one committee to the next.</p>`;
     return pick(start).then(() => { if (cur && cur.id !== 'all') q.value = cur.name; });
   }).catch(() => { $('#ex-out').innerHTML = '<p class="ex-msg">Could not load the data. Please refresh.</p>'; });
   window.addEventListener('hashchange', () => { const [h, hp] = location.hash.slice(1).split('/'); if (IDX && h && (!cur || h !== cur.id)) { if (IDX.meta.periods.some(p => p[0] === hp)) { per = hp; $('#ex-per').value = hp; } pick(h).then(() => { if (cur.id !== 'all') q.value = cur.name; }); } });
