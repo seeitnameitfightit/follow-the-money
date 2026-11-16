@@ -22,7 +22,7 @@
   const a = (txt, l) => l ? `<a href="${href(l)}">${esc(txt)}</a>` : esc(txt);
   const since = dlabel(N.since);
   const home = hub ? '../' : '../../';
-  const crumb = hub ? `<p class="crumb"><a href="../index.html">Home</a></p>` : `<p class="crumb"><a href="../../index.html">Home</a> › <a href="../index.html">${esc(N.web_title)}</a></p>`;
+  const crumb = hub ? `<p class="crumb"><a href="../index.html">Home</a> › <a href="../money/index.html">TX Campaign Finance</a> › ${esc(N.web_title)}</p>` : `<p class="crumb"><a href="../../index.html">Home</a> › <a href="../../money/index.html">TX Campaign Finance</a> › <a href="../index.html">${esc(N.web_title)}</a></p>`;
   const eyebrow = `<div class="eyebrow"><span>${esc(M.org)}</span><span>${esc(N.web_title)}</span></div>`;
   const asof = `<div class="asof">Itemized contributions since ${since} · Texas Ethics Commission data downloaded ${esc(M.data_downloaded)}</div>`;
   const method = `<section class="notes" aria-label="How this works"><p><b>How to read this.</b> Every figure comes from contributions reported to the Texas Ethics Commission since ${since}. When a donor gives to a PAC and that PAC gives to a candidate or another PAC, we credit each donor with a share of what the PAC passed on, in proportion to how much of the PAC’s money that donor supplied. Money in a PAC is pooled, so those pass-through figures are estimates of where the money came from, not a record of specific checks.</p><p>This shows who funds what. It does not show coordination between donors or committees. Federal PACs, nonprofits that do not disclose donors, and spending outside Texas campaign finance reports are not included.</p></section>`;

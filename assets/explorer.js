@@ -38,7 +38,7 @@
 
   const app = $('#app');
   app.innerHTML = `<a class="brand" href="https://seeitnameitfightit.com" target="_blank" rel="noopener"><img src="${LOGO}" alt="See It. Name It. Fight It." width="44" height="36"></a>
-    <header class="ex-h"><div class="eyebrow">Follow the Money</div><h1>Who funds Texas politics?</h1>
+    <p class="crumb"><a href="../index.html">Home</a> › <a href="../money/index.html">TX Campaign Finance</a> › Who funds Texas politics?</p><header class="ex-h"><div class="eyebrow">TX Campaign Finance</div><h1>Who funds Texas politics?</h1>
     <p>Pick any candidate, PAC or party to see the ten donors behind its money. Everything here comes from public Texas Ethics Commission filings.</p></header>
     <section class="ex-ctl" aria-label="Choose who and when">
       <label>Candidate, PAC or party<input id="ex-q" type="search" autocomplete="off" spellcheck="false" placeholder="Start typing a name" role="combobox" aria-expanded="false" aria-controls="ex-res" aria-autocomplete="list"><ul class="ex-res" id="ex-res" role="listbox" hidden></ul></label>

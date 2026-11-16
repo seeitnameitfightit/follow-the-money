@@ -63,12 +63,12 @@
           <ul class="nu-list">${CAL.slice(1, 4).map(c => `<li><b>${dlabel(c.date)}</b><span>${esc(c.label.replace(/,? plus .*$/, '').replace(/, Tarrant County College and the water district$/, ' and more'))}</span></li>`).join('')}</ul></section>` : '';
       const branch = (href, eyebrow, title, stat, statTxt, text, go, extra = '') => `<div class="br-card"><a class="br-main" href="${href}"><span class="br-eye">${eyebrow}</span><b class="br-t">${title}</b>
           ${stat ? `<span class="br-stat"><b class="num">${stat}</b><span>${statTxt}</span></span>` : ''}<span class="br-x">${text}</span><span class="br-go">${go} ›</span></a>${extra}</div>`;
-      const moneyLinks = [['statewide', 'Statewide'], ['senate', 'Texas Senate'], ['house', 'Texas House'], ['sboe', 'State Board of Education'], ['courts', 'High courts'], ['local', 'Tarrant County races'], ['parties', 'County parties']]
-        .filter(([k]) => S[k] && S[k].count).map(([k, l]) => `<a href="${k}/index.html">${l}</a>`).join('');
+      const moneyLinks = [['explorer', 'Who funds Texas politics?'], ['web', 'The Money Web'], ['statewide', 'Statewide'], ['senate', 'Texas Senate'], ['house', 'Texas House'], ['sboe', 'State Board of Education'], ['courts', 'High courts'], ['local', 'Tarrant County races'], ['parties', 'County parties']]
+        .filter(([k]) => k === 'explorer' || (S[k] && S[k].count)).map(([k, l]) => `<a href="${k}/index.html">${l}</a>`).join('');
       const branches = `<section class="br" aria-label="Three ways in">
           ${branch('tarrant/index.html', 'Tarrant County', 'Who serves, and when they’re up', O && O.total, 'federal, state and county offices, from Congress to constable', 'Who holds every seat and when it’s next on the ballot · the election calendar · voter profiles for 136 areas, with results back to 2000 and a precinct map', 'Explore Tarrant County')}
           ${branch('elections/index.html', 'Elections', '2026, and every election to come', n('turnout'), 'ballots cast in Nov 2026', 'Results and turnout by area · 2026 across Texas · seven statewide races · the March primaries · May 2027 next', 'See the elections')}
-          ${branch('web/index.html', 'The Money Web', 'Who funds the races', n('web'), 'major donors traced through every PAC and campaign', 'The donor network, and the money in each race from statewide to county', 'Follow the money', moneyLinks ? `<div class="br-sub">${moneyLinks}</div>` : '')}</section>`;
+          ${branch('money/index.html', 'TX Campaign Finance', 'Who funds Texas politics', n('web'), 'major donors traced through every PAC and campaign in the Money Web', 'Search any candidate, PAC or party for its top donors, the Money Web, and the money in each race from statewide to county', 'Follow the money', moneyLinks ? `<div class="br-sub">${moneyLinks}</div>` : '')}</section>`;
       let changed = '';
       if (O && O.court && O.court.length) {
         const tally = k => { const d = O.court.filter(c => c[k] === 'D').length, r = O.court.filter(c => c[k] === 'R').length; return [Math.max(d, r), Math.min(d, r), d > r ? 'Democratic' : 'Republican']; };
