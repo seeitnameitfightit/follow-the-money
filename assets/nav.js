@@ -6,7 +6,7 @@
   const root = me.src.replace(/assets\/nav\.js.*$/, '');
   const rel = location.href.startsWith(root) ? location.href.slice(root.length) : '';
   const top = rel.split(/[/?#]/)[0];
-  const SEC = { tarrant: 't', electorate: 't', elections: 'e', turnout: 'e', money: 'm', explorer: 'm', web: 'm', races: 'm', statewide: 'm', senate: 'm', house: 'm', sboe: 'm', courts: 'm', local: 'm', parties: 'm' };
+  const SEC = { tarrant: 't', electorate: 't', elections: 'e', turnout: 'e', money: 'm', explorer: 'm', club: 'm', web: 'm', races: 'm', statewide: 'm', senate: 'm', house: 'm', sboe: 'm', courts: 'm', local: 'm', parties: 'm' };
   const on = SEC[top] || '';
   const link = (k, href, label) => `<a href="${root}${href}"${on === k ? ' aria-current="page"' : ''}>${label}</a>`;
   document.body.insertAdjacentHTML('afterbegin', `<header class="site-nav"><div class="sn-in">
