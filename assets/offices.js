@@ -92,10 +92,10 @@
       <section aria-labelledby="cal-h"><h2 id="cal-h">What’s next on the ballot</h2>${calHtml(upcoming, '../')}</section>
       <section aria-label="Find an office" class="ob-filter"><label class="srch"><span>Find an office</span><input id="oq" type="search" placeholder="Office, name, city or school district" autocomplete="off"></label>
         <label class="ob-sel"><span>Show</span><select id="og"><option value="">Everything</option><option value="may">May 2027 seats</option>${decL.length ? '<option value="dec">Runoffs ahead</option>' : ''}<option value="nov">Local seats decided Nov 2026</option>${D.groups.map(g => `<option value="${g.key}">${esc(g.label)}</option>`).join('')}<option value="special">Special districts</option></select></label></section>
+      ${decSec}
       <section aria-labelledby="may-h" id="may" data-g="may"><h2 id="may-h">Up May 1, 2027</h2>
         <p class="sub">Nonpartisan city, school and college seats. Only seats confirmed for 2027, by the county’s results or by the city or district itself, are listed; more are added as each is confirmed. Votes are the Tarrant County portion for places that cross county lines, such as Fort Worth and Mansfield.</p>
         ${mayTables}${offNote ? `<ul class="ob-off">${offNote}</ul>` : ''}</section>
-      ${decSec}
       ${nov}
       <section aria-labelledby="sp-h" id="special" data-g="special"><h2 id="sp-h">Special districts</h2><div class="ob-cards">${spec}</div></section>
       <section aria-labelledby="all-h" id="all"><h2 id="all-h" class="vh">Federal, state and county offices</h2>${groups}</section>
