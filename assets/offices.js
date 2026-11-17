@@ -68,11 +68,17 @@
         ? `<li>${esc(x.seat)}: <b>runoff ${dshort(x.runoff)}</b> <small>${x.pair.map(p => `${esc(p[0])}${p[1] != null ? ` (${pc1(p[1])})` : ''}`).join(' vs. ')}; no one won a majority of ${fmtN(x.votes)} votes</small></li>`
         : `<li>${esc(x.seat)}: <b>${esc(x.holder)}</b> <small>won with ${pc1(x.pct)} of ${fmtN(x.votes)} votes</small></li>`).join('')}</ul>` : ''}${s.when ? `<small>${s.href ? `<a href="${s.href}">${esc(s.when)}</a>` : esc(s.when)}</small>` : ''}</div>`).join('');
     // ---- local seats decided Nov 3, 2026
-    const novRes = x => x.tbc ? `Led with ${pc1(x.pct)}; runoff status being confirmed` : x.cands === 1 ? 'Unopposed' : `Won with ${pc1(x.pct)}${x.ru ? ` over ${esc(x.ru)}` : ''}`;
+    const novRes = x => x.runoff ? `Led with ${pc1(x.pct)}; runoff ${dshort(x.runoff)}` : x.tbc ? `Led with ${pc1(x.pct)}; runoff status being confirmed` : x.cands === 1 ? 'Unopposed' : `Won with ${pc1(x.pct)}${x.ru ? ` over ${esc(x.ru)}` : ''}`;
     const nov = (D.nov || []).length ? `<section aria-labelledby="nv-h" id="nov26" data-g="nov"><h2 id="nv-h">Local seats decided November 3, 2026</h2>
       <p class="sub">Cities and school districts that vote in November.</p>
       <div class="tscroll"><table class="ntab ot may"><colgroup><col style="width:18%"><col style="width:20%"><col style="width:18%"><col style="width:26%"><col style="width:9%"><col style="width:9%"></colgroup><thead><tr><th>Place</th><th>Seat</th><th>Winner</th><th>Result</th><th class="r">Votes</th><th>Next up</th></tr></thead>
-      <tbody>${D.nov.map(x => `<tr data-q="${esc((x.jur + ' ' + x.seat + ' ' + (x.winner || '')).toLowerCase())}"><td>${esc(x.jur)}</td><td>${esc(x.seat)}</td><td>${x.tbc ? '<span class="muted">Being confirmed</span>' : esc(x.winner)}</td><td>${novRes(x)}</td><td class="r num">${fmtN(x.total)}</td><td>${esc(x.next || '—')}</td></tr>`).join('')}</tbody></table></div></section>` : '';
+      <tbody>${D.nov.map(x => `<tr data-q="${esc((x.jur + ' ' + x.seat + ' ' + (x.winner || '')).toLowerCase())}"><td>${esc(x.jur)}</td><td>${esc(x.seat)}</td><td>${x.runoff ? '<span class="muted">Runoff pending</span>' : x.tbc ? '<span class="muted">Being confirmed</span>' : esc(x.winner)}</td><td>${novRes(x)}</td><td class="r num">${fmtN(x.total)}</td><td>${x.runoff ? dshort(x.runoff) : esc(x.next || '—')}</td></tr>`).join('')}</tbody></table></div></section>` : '';
+    // ---- runoffs still ahead
+    const decL = (D.dec || []).filter(x => days(x.date) >= 0), decDates = [...new Set(decL.map(x => x.date))];
+    const decSec = decL.length ? `<section aria-labelledby="dec-h" id="runoff" data-g="dec"><h2 id="dec-h">${decDates.length === 1 ? `Runoff${decL.length > 1 ? 's' : ''} ${dshort(decDates[0])}` : 'Upcoming runoffs'}</h2>
+      <p class="sub">Nonpartisan seats where no one won a majority on November 3, so the top two candidates meet again. Percentages and votes are the Tarrant County results from the canvassed November 3 count.</p>
+      <div class="tscroll"><table class="ntab ot may"><thead><tr><th>Place</th><th>Seat</th><th>Led November 3</th><th>Runner-up</th><th class="r">Votes cast</th>${decDates.length > 1 ? '<th>Runoff</th>' : ''}</tr></thead>
+      <tbody>${decL.map(x => `<tr data-q="${esc((x.jur + ' ' + x.seat + ' ' + x.leader + ' ' + x.ru).toLowerCase())}"><td>${esc(x.jur)}</td><td>${esc(x.seat)}</td><td>${esc(x.leader)} <small>${pc1(x.leader_pct)}</small></td><td>${esc(x.ru)}${x.ru_pct != null ? ` <small>${pc1(x.ru_pct)}</small>` : ''}</td><td class="r num">${fmtN(x.total)}</td>${decDates.length > 1 ? `<td>${dshort(x.date)}</td>` : ''}</tr>`).join('')}</tbody></table></div></section>` : '';
     const total = D.total;
     app.innerHTML = `<p class="crumb"><a href="../index.html">Home</a> › Tarrant County</p>
       <header><div class="eyebrow"><span>Tarrant County</span><span>Who serves</span></div>
@@ -80,15 +86,16 @@
         <p class="dek">Every elected office that represents people in Tarrant County, from Congress to the constable. The federal, state and county offices are complete; city councils, school boards and special districts are added as each seat is confirmed.</p>
         <div class="asof">Holders from January 2027 reflect the canvassed November 3 results · list checked ${dshort(D.built)}</div></header>
       <section aria-labelledby="sc-h"><h2 id="sc-h">${total} federal, state and county offices</h2>${bar}
-        <div class="ob-cards"><a class="ob-card" href="#may"><b>City councils and school boards</b><span>${D.may.length} seats confirmed on the May 1, 2027 ballot so far${D.held_back ? `; ${D.held_back} more being confirmed` : ''}</span></a>
+        <div class="ob-cards">${decL.length ? `<a class="ob-card" href="#runoff"><b>Runoff${decL.length > 1 ? 's' : ''} ${decDates.length === 1 ? dshort(decDates[0]).replace(/, \d{4}$/, '') : 'ahead'}</b><span>${decL.length} seat${decL.length === 1 ? '' : 's'} still to be decided: ${[...new Set(decL.map(x => x.jur))].join(', ')}</span></a>` : ''}<a class="ob-card" href="#may"><b>City councils and school boards</b><span>${D.may.length} seats confirmed on the May 1, 2027 ballot so far${D.held_back ? `; ${D.held_back} more being confirmed` : ''}</span></a>
           <a class="ob-card" href="#special"><b>Special districts</b><span>${(() => { const t = (D.special.find(s => s.seats.length) || { seats: [] }).seats, ro = t.filter(x => x.runoff).length, w = t.length - ro;
           return `${w} appraisal board seat${w === 1 ? '' : 's'} decided in November${ro ? `, ${ro} in a ${dshort(t.find(x => x.runoff).runoff).replace(/, \d{4}$/, '')} runoff` : ''}; the college and water district boards are being confirmed`; })()}</span></a></div></section>
       <section aria-labelledby="cal-h"><h2 id="cal-h">What’s next on the ballot</h2>${calHtml(upcoming, '../')}</section>
       <section aria-label="Find an office" class="ob-filter"><label class="srch"><span>Find an office</span><input id="oq" type="search" placeholder="Office, name, city or school district" autocomplete="off"></label>
-        <label class="ob-sel"><span>Show</span><select id="og"><option value="">Everything</option><option value="may">May 2027 seats</option><option value="nov">Local seats decided Nov 2026</option>${D.groups.map(g => `<option value="${g.key}">${esc(g.label)}</option>`).join('')}<option value="special">Special districts</option></select></label></section>
+        <label class="ob-sel"><span>Show</span><select id="og"><option value="">Everything</option><option value="may">May 2027 seats</option>${decL.length ? '<option value="dec">Runoffs ahead</option>' : ''}<option value="nov">Local seats decided Nov 2026</option>${D.groups.map(g => `<option value="${g.key}">${esc(g.label)}</option>`).join('')}<option value="special">Special districts</option></select></label></section>
       <section aria-labelledby="may-h" id="may" data-g="may"><h2 id="may-h">Up May 1, 2027</h2>
         <p class="sub">Nonpartisan city, school and college seats. Only seats confirmed for 2027, by the county’s results or by the city or district itself, are listed; more are added as each is confirmed. Votes are the Tarrant County portion for places that cross county lines, such as Fort Worth and Mansfield.</p>
         ${mayTables}${offNote ? `<ul class="ob-off">${offNote}</ul>` : ''}</section>
+      ${decSec}
       ${nov}
       <section aria-labelledby="sp-h" id="special" data-g="special"><h2 id="sp-h">Special districts</h2><div class="ob-cards">${spec}</div></section>
       <section aria-labelledby="all-h" id="all"><h2 id="all-h" class="vh">Federal, state and county offices</h2>${groups}</section>
@@ -101,7 +108,7 @@
       const v = q.value.trim().toLowerCase(), gv = g.value;
       document.querySelectorAll('[data-g]').forEach(sec => {
         const k = sec.dataset.g, inG = !gv || gv === k || (gv === 'may' && sec.id === 'may');
-        if (sec.id === 'may' || sec.id === 'special' || sec.id === 'nov26') { sec.hidden = !inG; }
+        if (sec.id === 'may' || sec.id === 'special' || sec.id === 'nov26' || sec.id === 'runoff') { sec.hidden = !inG; }
         if (sec.classList.contains('ob-g')) { sec.hidden = !(!gv || gv === k); }
       });
       document.querySelectorAll('tr[data-q]').forEach(r => { r.hidden = !!v && !r.dataset.q.includes(v); });
