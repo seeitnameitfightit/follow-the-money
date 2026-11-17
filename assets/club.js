@@ -25,12 +25,13 @@
   .mp-list li{border-top:1px solid var(--rule)}
   .mp-list a{display:grid;grid-template-columns:2.2em minmax(0,1fr) auto;gap:2px 10px;padding:11px 2px;color:var(--ink);text-decoration:none}
   .mp-list a:hover .nm{text-decoration:underline}
-  .mp-list .rk{color:var(--ink-3);font-variant-numeric:tabular-nums}
+  .mp-list .rk{grid-column:1;grid-row:1;color:var(--ink-3);font-variant-numeric:tabular-nums}
+  .mp-list .who{grid-column:2;grid-row:1;min-width:0}
   .mp-list .nm{font-weight:600}
-  .mp-list .sub{grid-column:2;font-size:13px;color:var(--ink-2)}
-  .mp-list .amt{font-variant-numeric:tabular-nums;font-weight:700;text-align:right;grid-row:1}
+  .mp-list .sub{grid-column:2;grid-row:2;margin:0;max-width:none;font-size:13px;color:var(--ink-2)}
+  .mp-list .amt{grid-column:3;grid-row:1;font-variant-numeric:tabular-nums;font-weight:700;text-align:right}
   .mp-list .cnt{grid-column:3;grid-row:2;font-size:12px;color:var(--ink-3);text-align:right;white-space:nowrap}
-  .mp-bar{grid-column:2/-1;height:5px;background:var(--chip);border-radius:3px;overflow:hidden;margin-top:3px}.mp-bar i{display:block;height:100%;background:var(--web)}
+  .mp-bar{grid-column:2/-1;grid-row:3;height:5px;background:var(--chip);border-radius:3px;overflow:hidden;margin-top:3px}.mp-bar i{display:block;height:100%;background:var(--web)}
   .mp-tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.04em;padding:1px 6px;border-radius:5px;background:var(--chip);color:var(--ink-2);margin-left:6px;vertical-align:1px;text-decoration:none}
   .mp-back{font-size:14px;margin:0}
   .mp-who{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;justify-content:space-between}
@@ -60,7 +61,7 @@
       <div class="mp-ctl"><div class="mp-seg" role="group" aria-label="Who to show">
         <button type="button" data-f="P" aria-pressed="${filt === 'P'}">People & companies ${people.length}</button><button type="button" data-f="C" aria-pressed="${filt === 'C'}">Committees ${comm.length}</button><button type="button" data-f="A" aria-pressed="${filt === 'A'}">Everyone ${all.length}</button></div>
         <input class="mp-q" id="mp-q" type="search" placeholder="Search by name" autocomplete="off" spellcheck="false" value="${esc(qtext)}"></div>
-      <ol class="mp-list" aria-label="Donors ranked by dollars given">${rows.map((d, i) => `<li><a href="#${esc(d.id)}"><span class="rk">${i + 1}</span><span><span class="nm">${esc(d.name)}</span>${d.web ? '<span class="mp-tag" title="Also in the Money Web">Money Web</span>' : ''}${d.kind === 'C' ? '<span class="mp-tag">Committee</span>' : ''}</span><span class="amt">${fmtK(d.total)}</span>
+      <ol class="mp-list" aria-label="Donors ranked by dollars given">${rows.map((d, i) => `<li><a href="#${esc(d.id)}"><span class="rk">${i + 1}</span><span class="who"><span class="nm">${esc(d.name)}</span>${d.web ? '<span class="mp-tag" title="Also in the Money Web">Money Web</span>' : ''}${d.kind === 'C' ? '<span class="mp-tag">Committee</span>' : ''}</span><span class="amt">${fmtK(d.total)}</span>
         <span class="sub">${d.st ? esc(d.st) + ' · ' : ''}mostly to ${esc(d.top[0] ? d.top[0][0] : 'n/a')}</span><span class="cnt">${fmtN(d.n)} contributions</span><span class="mp-bar"><i style="width:${Math.max(1, d.total / mx * 100).toFixed(1)}%"></i></span></a></li>`).join('') || '<li><p class="mp-msg">No donors match.</p></li>'}</ol>
       <section class="mp-note" style="margin-top:18px"><p><b>How to read this.</b> Totals are itemized contributions since ${esc(dlong(M.since))}, through ${esc(dlong(M.through))}. Small contributions that were not itemized are not counted. Donors are matched on name and ZIP code, so a donor who gave under two spellings can appear twice. The exception is anyone in the Money Web, whose names are combined there.</p>
       <p>“Committees” are organizations that file their own campaign finance reports. Most of their money was passed along from other donors, so the first list is the better read on who is putting new money into Texas politics.</p></section>`;
