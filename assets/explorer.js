@@ -36,6 +36,13 @@
   .ex-out h3{font-family:var(--display);font-size:20px;margin:0 0 12px}
   .ex-out{margin-top:34px;padding-top:6px;border-top:2px solid var(--rule)}
   .ex-out>h2{font-family:var(--display);font-size:clamp(22px,5.5vw,28px);margin:18px 0 4px}
+  .ex-tl{margin-top:30px}
+  .ex-tl svg{width:100%;height:auto;display:block;overflow:visible}
+  .ex-tl .lg{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:13px;color:var(--ink-2);margin:0 0 6px}
+  .ex-tl .lg i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+  .ex-tl .lg i.ln{height:3px;vertical-align:3px;border-radius:2px}
+  .ex-tl .pk{font-size:14px;color:var(--ink-2);margin:6px 0 0}
+  .ex-tl h3{font-family:var(--display);font-size:20px;margin:0 0 12px}
   .ex-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:28px;align-items:start;margin-top:8px}
   .ex-cat{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
   .ex-cat li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;font-size:14px}
@@ -68,6 +75,39 @@
 
   function hashSet() { try { history.replaceState(null, '', '#' + cur.id + (per !== IDX.meta.default_period ? '/' + per : '')); } catch (e) { } }
 
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  function timelineHTML() {
+    const M = IDX.meta, T = cur.ts, plab = (M.periods.find(p => p[0] === per) || [0, ''])[1], pl = plab.charAt(0).toLowerCase() + plab.slice(1);
+    const head = `<section class="ex-tl" aria-label="When the money moved"><h3>When the money moved</h3>`;
+    const ym = s => +s.slice(0, 4) * 12 + (+s.slice(5, 7) - 1);
+    if (!T || !M.starts) return head + `<p class="ex-msg" style="padding:0">No dated activity to chart.</p></section>`;
+    const end = Math.max(ym(M.through), ym(M.out_through || M.through));
+    let lo = Math.max(ym(M.starts[per]), ym(T.s));
+    if (end - lo < 5) lo = end - 5;
+    const n = end - lo + 1, c = [], x = [];
+    for (let i = lo; i <= end; i++) { const k = i - ym(T.s); c.push(k >= 0 ? (T.c[k] || 0) : 0); x.push(k >= 0 ? (T.x[k] || 0) : 0); }
+    const mx = Math.max(...c, ...x, 1);
+    if (!c.some(v => v) && !x.some(v => v)) return head + `<p class="ex-msg" style="padding:0">No dated activity in ${esc(pl)}.</p></section>`;
+    const step = (v => { const r = v / 4, p = Math.pow(10, Math.floor(Math.log10(r))), f = r / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p; })(mx);
+    const W = 640, H = 230, L = 52, R = 6, Tp = 8, B = 26, pw = W - L - R, ph = H - Tp - B, top = Math.ceil(mx / step) * step, bw = pw / n;
+    const Y = v => Tp + ph - v / top * ph, lab = i => MON[i % 12] + ' ' + Math.floor(i / 12), hasX = x.some(v => v);
+    let g = '';
+    for (let v = 0; v <= top + 1e-6; v += step) g += `<line x1="${L}" x2="${W - R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="var(--rule)"/><text x="${L - 6}" y="${(Y(v) + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="var(--ink-3)">${fmtK(v)}</text>`;
+    const stepM = [1, 3, 6, 12, 24, 60].find(s => n / s <= 8) || 60;
+    for (let i = lo; i <= end; i++) {
+      const cx = L + (i - lo + .5) * bw, show = stepM >= 12 ? (i % 12 === 0 && Math.floor(i / 12) % (stepM / 12) === 0) : (i % stepM === 0);
+      if (show) g += `<text x="${cx.toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="var(--ink-3)">${stepM >= 12 ? Math.floor(i / 12) : MON[i % 12] + (i % 12 === 0 || i === lo ? ' ’' + String(Math.floor(i / 12)).slice(2) : '')}</text>`;
+    }
+    const gap = bw > 6 ? 1.5 : bw > 2.5 ? .6 : 0;
+    g += c.map((v, k) => v > 0 ? `<rect x="${(L + k * bw + gap / 2).toFixed(2)}" y="${Y(v).toFixed(1)}" width="${Math.max(.8, bw - gap).toFixed(2)}" height="${(Tp + ph - Y(v)).toFixed(1)}" fill="${COLS[0]}"/>` : '').join('');
+    if (hasX) g += `<polyline points="${x.map((v, k) => `${(L + (k + .5) * bw).toFixed(1)},${Y(v).toFixed(1)}`).join(' ')}" fill="none" stroke="${COLS[1]}" stroke-width="2" stroke-linejoin="round"/>`;
+    g += c.map((v, k) => `<rect x="${(L + k * bw).toFixed(2)}" y="${Tp}" width="${bw.toFixed(2)}" height="${ph}" fill="transparent"><title>${lab(lo + k)}: ${fmt$(v)} in${hasX ? ', ' + fmt$(x[k]) + ' out' : ''}</title></rect>`).join('');
+    const pk = c.indexOf(Math.max(...c)), pkx = x.indexOf(Math.max(...x));
+    const note = (c[pk] > 0 ? `Biggest month for money in: ${lab(lo + pk)}, ${fmt$(c[pk])}.` : '') + (x[pkx] > 0 ? ` Biggest month for money out: ${lab(lo + pkx)}, ${fmt$(x[pkx])}.` : '');
+    return head + `<p class="lg"><span><i style="background:${COLS[0]}"></i>Contributions in, by month</span>${hasX ? `<span><i class="ln" style="background:${COLS[1]}"></i>Spending out, by month</span>` : ''}</p>
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(cur.name)}: itemized contributions and spending by month. ${esc(note)}">${g}</svg><p class="pk">${esc(note)}</p></section>`;
+  }
+
   function spendHTML() {
     const M = IDX.meta, plab = (M.periods.find(p => p[0] === per) || [0, ''])[1], X = cur.out && cur.out[per];
     const head = `<section class="ex-out" aria-label="Dollars out"><h2>Where the money went</h2>`;
@@ -88,7 +128,7 @@
   function render() {
     const P = cur.periods[per], M = IDX.meta, plab = (M.periods.find(p => p[0] === per) || [0, ''])[1];
     const out = $('#ex-out');
-    if (!P) { out.innerHTML = `<div class="ex-who"><h2>${esc(cur.name)}</h2><span>${esc(cur.type)}</span></div><p class="ex-msg">No itemized contributions reported for ${esc(plab.charAt(0).toLowerCase() + plab.slice(1))}. Try a longer time period.</p>` + spendHTML(); return; }
+    if (!P) { out.innerHTML = `<div class="ex-who"><h2>${esc(cur.name)}</h2><span>${esc(cur.type)}</span></div><p class="ex-msg">No itemized contributions reported for ${esc(plab.charAt(0).toLowerCase() + plab.slice(1))}. Try a longer time period.</p>` + timelineHTML() + spendHTML(); return; }
     const top = P.top, topSum = top.reduce((a, r) => a + r[2], 0), rest = Math.max(0, P.total - topSum), pct = (a, b) => b ? Math.round(a / b * 100) : 0;
     const slices = top.map((r, i) => ({ name: r[0], kind: r[1], amt: r[2], n: r[3], href: r[4] ? WEB + r[4] + '/index.html' : null, col: COLS[i], rank: i + 1 }));
     if (rest > 0) slices.push({ name: 'All others', meta: fmtN(Math.max(0, P.donors - top.length)) + ' other donors', amt: rest, n: null, col: 'color-mix(in oklab, var(--ink-3) 30%, var(--surface))', rank: '', other: true });
@@ -108,7 +148,7 @@
       <h3 style="font-family:var(--display);font-size:20px;margin:26px 0 12px">${top.length === 1 ? 'One donor supplied' : 'Ten donors supplied'} ${pct(topSum, P.total)}% of ${esc(poss(cur.name))} itemized money</h3>
       <div class="ex-pie"><svg viewBox="0 0 220 220" role="img" aria-label="${esc(cur.name)}: top ${top.length} donors gave ${pct(topSum, P.total)}% of itemized contributions">${paths}</svg>
       <ol class="pie-list">${slices.map((s, i) => `<li data-i="${i}"><i class="sw" style="background:${s.col}"></i><span class="pl-name"><b>${s.rank ? s.rank + '. ' : ''}${s.href ? `<a href="${s.href}" title="See this donor in the Money Web">${esc(s.name)}</a><span class="webtag">Money Web</span>` : esc(s.name)}</b><small>${s.other ? esc(s.meta) : (s.kind === 'E' ? 'Organization' : 'Individual') + ' · ' + fmtN(s.n) + ' contribution' + (s.n > 1 ? 's' : '')}</small></span><span class="pl-amt num">${fmt$(s.amt)}<small>${(s.amt / tot * 100).toFixed(1)}%</small></span></li>`).join('')}</ol></div>`;
-    out.innerHTML = mainHTML + spendHTML();
+    out.innerHTML = mainHTML + timelineHTML() + spendHTML();
     const hl = i => { out.querySelectorAll('.slice').forEach(p => p.style.opacity = (i === null || +p.dataset.i === i) ? 1 : .35); out.querySelectorAll('.pie-list li').forEach(li => li.classList.toggle('on', +li.dataset.i === i)); };
     out.querySelectorAll('.slice, .pie-list li').forEach(n => { n.addEventListener('mouseenter', () => hl(+n.dataset.i)); n.addEventListener('mouseleave', () => hl(null)); n.addEventListener('click', () => hl(+n.dataset.i)); });
   }
