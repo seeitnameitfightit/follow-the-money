@@ -214,8 +214,35 @@
 
   // ---------- section order (reads as a story): scorecard, build-up, each day, who has voted, Texas, day-by-day table,
   // Texas what-if (Ryan Data), sites, mail, past finishes. Sections are moved after they are written, so each keeps its own markup above.
+  // ---------- congressional districts that cross county lines (2026 Across Texas): Tarrant's piece against the rest of the district
+  if (MODE === 'state' && D.cd26 && Object.keys(D.cd26).length) {
+    const CDS = Object.values(D.cd26).filter(x => x.tarrant && x.other).sort((a, b) => a.cd - b.cd);
+    const mgn = (r, d) => (d - r) / ((r + d) || 1) * 100, MG = v => `<b style="color:${v >= 0 ? 'var(--dem)' : 'var(--rep)'}">${v >= 0 ? 'D' : 'R'}+${Math.abs(v).toFixed(1)}</b>`;
+    const tM = x => mgn(x.tarrant[0], x.tarrant[1]), oM = x => mgn(x.other[0], x.other[1]), wM = x => mgn(x.total[0], x.total[1]);
+    const tD = CDS.filter(x => tM(x) > 0).length, wD = CDS.filter(x => wM(x) > 0).length;
+    const flipped = CDS.filter(x => tM(x) > 0 && wM(x) < 0).map(x => 'CD ' + x.cd);
+    const sec = document.createElement('section'); sec.id = 'cd-sec'; sec.setAttribute('aria-labelledby', 'cd-h');
+    const vs = x => `${esc(x.rep)} (R) vs. ${esc(x.dem)} (D)`;
+    const lastN = (n) => n.split(' ').slice(-1)[0];
+    sec.innerHTML = `<h2 id="cd-h">Congressional districts that reach beyond Tarrant County</h2>
+      <p class="sub">Five U.S. House districts include part of Tarrant County. Counting only Tarrant’s votes, Democrats led in <b>${tD}</b> of the ${CDS.length}; counting every vote in each district, they won <b>${wD}</b>.${flipped.length ? ` The ${flipped.length === 1 ? 'seat' : flipped.length + ' seats'} that changed hands once the rest of the district was counted: ${flipped.join(', ')}.` : ''} Margins are Democrat minus Republican, as a share of the two candidates’ votes (final, unofficial).</p>
+      <div style="overflow-x:auto"><table class="ntab" style="white-space:nowrap"><thead><tr><th>District</th><th>Race</th><th class="r">Tarrant<br>margin</th><th class="r">Rest of district<br>margin</th><th class="r">Whole district<br>margin</th><th class="r">Tarrant’s share<br>of the district’s votes</th></tr></thead><tbody>
+      ${CDS.map(x => `<tr><td><b>CD ${x.cd}</b></td><td>${vs(x)}</td><td class="r num">${MG(tM(x))}</td><td class="r num">${MG(oM(x))}</td><td class="r num">${MG(wM(x))}</td><td class="r num">${pc1((x.tarrant[0] + x.tarrant[1]) / (x.total[0] + x.total[1]))}</td></tr>`).join('')}
+      </tbody></table></div>
+      <h3 style="margin-top:20px">How the lead moved as more votes came in</h3>
+      <p class="sub">The early vote (in person and mail, as the state reports it) is the first big count on election night. ${(() => { const sh = (a, b) => mgn(a[0], a[1]) - mgn(a[2], a[3]); const nR = CDS.filter(x => sh(x.total) < 0).length, nO = CDS.filter(x => sh(x.other) < sh(x.tarrant)).length; return `Election Day votes then moved ${nR === CDS.length ? 'every district' : nR + ' of the ' + CDS.length + ' districts'} toward the Republican; in ${nO} of the ${CDS.length}, the rest of the district moved further than Tarrant did.`; })()}</p>
+      <div style="overflow-x:auto"><table class="ntab" style="white-space:nowrap"><thead><tr><th>District</th><th class="r">Tarrant<br>early vote</th><th class="r">Tarrant<br>final</th><th class="r">Whole district<br>early vote</th><th class="r">Whole district<br>final</th><th class="r">Rest of district,<br>early vote</th><th class="r">Rest of district,<br>final</th></tr></thead><tbody>
+      ${CDS.map(x => `<tr><td><b>CD ${x.cd}</b></td><td class="r num">${MG(mgn(x.tarrant[2], x.tarrant[3]))}</td><td class="r num">${MG(tM(x))}</td><td class="r num">${MG(mgn(x.total[2], x.total[3]))}</td><td class="r num">${MG(wM(x))}</td><td class="r num">${MG(mgn(x.other[2], x.other[3]))}</td><td class="r num">${MG(oM(x))}</td></tr>`).join('')}
+      </tbody></table></div>
+      <details style="margin-top:14px"><summary style="cursor:pointer;font-weight:600">County by county, in each district</summary>
+      <div style="overflow-x:auto"><table class="ntab" style="white-space:nowrap"><thead><tr><th>District</th><th>County</th><th class="r">Republican votes</th><th class="r">Democratic votes</th><th class="r">Margin</th></tr></thead><tbody>
+      ${CDS.map(x => Object.entries(x.rows).sort((a, b) => (b[1][0] + b[1][1]) - (a[1][0] + a[1][1])).map(([k, v]) => `<tr${k === 'TARRANT' ? ' style="font-weight:600"' : ''}><td>CD ${x.cd}</td><td>${esc(k.charAt(0) + k.slice(1).toLowerCase().replace(/ (\w)/g, (m, c) => ' ' + c.toUpperCase()))}</td><td class="r num">${fmtN(v[0])}</td><td class="r num">${fmtN(v[1])}</td><td class="r num">${MG(mgn(v[0], v[1]))}</td></tr>`).join('')).join('')}
+      </tbody></table></div></details>
+      <p class="note">Source: Texas Secretary of State unofficial election-night results, by county. CD 33 does not include any of Tarrant County, so it is not shown. The state’s registered-voter count for Tarrant’s part of CD 30 is too low, so turnout is not shown for these districts.</p>`;
+    const ft = app.querySelector('#tt-foot'); if (ft) app.insertBefore(sec, ft); else app.appendChild(sec);
+  }
   const ORDER = MODE === 'county' ? ['tt-intro', 'fin-h', 'pace-h', 'proj-h', 'rof-h', 'who-h', 'eds-h', 'dd-h', 'day-h', 'tab-h', 'site-h', 'mail-h', 'left-h']
-    : MODE === 'state' ? ['tx-h', 'ry-h'] : null;
+    : MODE === 'state' ? ['tx-h', 'cd-h', 'ry-h'] : null;
   (ORDER || (F ? ['fin-h', 'pace-h', 'proj-h', 'cut-h', 'who-h', 'eds-h', 'rof-h', 'tx-h', 'ry-h', 'dd-h', 'day-h', 'tab-h', 'site-h', 'mail-h', 'left-h'] : EVDONE ? ['proj-h', 'cut-h', 'left-h', 'rof-h', 'eds-h', 'pace-h', 'who-h', 'tx-h', 'ry-h', 'dd-h', 'day-h', 'tab-h', 'site-h', 'mail-h', 'fin-h'] : ['pace-h', 'day-h', 'who-h', 'rof-h', 'tx-h', 'ry-h', 'tab-h', 'site-h', 'mail-h', 'fin-h'])).forEach(id => {
     const sec = app.querySelector(`section[aria-labelledby="${id}"]`), foot = app.querySelector('#tt-foot');
     if (sec && foot) app.insertBefore(sec, foot);
