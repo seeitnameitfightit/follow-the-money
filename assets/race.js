@@ -39,11 +39,11 @@
     const card = (r, depth) => {
       const max = Math.max(r.r[1], r.d[1]) || 1;
       const line = (c, k) => `<span class="nm"><i class="dot ${k}"></i>${esc(c[0])}</span><span class="trk"><i style="width:${Math.max(1, c[1] / max * 100)}%;background:var(--${k === 'r' ? 'rep' : 'dem'})"></i></span><span class="amt">${fmtK(c[1])}</span>`;
-      return `<a class="card" href="${raceHref(r.slug, depth)}" data-q="${esc((r.office + ' ' + r.r[0] + ' ' + r.d[0] + ' ' + (r.district || '')).toLowerCase())}"><div class="office">${esc(r.office)}<span>Cash on hand ›</span></div>
+      return `<a class="card" href="${raceHref(r.slug, depth)}" data-q="${esc((r.office + ' ' + r.r[0] + ' ' + r.d[0] + ' ' + (r.district || '')).toLowerCase())}"><div class="office">${esc(r.office)}<span>Spent since ${dlabel(r.since || M.cycle_start)} ›</span></div>
         <div class="cm">${line(r.r, 'r')}${line(r.d, 'd')}</div>
-        <div class="foot num">Donors this period: ${fmtN(r.r[3])} (R) · ${fmtN(r.d[3])} (D)</div></a>`;
+        <div class="foot num" title="Through ${dlabel(r.thru || M.period_end)}">Raised: ${fmtK(r.r[2])} (R) · ${fmtK(r.d[2])} (D)</div></a>`;
     };
-    const asof = `<div class="asof">${esc(M.period_label)} through ${dlabel(M.period_end)}</div>`;
+    const asof = `<div class="asof">Total spent since ${dlabel(M.cycle_start)}, through the latest pre-election report both candidates filed</div>`;
     const foot = `<footer>Figures come from <a href="https://www.ethics.state.tx.us/search/cf/" target="_blank" rel="noopener">Texas Ethics Commission</a> filings, downloaded ${esc(M.data_downloaded)}, and from local filings for Tarrant County races. Records replaced by amended reports are left out. <a href="https://seeitnameitfightit.com" target="_blank" rel="noopener">${esc(M.org)}</a></footer>`;
     if (I.page === 'home') {
       // Home: three branches (Tarrant County, Elections, The Money Web). Offices, calendar and trend come from build_offices.py
@@ -114,21 +114,21 @@
   /* ================= RACE ================= */
   const dataEl = $('#race-data'); if (!dataEl) return;
   const D = JSON.parse(dataEl.textContent), M = D.meta, R = D.r, Dm = D.d;
-  const LOCAL = !!D.local, SINCE = LOCAL ? `in county reports since ${dlabel(D.since || M.period_end)}` : `since ${dlabel(M.cycle_start)}`, CYC = LOCAL ? 'in county reports on file' : 'this cycle';
+  const LOCAL = !!D.local, CYC_FROM = D.local ? (D.since || M.cycle_start) : M.cycle_start, SINCE = LOCAL ? `in county reports since ${dlabel(D.since || M.period_end)}` : `since ${dlabel(M.cycle_start)}`, CYC = LOCAL ? 'in county reports on file' : 'this cycle';
   const C = { r: R, d: Dm };
 
   // ---- headline & dek
-  const lead = R.period.coh >= Dm.period.coh ? 'r' : 'd', trail = lead === 'r' ? 'd' : 'r';
-  const a = C[lead].period.coh, b = C[trail].period.coh, gap = a - b, ratio = b > 0 ? a / b : Infinity;
+  const lead = R.period.spent >= Dm.period.spent ? 'r' : 'd', trail = lead === 'r' ? 'd' : 'r';
+  const a = C[lead].period.spent, b = C[trail].period.spent, gap = a - b, ratio = b > 0 ? a / b : Infinity;
   let h1;
   // the election is over (Nov 3, 2026): money lines in the past tense, and the result first where we have it
-  if (ratio < 1.2) h1 = `${fmt$(gap)} separated ${R.short} and ${Dm.short} in cash`;
-  else if (ratio >= 3) h1 = `${C[lead].short} had a ${ratio === Infinity ? 'commanding' : ratioText(ratio)} cash advantage`;
-  else h1 = `${C[lead].short} led ${C[trail].short} in cash, ${fmtK(a)} to ${fmtK(b)}`;
+  if (ratio < 1.2) h1 = `${fmt$(gap)} separated ${R.short} and ${Dm.short} in spending`;
+  else if (ratio >= 3) h1 = `${C[lead].short} outspent ${C[trail].short} ${ratio === Infinity ? `${fmtK(a)} to $0` : ratioText(ratio)}`;
+  else h1 = `${C[lead].short} outspent ${C[trail].short}, ${fmtK(a)} to ${fmtK(b)}`;
   const RES = D.electorate && (D.electorate.last || []).find(r => r.key === 'g26');
   const dlead = R.period.donors >= Dm.period.donors ? 'r' : 'd', dtrail = dlead === 'r' ? 'd' : 'r';
   const dr = C[dtrail].period.donors ? C[dlead].period.donors / C[dtrail].period.donors : 0;
-  let dek = `${R.short} had <b class="num">${fmtN(R.period.donors)}</b> donors this period. ${Dm.short} had <b class="num">${fmtN(Dm.period.donors)}</b>.`;
+  let dek = `${R.short} had <b class="num">${fmtN(R.period.donors)}</b> donors this cycle. ${Dm.short} had <b class="num">${fmtN(Dm.period.donors)}</b>.`;
   if (dr >= 2) dek += ` That’s ${dr >= 10 ? Math.round(dr) : dr.toFixed(1).replace(/\.0$/, '')} times as many for ${C[dlead].short}.`;
   const rlead = R.period.raised >= Dm.period.raised ? 'r' : 'd';
   dek += ` ${C[rlead].short} raised more: ${fmtK(C[rlead].period.raised)} to ${fmtK(C[rlead === 'r' ? 'd' : 'r'].period.raised)}.`;
@@ -139,7 +139,7 @@
       const dw = sd[2] >= sr[2], W_ = dw ? Dm : R, L_ = dw ? R : Dm, wv = dw ? sd[2] : sr[2], lv = dw ? sr[2] : sd[2];
       const T_ = SWD.tarrant, td = T_ && T_.cands.find(x => x[1] === 'DEM'), tr = T_ && T_.cands.find(x => x[1] === 'REP');
       const tl = td && tr ? (() => { const tw = td[2] >= tr[2], t2 = T_.total || 1; return `; in Tarrant County, ${esc((tw ? Dm : R).short)} won ${(Math.max(td[2], tr[2]) / t2 * 100).toFixed(1)}% to ${(Math.min(td[2], tr[2]) / t2 * 100).toFixed(1)}%`; })() : '';
-      dek = `Unofficial results: ${esc(W_.short)} ${fmtN(wv)}, ${esc(L_.short)} ${fmtN(lv)} across Texas${tl}. Going into Election Day, ${esc(h1)}. ` + dek;
+      dek = `Unofficial results: ${esc(W_.short)} ${fmtN(wv)}, ${esc(L_.short)} ${fmtN(lv)} across Texas${tl}. Over the cycle, ${esc(h1)}. ` + dek;
       h1 = `${W_.short} beat ${L_.short}, ${(wv / tt * 100).toFixed(1)}% to ${(lv / tt * 100).toFixed(1)}%`;
     }
   }
@@ -147,15 +147,15 @@
     const rd = RES.cands.find(x => x[1] === 'DEM'), rr = RES.cands.find(x => x[1] === 'REP'), t2 = (rd ? rd[2] : 0) + (rr ? rr[2] : 0) || 1;
     if (rd && rr) {
       const dw = rd[2] >= rr[2], W_ = dw ? Dm : R, L_ = dw ? R : Dm, wv = dw ? rd[2] : rr[2], lv = dw ? rr[2] : rd[2];
-      dek = `Unofficial results: ${esc(W_.short)} ${fmtN(wv)}, ${esc(L_.short)} ${fmtN(lv)}. Going into Election Day, ${esc(h1)}. ` + dek;
+      dek = `Unofficial results: ${esc(W_.short)} ${fmtN(wv)}, ${esc(L_.short)} ${fmtN(lv)}. Over the cycle, ${esc(h1)}. ` + dek;
       h1 = `${W_.short} beat ${L_.short}, ${(wv / t2 * 100).toFixed(1)}% to ${(lv / t2 * 100).toFixed(1)}%`;
     }
   }
 
   // ---- tape
   const tape = [
-    ['Cash on hand', 'coh', fmt$, true], ['Raised this period', 'raised', fmt$, true], ['Spent this period', 'spent', fmt$, false],
-    ['Loans owed', 'loans', fmt$, false], ['Donors this period', 'donors', fmtN, true], ['Median contribution', 'median', fmt$, false]
+    ['Raised this cycle', 'raised', fmt$, true], ['Spent this cycle', 'spent', fmt$, false], ['Donors this cycle', 'donors', fmtN, true],
+    ['Cash on hand at close', 'coh', fmt$, true], ['Loans owed at close', 'loans', fmt$, false], ['Median contribution', 'median', fmt$, false]
   ].map(([label, k, f, mark]) => {
     const rv = R.period[k], dv = Dm.period[k];
     const show = (c, v) => c.status === 'none' ? '<span class="na">—</span>' : f(v);
@@ -386,7 +386,7 @@
     <div class="eyebrow"><span>${/^Texas /.test(D.office) ? '' : 'Texas · '}${esc(D.office)}</span><span>${esc(M.election)}</span></div>
     <h1>${esc(h1)}</h1>
     <p class="dek">${dek}</p>
-    <div class="asof">${esc(M.period_label)} · through ${dlabel(M.period_end)} · ${LOCAL ? 'Tarrant County filings' : 'Texas Ethics Commission'}</div>
+    <div class="asof">Election cycle · ${dlabel(CYC_FROM)} through ${dlabel(M.period_end)} · ${LOCAL ? 'Tarrant County filings' : 'Texas Ethics Commission'}</div>
   </header>
   ${swHtml}
   <section aria-label="Head to head">
@@ -397,7 +397,7 @@
         <div class="cand d"><span class="party">Democrat<i class="dot d"></i></span><span class="name">${esc(Dm.name)}</span>${flag(Dm)}</div>
       </div>
       ${tape}
-      <div class="tape-foot">A dot marks who leads. "This period" is the latest report period, ending ${dlabel(M.period_end)}. Loans are the balance owed.${MARK}</div>
+      <div class="tape-foot">A dot marks who leads. Raised, spent, donors and median gift cover the whole election cycle, ${dlabel(CYC_FROM)} through ${dlabel(M.period_end)}${LOCAL ? ' (every report on file with Tarrant County)' : ''}. Cash on hand and loans are the balances at the close of that period.${MARK}</div>
     </div>
   </section>
   ${notes ? `<section class="notes" aria-label="Notes on this race">${notes}</section>` : ''}
@@ -426,7 +426,7 @@
   <footer><b>How these numbers work</b><ul>
     <li>${LOCAL ? esc(D.source_note || 'Source: Tarrant County campaign finance filings.') : `Source: <a href="https://www.ethics.state.tx.us/search/cf/" target="_blank" rel="noopener">Texas Ethics Commission</a> bulk campaign finance data, downloaded ${esc(M.data_downloaded)}.`}</li>
     ${LOCAL ? '' : '<li>Records replaced by an amended report are left out.</li>'}
-    <li>${LOCAL ? `"Donors" are unique contributors, matched on name. The scorecard covers the 30-day pre-election report; donors, pie charts, cities and spending use every report each campaign filed with Tarrant County since ${dlabel(D.since || M.period_end)}.` : `"Donors" are unique contributors, matched on name and ZIP code. "This cycle" means ${dlabel(M.cycle_start)} through ${dlabel(M.period_end)}.`}</li>
+    <li>${LOCAL ? `"Donors" are unique contributors, matched on name. The scorecard, donors, pie charts, cities and spending all use every report each campaign filed with Tarrant County since ${dlabel(D.since || M.period_end)}; cash on hand and loans are the balances at the close of the latest report.` : `"Donors" are unique contributors, matched on name and ZIP code. "This cycle" means ${dlabel(M.cycle_start)} through ${dlabel(M.period_end)}.`}</li>
     <li>Contribution sizes, donors, cities and monthly figures use itemized monetary contributions. In-kind contributions are not included.</li>
   </ul><a href="https://seeitnameitfightit.com" target="_blank" rel="noopener">${esc(M.org)}</a> · <a href="../../index.html">All races</a></footer>`);
 
