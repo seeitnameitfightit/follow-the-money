@@ -265,7 +265,18 @@
         <input type="search" id="rs-q" placeholder="Find a county" aria-label="Find a county" hidden style="font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink)"></div>
       <div style="overflow-x:auto"><table class="ntab" id="rs-tab" style="white-space:nowrap"></table></div>
       <p class="note">The 20 counties with the most registered voters, unless “all” is checked. Turnout is the votes in the race as a share of the state’s registered voters; for Tarrant it is the county’s ballots over the county’s registered voters. Margin is Democrat minus Republican as a share of the two. Source: Texas Secretary of State, county-by-county results (unofficial).</p>`;
-    const ft0 = app.querySelector('#tt-foot'); [secMap, secRes].forEach(s => { if (ft0) app.insertBefore(s, ft0); else app.appendChild(s); });
+    const secLine = document.createElement('section'); secLine.id = 'cl-sec'; secLine.setAttribute('aria-labelledby', 'cl-h');
+    secLine.innerHTML = `<h2 id="cl-h">Any county against Texas, 2000 to 2026</h2>
+      <p class="sub">Pick any of the 254 counties to see its top-of-ticket result in every November election since 2000, with the whole state as the dashed line. Add more counties to compare them. Hover or tap the chart for the numbers in each year.</p>
+      <div class="pm-ctl"><label for="cl-add" style="font-size:13px;color:var(--ink-2)">Add a county</label>
+        <select id="cl-add" style="font:inherit;font-size:14px;padding:5px 8px;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink);min-width:12em"></select>
+        <button type="button" id="cl-big" class="pm-play" style="width:auto;padding:0 10px;font-size:13px">Eight big counties</button>
+        <div class="seg" role="group" aria-label="Show" id="cl-mode"><button type="button" aria-pressed="true" data-m="m">Margin</button><button type="button" aria-pressed="false" data-m="t">Turnout</button></div></div>
+      <div id="cl-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0"></div>
+      <p id="cl-sum" class="pm-sum"></p>
+      <div class="pm" id="cl"><p class="note">Loading the chart…</p></div><div id="cl-key" class="pm-key"></div>
+      <p class="note">Same races and same numbers as the map above: President in presidential years (filled dots) and governor in midterms (hollow dots), except 2006 and 2018, which use the U.S. Senate race. Margin is the Democrat minus the Republican as a share of the two, so up is more Democratic. The dashed Texas line adds up all 254 counties. Turnout is the votes in that race as a share of registered voters on the state’s count (Tarrant uses the county’s own count for 2018 and later); the state’s registered-voter counts are not available for 2020 to 2024, so those years are blank. The race changes with the year, so compare like years. 2026 is unofficial. Source: Texas Secretary of State county-by-county results.</p>`;
+    const ft0 = app.querySelector('#tt-foot'); [secMap, secLine, secRes].forEach(s => { if (ft0) app.insertBefore(s, ft0); else app.appendChild(s); });
     // ---- the full election by race
     let rk = KEYS[0];
     const tarReg = (typeof C !== 'undefined' && C && C.registered) || null, tarBal = F && F.ballots || null;
@@ -342,10 +353,68 @@
         play.textContent = '❚❚'; play.setAttribute('aria-label', 'Pause'); timer = setInterval(() => { if (yi >= NY - 1) return stop(); yi++; yr.value = yi; draw(); }, 1100); });
       document.querySelectorAll('#cm-mode button').forEach(b => b.addEventListener('click', () => { mode = b.dataset.m; document.querySelectorAll('#cm-mode button').forEach(x => x.setAttribute('aria-pressed', x === b)); key(); draw(); }));
       key(); draw();
+      // ---- counties against Texas, as a line chart
+      (() => {
+        const add = $('#cl-add'), cl = $('#cl'), PAL = ['#4a7db5', '#c0682f', '#2a7b73', '#c9a227', '#6b8e23', '#7b5ea7', '#b0447a'], BIG = ['Dallas', 'Bexar', 'Harris', 'Fort Bend', 'Tarrant', 'Williamson', 'Collin', 'Denton'].filter(n => P.v[n]), MAXC = 8;
+        let chosen = ['Tarrant'], cmode = 'm', hoverI = null, geo = null;
+        const sorted = [...names].sort((a, b) => a.localeCompare(b));
+        const TX = P.years.map((_, i) => { let r = 0, d = 0, rg = 0, tt = 0;
+          names.forEach(n => { const v = P.v[n] && P.v[n][i]; if (!v) return; r += v[2] || 0; d += v[3] || 0; if (v[4]) { rg += v[4]; tt += v[5] || 0; } });
+          return [mgn(d, r), rg ? Math.round(tt / rg * 1000) / 10 : null, r, d]; });
+        const W = 860, H = 430, L = 54, R = 150, T = 16, B = 32, X = i => L + i / (NY - 1) * (W - L - R);
+        const pres = P.race.map(r => r === 'President');
+        const pick = (arr, i) => { const v = arr && arr[i]; return v ? (cmode === 'm' ? v[0] : v[1]) : null; };
+        const lab = v => cmode === 'm' ? MG(v) : (v == null ? 'no data' : v.toFixed(1) + '%');
+        const tick = v => cmode === 'm' ? (v === 0 ? 'Even' : (v > 0 ? 'D+' : 'R+') + Math.abs(v)) : v + '%';
+        const colorOf = n => n === 'Tarrant' ? 'var(--ink)' : PAL[chosen.filter(x => x !== 'Tarrant').indexOf(n) % PAL.length];
+        const lastIdx = a => { for (let i = a.length - 1; i >= 0; i--) if (a[i] != null) return i; return -1; };
+        const chips = () => { $('#cl-chips').innerHTML = chosen.map(n => `<span style="display:inline-flex;align-items:center;gap:6px;border:1px solid var(--rule);border-radius:999px;padding:2px 4px 2px 10px;font-size:13px;background:var(--surface)"><i style="width:14px;height:4px;border-radius:2px;background:${colorOf(n)};display:inline-block"></i>${esc(n)}${chosen.length > 1 ? `<button type="button" data-n="${esc(n)}" aria-label="Remove ${esc(n)}" style="border:0;background:none;color:var(--ink-3);cursor:pointer;font-size:15px;line-height:1;padding:0 6px">×</button>` : ''}</span>`).join('');
+          add.innerHTML = `<option value="">${chosen.length >= MAXC ? 'Remove one to add another' : 'Choose a county…'}</option>` + sorted.filter(n => !chosen.includes(n)).map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join(''); add.disabled = chosen.length >= MAXC; };
+        const render = () => {
+          chips();
+          const S = chosen.map(n => ({ n, a: P.years.map((_, i) => pick(P.v[n], i)), c: colorOf(n), w: n === 'Tarrant' ? 4.5 : 2.4 }));
+          const tv = P.years.map((_, i) => cmode === 'm' ? TX[i][0] : TX[i][1]), all = [...S.flatMap(s => s.a), ...tv].filter(x => x != null); let lo, hi; const ticks = [];
+          if (cmode === 'm') { const m = Math.max(20, ...all.map(Math.abs)), st = m > 60 ? 50 : m > 30 ? 20 : 10, top = Math.ceil(m / st) * st; lo = -top; hi = top; for (let t = lo; t <= hi; t += st) ticks.push(t); }
+          else { lo = Math.max(0, Math.floor((Math.min(...all, 100) - 5) / 10) * 10); hi = Math.min(100, Math.ceil((Math.max(...all, 0) + 5) / 10) * 10); const st = hi - lo > 50 ? 20 : 10; for (let t = lo; t <= hi; t += st) ticks.push(t); }
+          const Y = v => T + (hi - v) / (hi - lo) * (H - T - B); geo = { S, tv };
+          const path = a => { let d = '', pen = false; a.forEach((v, i) => { if (v == null) { pen = false; return; } d += `${pen ? 'L' : 'M'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`; pen = true; }); return d; };
+          const dots = (a, c, r) => a.map((v, i) => v == null ? '' : `<circle cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="${r}" fill="${pres[i] ? c : 'var(--surface)'}" stroke="${c}" stroke-width="${pres[i] ? 1 : 2}"/>`).join('');
+          const series = [...S.map(s => ({ name: s.n, a: s.a, c: s.c, w: s.w, dash: '' })), { name: 'Texas', a: tv, c: '#888', w: 2.8, dash: '7 5' }];
+          // end labels, nudged apart so they do not overlap
+          const ends = series.map(s => { const li = lastIdx(s.a); return li < 0 ? null : { s, li, y: Y(s.a[li]) }; }).filter(Boolean).sort((p, q) => p.y - q.y);
+          ends.forEach((e, k) => { e.ly = k ? Math.max(e.y, ends[k - 1].ly + 15) : e.y; }); for (let k = ends.length - 1; k >= 0; k--) { const mx = H - B - 2 - (ends.length - 1 - k) * 15; if (ends[k].ly > mx) ends[k].ly = mx; }
+          const sum = `In ${P.years[NY - 1]}: ` + series.map(s => `${s.name} ${lab(s.a[NY - 1])}`).join(', ') + '.';
+          $('#cl-sum').textContent = sum;
+          cl.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc('Line chart. ' + sum)}" style="width:100%;height:auto;max-height:520px">
+            ${cmode === 'm' ? `<rect x="${L}" y="${T}" width="${W - L - R + 24}" height="${Y(0) - T}" fill="color-mix(in oklab, var(--dem) 9%, var(--surface))"/><text x="${L + 8}" y="${T + 16}" font-size="13" font-weight="700" fill="var(--ink)">More Democratic ↑</text><text x="${(L + W - R) / 2}" y="${H - B - 8}" font-size="13" font-weight="700" fill="var(--ink)" text-anchor="middle">More Republican ↓</text>` : ''}
+            ${ticks.map(t => `<line x1="${L}" x2="${W - R + 24}" y1="${Y(t)}" y2="${Y(t)}" stroke="${cmode === 'm' && t === 0 ? 'var(--ink-2)' : 'var(--grid)'}" stroke-width="${cmode === 'm' && t === 0 ? 1.6 : 1}"/><text x="${L - 8}" y="${Y(t) + 4}" font-size="12" fill="var(--ink-2)" text-anchor="end">${tick(t)}</text>`).join('')}
+            ${P.years.map((y, i) => `<text x="${X(i)}" y="${H - 10}" font-size="12" fill="var(--ink-2)" text-anchor="middle">${y}</text>`).join('')}
+            ${[...series].reverse().map(s => `<path d="${path(s.a)}" fill="none" stroke="${s.c}" stroke-width="${s.w}" stroke-linejoin="round"${s.dash ? ` stroke-dasharray="${s.dash}"` : ''}/>${dots(s.a, s.c, s.w > 4 ? 5 : 3.5)}`).join('')}
+            ${ends.map(e => `<text x="${X(e.li) + 12}" y="${e.ly + 4}" font-size="13"${e.s.name === 'Tarrant' ? ' font-weight="700"' : ''} fill="${e.s.c}">${esc(e.s.name)}  ${lab(e.s.a[e.li])}</text>`).join('')}
+            <line id="cl-g" y1="${T}" y2="${H - B}" stroke="var(--ink-3)" stroke-width="1" stroke-dasharray="3 3" hidden/>
+            <rect x="${L}" y="${T}" width="${W - L - R + 24}" height="${H - T - B}" fill="transparent" style="cursor:crosshair"/></svg><div class="pm-tip" hidden style="max-width:280px"></div>`;
+          $('#cl-key').innerHTML = `<span><svg width="12" height="12"><circle cx="6" cy="6" r="4.5" fill="var(--ink-2)"/></svg>Presidential year</span><span><svg width="12" height="12"><circle cx="6" cy="6" r="4" fill="var(--surface)" stroke="var(--ink-2)" stroke-width="2"/></svg>Other year</span><span><i class="sw" style="background:repeating-linear-gradient(90deg,#888 0 6px,transparent 6px 10px);height:3px;border:0"></i>Texas</span>`;
+          if (hoverI != null) show(hoverI);
+        };
+        const show = i => { const g = $('#cl-g'), tip = $('#cl .pm-tip'); if (!g || !geo) return; hoverI = i; const cd = P.cand[i];
+          g.setAttribute('x1', X(i)); g.setAttribute('x2', X(i)); g.removeAttribute('hidden');
+          const rows = [...geo.S.map(s => ({ n: s.n, v: s.a[i], c: s.c })), { n: 'Texas', v: geo.tv[i], c: '#888' }].sort((p, q) => (q.v ?? -1e9) - (p.v ?? -1e9));
+          tip.innerHTML = `<b>${P.years[i]} ${esc(P.race[i])}</b><br><small>${esc(cd[1])} (D) vs ${esc(cd[0])} (R)</small>` + rows.map(r => `<div style="display:flex;justify-content:space-between;gap:14px"><span><i style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${r.c};margin-right:5px"></i>${esc(r.n)}</span><b>${lab(r.v)}</b></div>`).join('');
+          tip.hidden = false; const box = cl.getBoundingClientRect(), px = X(i) / W * box.width, tw = tip.offsetWidth;
+          tip.style.left = Math.max(4, px + 14 + tw > box.width - 4 ? px - tw - 14 : px + 14) + 'px'; tip.style.top = '8px'; };
+        const move = ev => { const svg = $('#cl svg'); if (!svg) return; const b = svg.getBoundingClientRect(), x = (ev.clientX - b.left) / b.width * W; show(Math.max(0, Math.min(NY - 1, Math.round((x - L) / (W - L - R) * (NY - 1))))); };
+        cl.addEventListener('pointermove', move); cl.addEventListener('pointerdown', move);
+        cl.addEventListener('pointerleave', ev => { if (ev.pointerType === 'mouse') { hoverI = null; const g = $('#cl-g'), tip = $('#cl .pm-tip'); if (g) g.setAttribute('hidden', ''); if (tip) tip.hidden = true; } });
+        add.addEventListener('change', () => { if (add.value && chosen.length < MAXC && !chosen.includes(add.value)) chosen.push(add.value); render(); });
+        $('#cl-chips').addEventListener('click', ev => { const b = ev.target.closest('button[data-n]'); if (b && chosen.length > 1) { chosen = chosen.filter(n => n !== b.dataset.n); render(); } });
+        $('#cl-big').addEventListener('click', () => { chosen = [...BIG]; render(); });
+        document.querySelectorAll('#cl-mode button').forEach(b => b.addEventListener('click', () => { cmode = b.dataset.m; document.querySelectorAll('#cl-mode button').forEach(x => x.setAttribute('aria-pressed', x === b)); render(); }));
+        render();
+      })();
     })();
   }
   const ORDER = MODE === 'county' ? ['tt-intro', 'fin-h', 'pace-h', 'proj-h', 'rof-h', 'who-h', 'eds-h', 'dd-h', 'day-h', 'tab-h', 'site-h', 'mail-h', 'left-h']
-    : MODE === 'state' ? ['cm-h', 'rs-h', 'tx-h', 'cd-h', 'ry-h'] : null;
+    : MODE === 'state' ? ['cm-h', 'cl-h', 'rs-h', 'tx-h', 'cd-h', 'ry-h'] : null;
   (ORDER || (F ? ['fin-h', 'pace-h', 'proj-h', 'cut-h', 'who-h', 'eds-h', 'rof-h', 'tx-h', 'ry-h', 'dd-h', 'day-h', 'tab-h', 'site-h', 'mail-h', 'left-h'] : EVDONE ? ['proj-h', 'cut-h', 'left-h', 'rof-h', 'eds-h', 'pace-h', 'who-h', 'tx-h', 'ry-h', 'dd-h', 'day-h', 'tab-h', 'site-h', 'mail-h', 'fin-h'] : ['pace-h', 'day-h', 'who-h', 'rof-h', 'tx-h', 'ry-h', 'tab-h', 'site-h', 'mail-h', 'fin-h'])).forEach(id => {
     const sec = app.querySelector(`section[aria-labelledby="${id}"]`), foot = app.querySelector('#tt-foot');
     if (sec && foot) app.insertBefore(sec, foot);
