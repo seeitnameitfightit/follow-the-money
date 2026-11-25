@@ -270,7 +270,6 @@
       <p class="sub">Pick any of the 254 counties to see its top-of-ticket result in every November election since 2000, with the whole state as the dashed line. Add more counties to compare them. Hover or tap the chart for the numbers in each year.</p>
       <div class="pm-ctl"><label for="cl-add" style="font-size:13px;color:var(--ink-2)">Add a county</label>
         <select id="cl-add" style="font:inherit;font-size:14px;padding:5px 8px;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink);min-width:12em"></select>
-        <button type="button" id="cl-big" class="pm-play" style="width:auto;padding:0 10px;font-size:13px">Eight big counties</button>
         <div class="seg" role="group" aria-label="Show" id="cl-mode"><button type="button" aria-pressed="true" data-m="m">Margin</button><button type="button" aria-pressed="false" data-m="t">Turnout</button></div></div>
       <div id="cl-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0"></div>
       <p id="cl-sum" class="pm-sum"></p>
@@ -355,7 +354,7 @@
       key(); draw();
       // ---- counties against Texas, as a line chart
       (() => {
-        const add = $('#cl-add'), cl = $('#cl'), PAL = ['#4a7db5', '#c0682f', '#2a7b73', '#c9a227', '#6b8e23', '#7b5ea7', '#b0447a'], BIG = ['Dallas', 'Bexar', 'Harris', 'Fort Bend', 'Tarrant', 'Williamson', 'Collin', 'Denton'].filter(n => P.v[n]), MAXC = 8;
+        const add = $('#cl-add'), cl = $('#cl'), PAL = ['#4a7db5', '#c0682f', '#2a7b73', '#c9a227', '#6b8e23', '#7b5ea7', '#b0447a'], MAXC = 8;
         let chosen = ['Tarrant'], cmode = 'm', hoverI = null, geo = null;
         const sorted = [...names].sort((a, b) => a.localeCompare(b));
         const TX = P.years.map((_, i) => { let r = 0, d = 0, rg = 0, tt = 0;
@@ -407,7 +406,6 @@
         cl.addEventListener('pointerleave', ev => { if (ev.pointerType === 'mouse') { hoverI = null; const g = $('#cl-g'), tip = $('#cl .pm-tip'); if (g) g.setAttribute('hidden', ''); if (tip) tip.hidden = true; } });
         add.addEventListener('change', () => { if (add.value && chosen.length < MAXC && !chosen.includes(add.value)) chosen.push(add.value); render(); });
         $('#cl-chips').addEventListener('click', ev => { const b = ev.target.closest('button[data-n]'); if (b && chosen.length > 1) { chosen = chosen.filter(n => n !== b.dataset.n); render(); } });
-        $('#cl-big').addEventListener('click', () => { chosen = [...BIG]; render(); });
         document.querySelectorAll('#cl-mode button').forEach(b => b.addEventListener('click', () => { cmode = b.dataset.m; document.querySelectorAll('#cl-mode button').forEach(x => x.setAttribute('aria-pressed', x === b)); render(); }));
         render();
       })();
