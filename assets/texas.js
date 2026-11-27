@@ -125,7 +125,7 @@
     // ---- counties against Texas, as a line chart
     (() => {
       const add = $('#cl-add'), cl = $('#cl'), PAL = ['#4a7db5', '#c0682f', '#2a7b73', '#c9a227', '#6b8e23', '#7b5ea7', '#b0447a'], MAXC = 8;
-      let chosen = ['Tarrant'], cmode = 'm', hoverI = null, geo = null;
+      let chosen = [], cmode = 'm', hoverI = null, geo = null;
       const sorted = [...names].sort((a, b) => a.localeCompare(b));
       const TX = P.years.map((_, i) => { let r = 0, d = 0, rg = 0, tt = 0;
         names.forEach(n => { const v = P.v[n] && P.v[n][i]; if (!v) return; r += v[2] || 0; d += v[3] || 0; if (v[4]) { rg += v[4]; tt += v[5] || 0; } });
@@ -135,13 +135,13 @@
       const pick = (arr, i) => { const v = arr && arr[i]; return v ? (cmode === 'm' ? v[0] : v[1]) : null; };
       const lab = v => cmode === 'm' ? MG(v) : (v == null ? 'no data' : v.toFixed(1) + '%');
       const tick = v => cmode === 'm' ? (v === 0 ? 'Even' : (v > 0 ? 'D+' : 'R+') + Math.abs(v)) : v + '%';
-      const colorOf = n => n === 'Tarrant' ? 'var(--ink)' : PAL[chosen.filter(x => x !== 'Tarrant').indexOf(n) % PAL.length];
+      const colorOf = n => PAL[chosen.indexOf(n) % PAL.length];
       const lastIdx = a => { for (let i = a.length - 1; i >= 0; i--) if (a[i] != null) return i; return -1; };
-      const chips = () => { $('#cl-chips').innerHTML = chosen.map(n => `<span style="display:inline-flex;align-items:center;gap:6px;border:1px solid var(--rule);border-radius:999px;padding:2px 4px 2px 10px;font-size:13px;background:var(--surface)"><i style="width:14px;height:4px;border-radius:2px;background:${colorOf(n)};display:inline-block"></i>${esc(n)}${chosen.length > 1 ? `<button type="button" data-n="${esc(n)}" aria-label="Remove ${esc(n)}" style="border:0;background:none;color:var(--ink-3);cursor:pointer;font-size:15px;line-height:1;padding:0 6px">×</button>` : ''}</span>`).join('');
+      const chips = () => { $('#cl-chips').innerHTML = chosen.map(n => `<span style="display:inline-flex;align-items:center;gap:6px;border:1px solid var(--rule);border-radius:999px;padding:2px 4px 2px 10px;font-size:13px;background:var(--surface)"><i style="width:14px;height:4px;border-radius:2px;background:${colorOf(n)};display:inline-block"></i>${esc(n)}<button type="button" data-n="${esc(n)}" aria-label="Remove ${esc(n)}" style="border:0;background:none;color:var(--ink-3);cursor:pointer;font-size:15px;line-height:1;padding:0 6px">×</button></span>`).join('');
         add.innerHTML = `<option value="">${chosen.length >= MAXC ? 'Remove one to add another' : 'Choose a county…'}</option>` + sorted.filter(n => !chosen.includes(n)).map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join(''); add.disabled = chosen.length >= MAXC; };
       const render = () => {
         chips();
-        const S = chosen.map(n => ({ n, a: P.years.map((_, i) => pick(P.v[n], i)), c: colorOf(n), w: n === 'Tarrant' ? 4.5 : 2.4 }));
+        const S = chosen.map(n => ({ n, a: P.years.map((_, i) => pick(P.v[n], i)), c: colorOf(n), w: 2.4 }));
         const tv = P.years.map((_, i) => cmode === 'm' ? TX[i][0] : TX[i][1]), all = [...S.flatMap(s => s.a), ...tv].filter(x => x != null); let lo, hi; const ticks = [];
         if (cmode === 'm') { const m = Math.max(20, ...all.map(Math.abs)), st = m > 60 ? 50 : m > 30 ? 20 : 10, top = Math.ceil(m / st) * st; lo = -top; hi = top; for (let t = lo; t <= hi; t += st) ticks.push(t); }
         else { lo = Math.max(0, Math.floor((Math.min(...all, 100) - 5) / 10) * 10); hi = Math.min(100, Math.ceil((Math.max(...all, 0) + 5) / 10) * 10); const st = hi - lo > 50 ? 20 : 10; for (let t = lo; t <= hi; t += st) ticks.push(t); }
@@ -175,7 +175,7 @@
       cl.addEventListener('pointermove', move); cl.addEventListener('pointerdown', move);
       cl.addEventListener('pointerleave', ev => { if (ev.pointerType === 'mouse') { hoverI = null; const g = $('#cl-g'), tip = $('#cl .pm-tip'); if (g) g.setAttribute('hidden', ''); if (tip) tip.hidden = true; } });
       add.addEventListener('change', () => { if (add.value && chosen.length < MAXC && !chosen.includes(add.value)) chosen.push(add.value); render(); });
-      $('#cl-chips').addEventListener('click', ev => { const b = ev.target.closest('button[data-n]'); if (b && chosen.length > 1) { chosen = chosen.filter(n => n !== b.dataset.n); render(); } });
+      $('#cl-chips').addEventListener('click', ev => { const b = ev.target.closest('button[data-n]'); if (b) { chosen = chosen.filter(n => n !== b.dataset.n); render(); } });
       document.querySelectorAll('#cl-mode button').forEach(b => b.addEventListener('click', () => { cmode = b.dataset.m; document.querySelectorAll('#cl-mode button').forEach(x => x.setAttribute('aria-pressed', x === b)); render(); }));
       render();
     })();
@@ -198,7 +198,7 @@
       <p class="note">The race shown is President in presidential years and governor in midterms, except 2006 and 2018, which use the U.S. Senate race (a four-way governor’s race in 2006, a weak Democratic nominee for governor in 2018). The margin is the Democrat minus the Republican as a share of the two. Turnout is the votes in that race as a share of the state’s registered voters; Tarrant’s own turnout uses the county’s registered-voter count. Sources: Texas Secretary of State county-by-county results, 2000 to 2026. For the 2026 map and every 2026 race, see <a href="${ROOT}turnout/index.html">2026 Across Texas</a>.</p></section>
     <section class="tx-sec"><h2>Texas since 1992</h2><p class="sub">Statewide margin in the top-of-ticket race each election. Up is more Democratic.</p><div id="sl"></div><p class="note">President in presidential years, governor in the other midterms, U.S. Senate in 2006 and 2018. Hover or touch a year to see it.</p></section>
     <section class="tx-sec" id="cl-sec"><h2>Any county against Texas, 2000 to 2026</h2>
-      <p class="sub">Pick any of the 254 counties to see its top-of-ticket result in every November election since 2000, with the whole state as the dashed line. Add more counties to compare them. Hover or tap the chart for the numbers in each year.</p>
+      <p class="sub">Pick any of the 254 counties to see its top-of-ticket result in every November election since 2000, with the whole state as the dashed line. Add more counties to compare them. Hover or tap the chart for the numbers in each year. It starts with Texas alone.</p>
       <div class="pm-ctl"><label for="cl-add" style="font-size:13px;color:var(--ink-2)">Add a county</label>
         <select id="cl-add" style="font:inherit;font-size:14px;padding:5px 8px;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink);min-width:12em"></select>
         <div class="seg" role="group" aria-label="Show" id="cl-mode"><button type="button" aria-pressed="true" data-m="m">Margin</button><button type="button" aria-pressed="false" data-m="t">Turnout</button></div></div>
