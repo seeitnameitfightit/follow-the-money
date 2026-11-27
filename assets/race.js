@@ -65,8 +65,9 @@
           ${stat ? `<span class="br-stat"><b class="num">${stat}</b><span>${statTxt}</span></span>` : ''}<span class="br-x">${text}</span><span class="br-go">${go} ›</span></a>${extra}</div>`;
       const moneyLinks = [['explorer', 'Who funds Texas politics?'], ['web', 'The Money Web'], ['club', 'The Million Plus Club'], ['statewide', 'Statewide'], ['senate', 'Texas Senate'], ['house', 'Texas House'], ['sboe', 'State Board of Education'], ['courts', 'High courts'], ['local', 'Tarrant County races'], ['parties', 'County parties']]
         .filter(([k]) => k === 'explorer' || k === 'club' || (S[k] && S[k].count)).map(([k, l]) => `<a href="${k}/index.html">${l}</a>`).join('');
-      const branches = `<section class="br" aria-label="Three ways in">
+      const branches = `<section class="br br4" aria-label="Four ways in">
           ${branch('tarrant/index.html', 'Tarrant County', 'Who serves, and when they’re up', O && O.total, 'federal, state and county offices, from Congress to constable', 'Who holds every seat and when it’s next on the ballot · the election calendar · voter profiles for 136 areas, with results back to 2000 and a precinct map', 'Explore Tarrant County')}
+          ${branch('texas/index.html', 'Texas', 'Every county, 1992 to 2026', '254', 'counties, each with its own page', 'How every Texas county has voted in every November election on record, with the vote by race, who lives there, and how it compares with the state', 'Explore the counties')}
           ${branch('elections/index.html', 'Elections', '2026, and every election to come', n('turnout'), 'ballots cast in Nov 2026', 'Results and turnout by area · 2026 across Texas · seven statewide races · the March primaries · May 2027 next', 'See the elections')}
           ${branch('money/index.html', 'TX Campaign Finance', 'Who funds Texas politics', n('web'), 'major donors traced through every PAC and campaign in the Money Web', 'Search any candidate, PAC or party for its top donors, the Money Web, and the money in each race from statewide to county', 'Follow the money', moneyLinks ? `<div class="br-sub">${moneyLinks}</div>` : '')}</section>`;
       let changed = '';

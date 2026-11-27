@@ -1,0 +1,48 @@
+/* Texas branch: additions on top of style.css */
+.tx-sec h2{margin-bottom:4px}
+.tx-ch{position:relative;margin-top:8px}
+.tx-ch svg{display:block;width:100%;height:auto;touch-action:manipulation}
+.tx-ch .ax{font-size:11px;fill:var(--ink-3)}
+.tx-ch .zl{stroke:var(--ink-2);stroke-width:1px}
+.tx-ch .gl{stroke:var(--grid);stroke-width:1px}
+.tx-ch .ln{fill:none;stroke:var(--ink);stroke-width:2.4px;stroke-linejoin:round;stroke-linecap:round}
+.tx-ch .lt{fill:none;stroke:var(--ink-3);stroke-width:1.8px;stroke-dasharray:5 4}
+.tx-ch .zd{fill:var(--dem-soft)}.tx-ch .zr{fill:var(--rep-soft)}
+.tx-ch .zt{font-size:11px;font-weight:700;letter-spacing:.06em}
+.tx-ch .cr{stroke:var(--ink-3);stroke-width:1px}
+.tx-key{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--ink-2);margin:6px 0 0}
+.tx-key i{display:inline-block;width:18px;height:0;border-top:2.4px solid var(--ink);vertical-align:3px;margin-right:5px}
+.tx-key i.t{border-top:2px dashed var(--ink-3)}
+.tx-tip{position:absolute;z-index:5;background:var(--surface);color:var(--ink);border:1px solid var(--rule);border-radius:8px;padding:7px 10px;font-size:13px;line-height:1.35;box-shadow:0 4px 14px rgba(0,0,0,.14);pointer-events:none;white-space:nowrap}
+.tx-tip small{color:var(--ink-3)}
+.tx-map svg{display:block;width:100%;height:auto;max-height:640px}
+.tx-map path{stroke:var(--surface);stroke-width:.5px;vector-effect:non-scaling-stroke;fill-rule:evenodd}
+.tx-map a path{cursor:pointer;stroke:var(--ink);stroke-width:1.6px}
+.tx-map path.on{stroke:var(--ink);stroke-width:2.6px}
+.tx-map path.dim{opacity:.35}
+.tx-ml{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--ink-2);margin:8px 0 0;align-items:center}
+.tx-ml span{display:inline-flex;align-items:center;gap:5px}
+.tx-ml i{display:inline-block;width:16px;height:12px;border-radius:2px;border:1px solid var(--rule)}
+.tx-find{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 10px}
+.tx-find input{flex:1 1 200px;font:inherit;font-size:15px;padding:9px 12px;border:1px solid var(--rule);border-radius:8px;background:var(--surface);color:var(--ink)}
+.tx-find input:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+.tx-tab{width:100%;border-collapse:collapse;font-size:14px}
+.tx-tab th{text-align:left;font-size:12px;color:var(--ink-2);font-weight:600;padding:6px 8px 6px 0;border-bottom:1px solid var(--rule);white-space:nowrap}
+.tx-tab th button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;font-weight:600}
+.tx-tab td{padding:7px 8px 7px 0;border-bottom:1px solid var(--grid);vertical-align:top}
+.tx-tab td.n,.tx-tab th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tx-tab a{color:var(--ink);font-weight:600;text-underline-offset:2px}
+.tx-tab tr[hidden]{display:none}
+.tx-tab .soon{color:var(--ink-3)}
+.tx-d{color:var(--dem);font-weight:600}.tx-r{color:var(--rep);font-weight:600}
+@media (max-width:480px){.tx-tab .hm{display:none}}
+
+.tx-yr{border-top:1px solid var(--rule)}.tx-yr:last-child{border-bottom:1px solid var(--rule)}
+.tx-yr summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:12px 0;font-size:15px}
+.tx-yr summary::-webkit-details-marker{display:none}
+.tx-yr summary::before{content:'▸';color:var(--ink-3);margin-right:8px;display:inline-block;transition:transform .15s}
+.tx-yr[open] summary::before{transform:rotate(90deg)}
+.tx-yr summary b{font-family:var(--display);font-size:20px;flex:0 0 auto;margin-right:auto}
+.tx-yr summary span{color:var(--ink-2);font-size:13px;font-variant-numeric:tabular-nums}
+.tx-yr .sizebar{padding:2px 0 14px}
+.tx-yr .note{padding-bottom:12px}
